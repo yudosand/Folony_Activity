@@ -34,14 +34,23 @@ import '../features/shell/presentation/main_shell.dart';
 import 'app_controller.dart';
 
 class HexActivityApp extends StatefulWidget {
-  const HexActivityApp({super.key});
+  const HexActivityApp({
+    super.key,
+    AppController? controller,
+  }) : _controller = controller;
+
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
+  final AppController? _controller;
 
   @override
   State<HexActivityApp> createState() => _HexActivityAppState();
 }
 
 class _HexActivityAppState extends State<HexActivityApp> {
-  late final AppController _controller = _buildController();
+  late final bool _ownsController = widget._controller == null;
+  late final AppController _controller = widget._controller ?? _buildController();
 
   AppController _buildController() {
     final backendConfig = BackendConfig.fromEnvironment();
@@ -96,28 +105,52 @@ class _HexActivityAppState extends State<HexActivityApp> {
   }
 
   @override
+  void dispose() {
+    if (_ownsController) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      navigatorKey: HexActivityApp.navigatorKey,
+      title: 'HEX Activity',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      locale: const Locale('id', 'ID'),
+      supportedLocales: const [
+        Locale('id', 'ID'),
+        Locale('id'),
+        Locale('en', 'US'),
+        Locale('en'),
+      ],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: _AppHome(controller: _controller),
+    );
+  }
+}
+
+class _AppHome extends StatelessWidget {
+  const _AppHome({
+    required this.controller,
+  });
+
+  final AppController controller;
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: controller,
       builder: (context, _) {
-        return MaterialApp(
-          title: 'HEX Activity',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light(),
-          locale: const Locale('id', 'ID'),
-          supportedLocales: const [
-            Locale('id', 'ID'),
-            Locale('id'),
-            Locale('en', 'US'),
-            Locale('en'),
-          ],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
-          home: _controller.isBootstrapping
-              ? const _AppLoadingView()
-              : _controller.isAuthenticated
-              ? MainShell(controller: _controller)
-              : LoginPage(controller: _controller),
-        );
+        if (controller.isBootstrapping) {
+          return const _AppLoadingView();
+        }
+        if (controller.isAuthenticated) {
+          return MainShell(controller: controller);
+        }
+        return LoginPage(controller: controller);
       },
     );
   }

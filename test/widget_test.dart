@@ -12,6 +12,7 @@ import 'package:folony_activity/core/models/leave_request_record.dart'
 import 'package:folony_activity/core/models/wfa_request_record.dart'
     as wfa_model;
 import 'package:folony_activity/features/leave/presentation/leave_page.dart';
+import 'package:folony_activity/features/leave/presentation/leave_approval_page.dart';
 import 'package:folony_activity/features/wfh/presentation/wfh_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -261,6 +262,167 @@ void main() {
     expect(find.byType(DatePickerDialog), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'date picker stays safe when app controller notifies while dialog is open',
+    (tester) async {
+      final controller = AppController(seedWorkflowDemoData: false);
+      final session = AppSession.mock(AppRole.staff, userName: 'Tester Staff');
+
+      await tester.pumpWidget(
+        _TestApp(
+          child: LeavePage(
+            session: session,
+            controller: controller,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LeavePage), findsOneWidget);
+
+      final startDateField = find.byKey(const ValueKey('leave-start-date-input'));
+      await tester.ensureVisible(startDateField);
+      await tester.tap(startDateField);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+
+      controller.signInAs(AppRole.staff, userName: 'Tester Staff Update');
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'management approval note dialog stays safe when controller notifies',
+    (tester) async {
+      final controller = AppController(seedWorkflowDemoData: false);
+      final spvSession = AppSession.mock(AppRole.spv, userName: 'Bagas SPV');
+      final managementSession = AppSession.mock(
+        AppRole.management,
+        userName: 'Rina Management',
+      );
+
+      await controller.submitLeaveRequest(
+        spvSession,
+        leave_model.LeaveRequestRecord(
+          id: 'leave-management-dialog-test',
+          requesterId: spvSession.ownerKey,
+          requesterName: spvSession.userName,
+          requesterRole: spvSession.role,
+          category: leave_model.LeaveCategory.cuti,
+          compensationOption:
+              leave_model.LeaveCompensationOption.potongSaldoCuti,
+          startAt: DateTime(2026, 5, 10),
+          endAt: DateTime(2026, 5, 10),
+          durationValue: 1,
+          reason: 'Tes popup approval management',
+          delegateTo: 'Backup operasional',
+          status: leave_model.WorkflowStatus.pending,
+          approvalSteps: [
+            ApprovalStep(
+              sequence: 1,
+              approverRole: AppRole.management,
+              approverId: managementSession.ownerKey,
+              approverName: managementSession.userName,
+              status: ApprovalStepStatus.pending,
+            ),
+          ],
+          submittedAt: DateTime(2026, 5, 9, 9),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _TestApp(
+          child: LeaveApprovalPage(
+            session: managementSession,
+            controller: controller,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Setujui').first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Approve management');
+      controller.signInAs(
+        AppRole.management,
+        userName: 'Rina Management Update',
+      );
+      await tester.pump();
+      await tester.tap(find.text('Setujui').last);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'management approval note dialog stays safe inside main shell',
+    (tester) async {
+      final controller = AppController(seedWorkflowDemoData: false);
+      final managementSession = AppSession.mock(
+        AppRole.management,
+        userName: 'Rina Management',
+      );
+
+      controller.signInAs(
+        AppRole.management,
+        userName: managementSession.userName,
+      );
+
+      await controller.submitLeaveRequest(
+        AppSession.mock(AppRole.spv, userName: 'Bagas SPV'),
+        leave_model.LeaveRequestRecord(
+          id: 'leave-management-shell-test',
+          requesterId: AppSession.mock(AppRole.spv).ownerKey,
+          requesterName: 'Bagas SPV',
+          requesterRole: AppRole.spv,
+          category: leave_model.LeaveCategory.cuti,
+          compensationOption:
+              leave_model.LeaveCompensationOption.potongSaldoCuti,
+          startAt: DateTime(2026, 5, 10),
+          endAt: DateTime(2026, 5, 10),
+          durationValue: 1,
+          reason: 'Tes popup approval management dari shell',
+          delegateTo: 'Backup operasional',
+          status: leave_model.WorkflowStatus.pending,
+          approvalSteps: [
+            ApprovalStep(
+              sequence: 1,
+              approverRole: AppRole.management,
+              approverId: managementSession.ownerKey,
+              approverName: managementSession.userName,
+              status: ApprovalStepStatus.pending,
+            ),
+          ],
+          submittedAt: DateTime(2026, 5, 9, 9),
+        ),
+      );
+
+      await tester.pumpWidget(
+        HexActivityApp(controller: controller),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Approval'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Setujui').first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Approve from shell');
+      await tester.tap(find.text('Setujui').last);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 List<ApprovalStep> _approvalStepsForStaff(AppSession session) {

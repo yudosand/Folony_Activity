@@ -27,6 +27,9 @@ class LeaveApprovalPage extends StatefulWidget {
 class _LeaveApprovalPageState extends State<LeaveApprovalPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController = TabController(length: 2, vsync: this);
+  bool _decisionDialogOpen = false;
+  bool _approvalActionInFlight = false;
+  bool _pendingControllerRefresh = false;
 
   List<LeaveApprovalRequest> get _leaveRequests => widget.controller
       .leaveApprovalsForSession(widget.session)
@@ -56,19 +59,34 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
   }
 
   @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_handleControllerChanged);
+  }
+
+  @override
   void dispose() {
+    widget.controller.removeListener(_handleControllerChanged);
     _tabController.dispose();
     super.dispose();
   }
 
+  void _handleControllerChanged() {
+    if (!mounted) {
+      return;
+    }
+    if (_decisionDialogOpen || _approvalActionInFlight) {
+      _pendingControllerRefresh = true;
+      return;
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        final theme = Theme.of(context);
+    final theme = Theme.of(context);
 
-        return Column(
+    return Column(
           children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -119,8 +137,6 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
           ),
         ),
           ],
-        );
-      },
     );
   }
 
@@ -282,7 +298,17 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
     if (!mounted || note == null) {
       return;
     }
-    await _updateLeaveStatus(request, status, note);
+    _approvalActionInFlight = true;
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      await _updateLeaveStatus(request, status, note);
+    } finally {
+      _approvalActionInFlight = false;
+      if (mounted && _pendingControllerRefresh) {
+        _pendingControllerRefresh = false;
+        setState(() {});
+      }
+    }
   }
 
   Future<void> _handleWfaDecision(
@@ -301,7 +327,17 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
     if (!mounted || note == null) {
       return;
     }
-    await _updateWfaStatus(request, status, note);
+    _approvalActionInFlight = true;
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      await _updateWfaStatus(request, status, note);
+    } finally {
+      _approvalActionInFlight = false;
+      if (mounted && _pendingControllerRefresh) {
+        _pendingControllerRefresh = false;
+        setState(() {});
+      }
+    }
   }
 
   Future<String?> _promptDecisionNote({
@@ -309,47 +345,27 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
     required String confirmLabel,
     required String helperText,
   }) async {
-    final controller = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                helperText,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'Tulis catatan keputusan',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(
-                context,
-                controller.text.trim(),
-              ),
-              child: Text(confirmLabel),
-            ),
-          ],
-        );
-      },
-    );
-    controller.dispose();
-    return result;
+    _decisionDialogOpen = true;
+    try {
+      final dialogHostContext =
+          Navigator.of(context, rootNavigator: true).context;
+      return await showDialog<String>(
+        context: dialogHostContext,
+        useRootNavigator: true,
+        builder: (dialogContext) => _DecisionNoteDialog(
+          title: title,
+          helperText: helperText,
+          confirmLabel: confirmLabel,
+        ),
+      );
+    } finally {
+      await WidgetsBinding.instance.endOfFrame;
+      _decisionDialogOpen = false;
+      if (mounted && _pendingControllerRefresh && !_approvalActionInFlight) {
+        _pendingControllerRefresh = false;
+        setState(() {});
+      }
+    }
   }
 
   void _showLeaveDetail(LeaveApprovalRequest request) {
@@ -911,6 +927,70 @@ class _MiniInfoRow extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DecisionNoteDialog extends StatefulWidget {
+  const _DecisionNoteDialog({
+    required this.title,
+    required this.helperText,
+    required this.confirmLabel,
+  });
+
+  final String title;
+  final String helperText;
+  final String confirmLabel;
+
+  @override
+  State<_DecisionNoteDialog> createState() => _DecisionNoteDialogState();
+}
+
+class _DecisionNoteDialogState extends State<_DecisionNoteDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.helperText,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Tulis catatan keputusan',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+            context,
+            _controller.text.trim(),
+          ),
+          child: Text(widget.confirmLabel),
         ),
       ],
     );
