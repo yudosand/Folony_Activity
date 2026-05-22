@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\NetworkProfile;
 use App\Models\User;
 use Database\Seeders\WorkflowDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -20,7 +22,11 @@ class FieldOpsApiTest extends TestCase
         $response = $this->postJson('/api/network', [
             'type' => 'ukm',
             'name' => 'UKM Sinar Jaya',
-            'address' => 'Sawangan Depok',
+            'address' => 'Jl. Raya Ragunan No. 12',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Ragunan',
             'business_type' => 'Kuliner',
             'phone_number' => '081300000001',
             'status' => 'draft',
@@ -49,6 +55,57 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonPath('data.0.id', 'net_fgg_001');
     }
 
+    public function test_province_area_manager_can_read_fgg_ukm_from_other_city_and_district_in_same_province(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $fgg = User::query()->create([
+            'id' => 'usr_fgg_tamansari_001',
+            'employee_code' => 'EMP-FGG-TS-001',
+            'full_name' => 'Tester FGG Taman Sari',
+            'phone_number' => '085500001111',
+            'area_name' => 'Taman Sari',
+            'work_location' => 'Jakarta Barat',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'role' => 'fgg',
+            'job_title' => 'Field Growth Guide',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_warung_kunkun',
+            'owner_id' => $fgg->id,
+            'owner_name' => $fgg->full_name,
+            'owner_role' => 'fgg',
+            'area_name' => 'Taman Sari',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Keagungan',
+            'type' => 'ukm',
+            'name' => 'Warung Kunkun',
+            'address' => 'Jl. Keagungan',
+            'business_type' => 'Kelontong',
+            'phone_number' => '081299998888',
+            'status' => 'followUp',
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_area_001'));
+
+        $this->getJson('/api/network/team-ukm')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_warung_kunkun',
+                'name' => 'Warung Kunkun',
+                'territory_city' => 'Jakarta Barat',
+                'territory_district' => 'Taman Sari',
+            ]);
+    }
+
     public function test_follow_up_history_is_recorded_and_visible_from_fgg_to_area_manager(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
@@ -58,7 +115,11 @@ class FieldOpsApiTest extends TestCase
             'id' => 'net_followup_e2e',
             'type' => 'ukm',
             'name' => 'UKM Follow Up Bersama',
-            'address' => 'Depok',
+            'address' => 'Jl. TB Simatupang No. 8',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Jati Padang',
             'business_type' => 'Retail',
             'phone_number' => '081300000555',
             'status' => 'draft',
@@ -94,6 +155,50 @@ class FieldOpsApiTest extends TestCase
                 'title' => 'Kunjungan kedua',
                 'note' => 'Pemilik siap lanjut ke tahap verifikasi dokumen.',
             ]);
+    }
+
+    public function test_follow_up_submission_with_same_id_is_idempotent(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+        $this->postJson('/api/network', [
+            'id' => 'net_followup_single_submit',
+            'type' => 'ukm',
+            'name' => 'UKM Single Submit',
+            'address' => 'Jl. Kebon Jeruk No. 8',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Jati Padang',
+            'business_type' => 'Retail',
+            'phone_number' => '081355550000',
+            'status' => 'draft',
+        ])->assertCreated();
+
+        $payload = [
+            'id' => 'followup_single_submit_001',
+            'title' => 'Kunjungan lagi',
+            'note' => 'Catatan follow-up tidak boleh dobel.',
+            'created_at' => now()->toIso8601String(),
+            'next_status' => 'followUp',
+        ];
+
+        $this->postJson('/api/network/net_followup_single_submit/follow-ups', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.follow_ups.0.title', 'Kunjungan lagi');
+
+        $this->postJson('/api/network/net_followup_single_submit/follow-ups', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.follow_ups.0.title', 'Kunjungan lagi');
+
+        $this->assertSame(
+            1,
+            DB::table('network_follow_ups')
+                ->where('network_profile_id', 'net_followup_single_submit')
+                ->where('id', 'followup_single_submit_001')
+                ->count(),
+        );
     }
 
     public function test_staff_can_submit_attendance_and_read_daily_summary(): void
@@ -177,5 +282,362 @@ class FieldOpsApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.radius_meters', 1200)
             ->assertJsonFragment(['id' => 'net_fgg_001']);
+    }
+
+    public function test_fgg_cannot_create_network_profile_outside_registered_territory(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $this->postJson('/api/network', [
+            'type' => 'ukm',
+            'name' => 'UKM Luar Area',
+            'address' => 'Jl. Margonda Raya',
+            'territory_province' => 'Jawa Barat',
+            'territory_city' => 'Depok',
+            'territory_district' => 'Pancoran Mas',
+            'territory_subdistrict' => 'Depok',
+            'business_type' => 'Retail',
+            'phone_number' => '081399999999',
+            'status' => 'draft',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['territory']);
+    }
+
+    public function test_replacement_fgg_in_same_territory_inherits_existing_ukm_data(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $replacement = User::query()->create([
+            'id' => 'usr_fgg_002',
+            'employee_code' => 'EMP-FGG-002',
+            'full_name' => 'Rio FGG Baru',
+            'phone_number' => '085566667777',
+            'area_name' => 'Pasar Minggu',
+            'work_location' => 'Pasar Minggu',
+            'role' => 'fgg',
+            'job_title' => 'Field Growth Guide',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($replacement);
+
+        $this->getJson('/api/network')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_fgg_001',
+                'name' => 'UKM Toko Harapan',
+            ]);
+
+        $this->patchJson('/api/network/net_fgg_001', [
+            'type' => 'ukm',
+            'name' => 'UKM Toko Harapan Reassign',
+            'address' => 'Pasar Minggu Blok A',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Pejaten Timur',
+            'business_type' => 'Sembako',
+            'phone_number' => '081234567890',
+            'status' => 'followUp',
+            'note' => 'Diambil alih FGG pengganti pada area yang sama.',
+        ])->assertOk()
+            ->assertJsonPath('data.owner_id', 'usr_fgg_002');
+    }
+
+    public function test_area_manager_can_read_legacy_team_ukm_by_area_name_when_structured_territory_is_missing(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $areaManager = User::query()->create([
+            'id' => 'usr_area_grogol_001',
+            'employee_code' => 'EMP-AM-777',
+            'full_name' => 'Ari Area Grogol',
+            'phone_number' => '081377778899',
+            'area_name' => 'Grogol Petamburan',
+            'work_location' => 'Grogol Petamburan',
+            'role' => 'areaManager',
+            'job_title' => 'Area Manager',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Barat',
+            'territory_district' => 'Grogol Petamburan',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_legacy_grogol_001',
+            'owner_id' => 'usr_fgg_001',
+            'owner_name' => 'Bima FGG',
+            'owner_role' => 'fgg',
+            'area_name' => 'Grogol Petamburan',
+            'type' => 'ukm',
+            'name' => 'UKM Legacy Grogol',
+            'address' => 'Jl. Kyai Tapa',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081322223333',
+            'status' => 'followUp',
+        ]);
+
+        Sanctum::actingAs($areaManager);
+
+        $this->getJson('/api/network/team-ukm')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_legacy_grogol_001',
+                'name' => 'UKM Legacy Grogol',
+            ]);
+    }
+
+    public function test_fgg_with_multiple_district_assignments_can_create_ukm_in_any_registered_district(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $multiDistrictFgg = User::query()->create([
+            'id' => 'usr_fgg_multi_001',
+            'employee_code' => 'EMP-FGG-777',
+            'full_name' => 'Nina FGG Multi',
+            'phone_number' => '081388889999',
+            'area_name' => 'Grogol Petamburan +1 wilayah',
+            'work_location' => 'Jakarta Barat',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Barat',
+            'territory_district' => 'Grogol Petamburan',
+            'territory_assignments' => [
+                [
+                    'territory_scope' => 'district',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Jakarta Barat',
+                    'territory_district' => 'Grogol Petamburan',
+                ],
+                [
+                    'territory_scope' => 'district',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Jakarta Barat',
+                    'territory_district' => 'Palmerah',
+                ],
+            ],
+            'role' => 'fgg',
+            'job_title' => 'Field Growth Guide',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($multiDistrictFgg);
+
+        $this->postJson('/api/network', [
+            'type' => 'ukm',
+            'name' => 'UKM Grogol Baru',
+            'address' => 'Jl. Dr. Susilo',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Barat',
+            'territory_district' => 'Grogol Petamburan',
+            'territory_subdistrict' => 'Grogol',
+            'business_type' => 'Retail',
+            'phone_number' => '081311112222',
+            'status' => 'draft',
+        ])->assertCreated();
+
+        $this->postJson('/api/network', [
+            'type' => 'ukm',
+            'name' => 'UKM Palmerah Baru',
+            'address' => 'Jl. Palmerah Barat',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Barat',
+            'territory_district' => 'Palmerah',
+            'territory_subdistrict' => 'Palmerah',
+            'business_type' => 'Retail',
+            'phone_number' => '081333334444',
+            'status' => 'draft',
+        ])->assertCreated();
+
+        $this->postJson('/api/network', [
+            'type' => 'ukm',
+            'name' => 'UKM Cengkareng Ditolak',
+            'address' => 'Jl. Kamal Raya',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Barat',
+            'territory_district' => 'Cengkareng',
+            'territory_subdistrict' => 'Cengkareng Barat',
+            'business_type' => 'Retail',
+            'phone_number' => '081355556666',
+            'status' => 'draft',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['territory']);
+    }
+
+    public function test_area_manager_include_and_exclude_rules_allow_large_coverage_with_small_hole(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $areaManager = User::query()->create([
+            'id' => 'usr_area_rules_001',
+            'employee_code' => 'EMP-AM-RULES-001',
+            'full_name' => 'Raka Rules Area Manager',
+            'phone_number' => '081300001111',
+            'area_name' => 'DKI Jakarta +1 wilayah (kecuali Mangga Besar)',
+            'work_location' => 'Multi area',
+            'role' => 'areaManager',
+            'job_title' => 'Area Manager',
+            'territory_scope' => 'province',
+            'territory_province' => 'DKI Jakarta',
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'province',
+                    'territory_province' => 'DKI Jakarta',
+                ],
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'province',
+                    'territory_province' => 'Banten',
+                ],
+                [
+                    'rule_type' => 'exclude',
+                    'territory_scope' => 'subdistrict',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Kota Administrasi Jakarta Barat',
+                    'territory_district' => 'Taman Sari',
+                    'territory_subdistrict' => 'Mangga Besar',
+                ],
+            ],
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_allowed_dki_001',
+            'owner_id' => 'usr_fgg_001',
+            'owner_name' => 'Bima FGG',
+            'owner_role' => 'fgg',
+            'area_name' => 'Taman Sari',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Keagungan',
+            'type' => 'ukm',
+            'name' => 'UKM DKI Allowed',
+            'address' => 'Jl. Keagungan',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081300000101',
+            'status' => 'followUp',
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_excluded_subdistrict_001',
+            'owner_id' => 'usr_fgg_001',
+            'owner_name' => 'Bima FGG',
+            'owner_role' => 'fgg',
+            'area_name' => 'Mangga Besar',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Mangga Besar',
+            'type' => 'ukm',
+            'name' => 'UKM DKI Excluded',
+            'address' => 'Jl. Mangga Besar',
+            'business_type' => 'Retail',
+            'phone_number' => '081300000102',
+            'status' => 'followUp',
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_allowed_banten_001',
+            'owner_id' => 'usr_fgg_001',
+            'owner_name' => 'Bima FGG',
+            'owner_role' => 'fgg',
+            'area_name' => 'Serpong',
+            'territory_province' => 'Banten',
+            'territory_city' => 'Kota Tangerang Selatan',
+            'territory_district' => 'Serpong',
+            'territory_subdistrict' => 'Serpong',
+            'type' => 'ukm',
+            'name' => 'UKM Banten Allowed',
+            'address' => 'Jl. Serpong Raya',
+            'business_type' => 'Retail',
+            'phone_number' => '081300000103',
+            'status' => 'followUp',
+        ]);
+
+        Sanctum::actingAs($areaManager);
+
+        $this->getJson('/api/network/team-ukm')
+            ->assertOk()
+            ->assertJsonFragment(['id' => 'net_allowed_dki_001', 'name' => 'UKM DKI Allowed'])
+            ->assertJsonFragment(['id' => 'net_allowed_banten_001', 'name' => 'UKM Banten Allowed'])
+            ->assertJsonMissing(['id' => 'net_excluded_subdistrict_001', 'name' => 'UKM DKI Excluded']);
+    }
+
+    public function test_fgg_include_and_exclude_rules_block_excluded_subdistrict_even_when_parent_city_is_included(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $fgg = User::query()->create([
+            'id' => 'usr_fgg_rules_001',
+            'employee_code' => 'EMP-FGG-RULES-001',
+            'full_name' => 'Nina FGG Rules',
+            'phone_number' => '081300001222',
+            'area_name' => 'Jakarta Barat (kecuali Mangga Besar)',
+            'work_location' => 'Jakarta Barat',
+            'territory_scope' => 'city',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'city',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Kota Administrasi Jakarta Barat',
+                ],
+                [
+                    'rule_type' => 'exclude',
+                    'territory_scope' => 'subdistrict',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Kota Administrasi Jakarta Barat',
+                    'territory_district' => 'Taman Sari',
+                    'territory_subdistrict' => 'Mangga Besar',
+                ],
+            ],
+            'role' => 'fgg',
+            'job_title' => 'Field Growth Guide',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($fgg);
+
+        $this->postJson('/api/network', [
+            'type' => 'ukm',
+            'name' => 'UKM Keagungan Aman',
+            'address' => 'Jl. Keagungan',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Keagungan',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081300000201',
+            'status' => 'draft',
+        ])->assertCreated();
+
+        $this->postJson('/api/network', [
+            'type' => 'ukm',
+            'name' => 'UKM Mangga Besar Ditolak',
+            'address' => 'Jl. Mangga Besar',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Mangga Besar',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081300000202',
+            'status' => 'draft',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['territory']);
     }
 }

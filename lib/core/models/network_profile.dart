@@ -122,6 +122,10 @@ class NetworkProfile {
     required this.type,
     required this.name,
     required this.address,
+    required this.territoryProvince,
+    required this.territoryCity,
+    required this.territoryDistrict,
+    required this.territorySubdistrict,
     required this.businessType,
     required this.phoneNumber,
     required this.status,
@@ -143,6 +147,10 @@ class NetworkProfile {
   final NetworkProfileType type;
   final String name;
   final String address;
+  final String territoryProvince;
+  final String territoryCity;
+  final String territoryDistrict;
+  final String territorySubdistrict;
   final String businessType;
   final String phoneNumber;
   final NetworkProfileStatus status;
@@ -171,6 +179,10 @@ class NetworkProfile {
       ),
       name: json['name'] as String? ?? '',
       address: json['address'] as String? ?? '',
+      territoryProvince: json['territory_province'] as String? ?? '',
+      territoryCity: json['territory_city'] as String? ?? '',
+      territoryDistrict: json['territory_district'] as String? ?? '',
+      territorySubdistrict: json['territory_subdistrict'] as String? ?? '',
       businessType: json['business_type'] as String? ?? '',
       phoneNumber: json['phone_number'] as String? ?? '',
       status: NetworkProfileStatus.values.firstWhere(
@@ -200,6 +212,10 @@ class NetworkProfile {
       'type': type.name,
       'name': name,
       'address': address,
+      'territory_province': territoryProvince,
+      'territory_city': territoryCity,
+      'territory_district': territoryDistrict,
+      'territory_subdistrict': territorySubdistrict,
       'business_type': businessType,
       'phone_number': phoneNumber,
       'status': status.name,

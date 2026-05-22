@@ -17,8 +17,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController(text: 'Raka Area Manager');
-  final _passwordController = TextEditingController(text: '123456');
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   AppRole _selectedRole = AppRole.areaManager;
   bool _showPassword = false;
@@ -34,6 +34,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final remoteAuthEnabled = widget.controller.isRemoteAuthEnabled;
 
     return Scaffold(
       body: SafeArea(
@@ -67,8 +68,8 @@ class _LoginPageState extends State<LoginPage> {
                     controller: _usernameController,
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
-                      labelText: 'Username / Nomor HP',
-                      hintText: 'Contoh: area.manager.demo',
+                      labelText: 'Kode Karyawan / Nomor HP / Email',
+                      hintText: 'Contoh: EMP-001',
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
@@ -115,14 +116,26 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  TextButton(
-                    onPressed: () =>
-                        setState(() => _showDemoMode = !_showDemoMode),
-                    child: Text(_showDemoMode
-                        ? 'Sembunyikan mode demo'
-                        : 'Mode demo/dev'),
-                  ),
-                  if (_showDemoMode) ...[
+                  if (widget.controller.isDemoModeEnabled) ...[
+                    TextButton(
+                      onPressed: () =>
+                          setState(() => _showDemoMode = !_showDemoMode),
+                      child: Text(_showDemoMode
+                          ? 'Sembunyikan mode demo'
+                          : 'Mode demo/dev'),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      remoteAuthEnabled
+                          ? 'Mode staging aktif. Gunakan akun backend yang valid.'
+                          : 'Mode demo dimatikan. Gunakan build staging/backend.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (_showDemoMode && widget.controller.isDemoModeEnabled) ...[
                     const SizedBox(height: 8),
                     Text(
                       'Role simulasi',

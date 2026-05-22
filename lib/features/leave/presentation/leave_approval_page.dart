@@ -349,13 +349,22 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
     try {
       final dialogHostContext =
           Navigator.of(context, rootNavigator: true).context;
-      return await showDialog<String>(
+      return await showGeneralDialog<String>(
         context: dialogHostContext,
-        useRootNavigator: true,
-        builder: (dialogContext) => _DecisionNoteDialog(
-          title: title,
-          helperText: helperText,
-          confirmLabel: confirmLabel,
+        barrierDismissible: true,
+        barrierLabel: MaterialLocalizations.of(dialogHostContext)
+            .modalBarrierDismissLabel,
+        barrierColor: Colors.black54,
+        transitionDuration: Duration.zero,
+        pageBuilder: (dialogContext, _, __) => Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: _DecisionNoteDialog(
+              title: title,
+              helperText: helperText,
+              confirmLabel: confirmLabel,
+            ),
+          ),
         ),
       );
     } finally {

@@ -21,9 +21,8 @@ class AuthController extends Controller
         $identifier = trim($validated['identifier']);
 
         $user = User::query()
-            ->with(['spv', 'management'])
-            ->where('id', $identifier)
-            ->orWhere('full_name', $identifier)
+            ->with(['spv', 'management', 'faceProfile'])
+            ->where('employee_code', $identifier)
             ->orWhere('phone_number', $identifier)
             ->orWhere('email', $identifier)
             ->first();

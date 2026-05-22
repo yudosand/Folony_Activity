@@ -139,6 +139,41 @@ cd C:\Users\user\Desktop\FolonyActivity
 8. Cek `Heat Map` dengan radius 500 m, 1 km, dan 2 km.
 9. Lakukan `Check-in` dan `Check-out`.
 
+## Web Admin HR Dan Source Data Bersama
+
+Web admin HR dibangun di Laravel yang sama dengan API mobile. Artinya, web admin hanya akan membaca data yang sama dengan aplikasi mobile jika keduanya berjalan di environment dan database yang sama.
+
+Aturan praktisnya:
+- Jika mobile staging mengarah ke database MySQL hosting, web admin HR juga harus dibuka dari deploy Laravel staging yang memakai database MySQL yang sama.
+- Jika web admin masih dibuka dari `localhost` dengan `sqlite`, maka data yang tampil masih data lokal, bukan data live dari aplikasi.
+
+Checklist cepat verifikasi:
+1. Buka dashboard admin HR.
+2. Cek panel `Source Data Mobile`.
+3. Pastikan `DB Connection` bukan `sqlite` jika targetnya monitoring live.
+4. Pastikan `APP URL` sesuai host staging/production yang dipakai mobile.
+
+Route web admin:
+- `/admin/login`
+- `/admin/dashboard`
+
+Untuk UAT live, gunakan URL web admin dari deploy Laravel yang sama dengan base URL API mobile aktif.
+
+### Staging `nip.io`
+
+Untuk host staging seperti:
+
+- `http://folony-27-112-79-213.nip.io`
+
+gunakan template:
+
+- [backend/.env.nipio.staging.example](/C:/Users/user/Desktop/FolonyActivity/backend/.env.nipio.staging.example)
+
+Catatan penting:
+- `SESSION_DOMAIN` harus dikosongkan untuk host `nip.io`, supaya login web admin HR bisa menyimpan cookie session dengan benar.
+- `SANCTUM_STATEFUL_DOMAINS` harus mengikuti host `nip.io` yang dipakai.
+- setelah deploy, web admin live bisa dibuka di `/admin/login` pada host yang sama dengan API mobile.
+
 ## Route Inventory Yang Sudah Aktif
 
 - Auth: `login`, `logout`, `me`

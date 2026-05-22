@@ -46,6 +46,37 @@ void main() {
     expect(insight.departureLabel, 'Pulang cepat');
     expect(insight.lateDuration, const Duration(minutes: 15));
     expect(insight.earlyLeaveDuration, const Duration(minutes: 30));
+    expect(insight.arrivalNote, 'Terlambat 15 menit dari jadwal 08:30.');
+    expect(
+      insight.departureNote,
+      'Pulang lebih cepat 30 menit dari jadwal 17:00.',
+    );
+  });
+
+  test('attendance policy marks early arrival with business-friendly note', () {
+    final workDate = DateTime(2026, 4, 24);
+    final insight = AttendancePolicy.evaluate(
+      attendanceRecords: [
+        AttendanceRecord(
+          id: 'checkin',
+          userId: 'staff:nadia',
+          workDate: workDate,
+          action: AttendanceAction.checkIn,
+          status: AttendanceRecordStatus.success,
+          recordedAt: DateTime(2026, 4, 24, 8, 11),
+          location: AttendanceLocationRecord(
+            latitude: -6.2,
+            longitude: 106.8,
+            recordedAt: DateTime(2026, 4, 24, 8, 11),
+          ),
+        ),
+      ],
+      wfaRequests: const [],
+      referenceNow: DateTime(2026, 4, 24, 9),
+    );
+
+    expect(insight.arrivalLabel, 'Lebih awal');
+    expect(insight.arrivalNote, 'Lebih awal 19 menit dari jadwal 08:30.');
   });
 
   test('attendance policy uses overtime WFA for next-day recommendation', () {

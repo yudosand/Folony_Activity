@@ -173,7 +173,10 @@ class _MainShellState extends State<MainShell> {
           _NavItem(
             label: 'Dashboard',
             icon: Icons.query_stats_rounded,
-            page: FieldDashboardPage(session: session),
+            page: FieldDashboardPage(
+              session: session,
+              controller: widget.controller,
+            ),
           ),
           _NavItem(
             label: 'Jaringan',
@@ -194,7 +197,10 @@ class _MainShellState extends State<MainShell> {
           _NavItem(
             label: 'Akun',
             icon: Icons.person_rounded,
-            page: ProfilePage(session: session),
+            page: ProfilePage(
+              session: session,
+              controller: widget.controller,
+            ),
           ),
         ];
       case AppRole.fgg:
@@ -207,7 +213,10 @@ class _MainShellState extends State<MainShell> {
           _NavItem(
             label: 'Dashboard',
             icon: Icons.query_stats_rounded,
-            page: FieldDashboardPage(session: session),
+            page: FieldDashboardPage(
+              session: session,
+              controller: widget.controller,
+            ),
           ),
           _NavItem(
             label: 'Jaringan',
@@ -228,7 +237,10 @@ class _MainShellState extends State<MainShell> {
           _NavItem(
             label: 'Akun',
             icon: Icons.person_rounded,
-            page: ProfilePage(session: session),
+            page: ProfilePage(
+              session: session,
+              controller: widget.controller,
+            ),
           ),
         ];
       case AppRole.staff:
@@ -265,7 +277,10 @@ class _MainShellState extends State<MainShell> {
           _NavItem(
             label: 'Akun',
             icon: Icons.person_rounded,
-            page: ProfilePage(session: session),
+            page: ProfilePage(
+              session: session,
+              controller: widget.controller,
+            ),
           ),
         ];
       case AppRole.spv:
@@ -323,7 +338,10 @@ class _MainShellState extends State<MainShell> {
           _NavItem(
             label: 'Akun',
             icon: Icons.person_rounded,
-            page: ProfilePage(session: session),
+            page: ProfilePage(
+              session: session,
+              controller: widget.controller,
+            ),
           ),
         ];
     }

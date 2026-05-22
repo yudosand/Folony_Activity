@@ -1,16 +1,17 @@
 import 'dart:io';
 
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../app/app_controller.dart';
 import '../../../core/models/app_session.dart';
 import '../../../core/models/attendance_record.dart';
-import '../../../core/models/remote_attachment.dart';
+import '../../../core/models/face_verification_result.dart';
 import '../../../core/services/attendance_policy.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
+import 'attendance_feedback.dart';
+import '../../face/presentation/face_scan_page.dart';
 
 class AttendancePage extends StatefulWidget {
   const AttendancePage({
@@ -35,7 +36,40 @@ class _AttendancePageState extends State<AttendancePage> {
     final now = DateTime.now();
     return widget.controller
         .attendanceRecordsForSession(widget.session)
-        .where((item) => _isSameDate(item.workDate, now))
+        .where(
+          (item) =>
+              _isSameDate(item.workDate.toLocal(), now) ||
+              _isSameDate(item.recordedAt.toLocal(), now),
+        )
+        .toList();
+  }
+
+  List<AttendanceRecord> get _statusRecords {
+    if (_todayRecords.isNotEmpty) {
+      return _todayRecords;
+    }
+
+    final allRecords = widget.controller.attendanceRecordsForSession(widget.session);
+    final now = DateTime.now();
+    AttendanceRecord? latestCheckIn;
+    for (final item in allRecords) {
+      if (item.action == AttendanceAction.checkIn &&
+          item.status == AttendanceRecordStatus.success &&
+          (_isSameDate(item.workDate.toLocal(), now) ||
+              _isSameDate(item.recordedAt.toLocal(), now))) {
+        latestCheckIn = item;
+        break;
+      }
+    }
+
+    if (latestCheckIn == null) {
+      return const [];
+    }
+
+    return allRecords
+        .where(
+          (item) => !item.recordedAt.isBefore(latestCheckIn!.recordedAt),
+        )
         .toList();
   }
 
@@ -46,36 +80,26 @@ class _AttendancePageState extends State<AttendancePage> {
         wfaRequests: widget.controller.wfaRequestsForSession(widget.session),
       );
 
+  _AttendanceSessionState get _sessionState =>
+      _AttendanceSessionState.fromRecords(_statusRecords);
+
   AttendanceRecord? get _checkInRecord {
-    AttendanceRecord? record;
-    for (final item in _todayRecords.reversed) {
-      if (item.action == AttendanceAction.checkIn &&
-          item.status == AttendanceRecordStatus.success) {
-        record = item;
-      }
-    }
-    return record;
+    return _sessionState.displayCheckIn;
   }
 
   AttendanceRecord? get _checkOutRecord {
-    for (final item in _todayRecords) {
-      if (item.action == AttendanceAction.checkOut &&
-          item.status == AttendanceRecordStatus.success) {
-        return item;
-      }
-    }
-    return null;
+    return _sessionState.displayCheckOut;
   }
 
   AttendanceRecord? get _latestRecord {
-    if (_todayRecords.isEmpty) {
+    if (_statusRecords.isEmpty) {
       return null;
     }
-    return _todayRecords.first;
+    return _statusRecords.first;
   }
 
   String? get _latestFaceCapturePath {
-    for (final item in _todayRecords) {
+    for (final item in _statusRecords) {
       final path = item.verification?.capture?.url;
       if (path != null && path.isNotEmpty) {
         return path;
@@ -85,10 +109,11 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   List<_AttendanceEvent> get _events =>
-      _todayRecords.map(_mapEventFromRecord).toList();
+      _statusRecords.map(_mapEventFromRecord).toList();
 
-  bool get _isCheckedIn => _checkInRecord != null;
-  bool get _isFinished => _checkOutRecord != null;
+  bool get _isCheckedIn => _sessionState.activeCheckIn != null;
+  bool get _isFinished =>
+      !_isCheckedIn && _sessionState.latestCompletedCheckOut != null;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +273,27 @@ class _AttendancePageState extends State<AttendancePage> {
             ),
           ],
         ),
+        if (_isVerifyingFace) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2.2),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Memverifikasi wajah, mengunggah capture, dan menyimpan absensi...',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 20),
         Text('Riwayat Singkat', style: theme.textTheme.titleMedium),
         const SizedBox(height: 6),
@@ -296,7 +342,7 @@ class _AttendancePageState extends State<AttendancePage> {
             ),
             SizedBox(height: 10),
             _RuleTile(
-              text: 'Satu user hanya boleh punya satu sesi aktif.',
+              text: 'Satu user hanya boleh punya satu sesi aktif dalam satu waktu.',
             ),
             SizedBox(height: 10),
             _RuleTile(
@@ -314,26 +360,20 @@ class _AttendancePageState extends State<AttendancePage> {
     if (_isVerifyingFace) {
       return null;
     }
-    if (!_isCheckedIn) {
-      return _gpsActive ? _startFaceCheckIn : null;
-    }
-    if (!_isFinished) {
+    if (_isCheckedIn) {
       return _startFaceCheckOut;
     }
-    return _reset;
+    return _gpsActive ? _startFaceCheckIn : null;
   }
 
   String get _primaryActionLabel {
     if (_isVerifyingFace) {
       return 'Memproses...';
     }
-    if (!_isCheckedIn) {
-      return 'Face Check-in';
-    }
-    if (!_isFinished) {
+    if (_isCheckedIn) {
       return 'Face Check-out';
     }
-    return 'Reset Mock';
+    return 'Face Check-in';
   }
 
   String get _durationText {
@@ -376,7 +416,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
   String? get _sessionSummary {
     if (_isFinished) {
-      return 'Check-out berhasil dan sesi kerja hari ini sudah ditutup.';
+      return 'Check-out berhasil. Anda bisa memulai sesi check-in baru kapan saja.';
     }
     if (_isCheckedIn) {
       return 'Check-in berhasil. Sesi kerja aktif dan siap dipantau.';
@@ -386,7 +426,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
   String get _sessionSubSummary {
     if (_isFinished) {
-      return 'Durasi tersimpan $_durationText dengan lokasi audit $_locationMetricValue.';
+      return 'Durasi sesi terakhir tersimpan $_durationText dengan lokasi audit $_locationMetricValue.';
     }
     if (_attendanceInsight.nextStartRecommendation != null) {
       return 'Lokasi audit terakhir: $_locationMetricValue. Rekomendasi masuk esok hari ${_attendanceInsight.nextStartRecommendation}.';
@@ -399,65 +439,108 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Future<void> _startFaceCheckIn() async {
-    final faceCapture = await _runFaceVerification(
+    await _handleFaceAttendance(
       mode: _FaceVerificationMode.checkIn,
+      action: 'checkIn',
+      actionLabel: 'check-in',
+      onVerified: _checkIn,
     );
-    if (faceCapture == null || !mounted) {
-      return;
-    }
-    final location = await _recordCurrentLocation(
-      mode: _FaceVerificationMode.checkIn,
-    );
-    if (location == null || !mounted) {
-      return;
-    }
-    await _checkIn(location, faceCapture);
   }
 
   Future<void> _startFaceCheckOut() async {
-    final faceCapture = await _runFaceVerification(
+    await _handleFaceAttendance(
       mode: _FaceVerificationMode.checkOut,
+      action: 'checkOut',
+      actionLabel: 'check-out',
+      onVerified: _checkOut,
     );
-    if (faceCapture == null || !mounted) {
-      return;
-    }
-    final location = await _recordCurrentLocation(
-      mode: _FaceVerificationMode.checkOut,
-    );
-    if (location == null || !mounted) {
-      return;
-    }
-    await _checkOut(location, faceCapture);
   }
 
-  Future<XFile?> _runFaceVerification({
+  Future<void> _handleFaceAttendance({
     required _FaceVerificationMode mode,
+    required String action,
+    required String actionLabel,
+    required Future<void> Function(
+      _AttendanceLocation location,
+      FaceVerificationResult verificationResult,
+    )
+    onVerified,
   }) async {
-    setState(() => _isVerifyingFace = true);
+    final enrollmentBlock = _faceEnrollmentBlockReason(actionLabel);
+    if (enrollmentBlock != null) {
+      _showAttendanceSnackBar(enrollmentBlock);
+      return;
+    }
+
+    setState(() {
+      _isVerifyingFace = true;
+      _locationError = null;
+    });
 
     try {
-      final faceCapture = await Navigator.of(context).push<XFile>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (context) => _FaceVerificationPage(
-            mode: mode,
-          ),
-        ),
-      );
-
-      if (faceCapture == null) {
-        return null;
+      final faceScanResult = await _runFaceVerification(mode: mode);
+      if (faceScanResult == null || !mounted) {
+        return;
       }
 
-      setState(() {
-        _locationError = null;
-      });
-      return faceCapture;
+      final primaryCapturePath = faceScanResult.primaryCapturePath;
+      if (primaryCapturePath == null || primaryCapturePath.isEmpty) {
+        _showAttendanceSnackBar(
+          'Capture wajah belum berhasil dibuat. Coba scan sekali lagi.',
+        );
+        return;
+      }
+
+      final verificationResult = await widget.controller.verifyFaceForSession(
+        widget.session,
+        action: action,
+        capturePath: primaryCapturePath,
+        livenessScore: faceScanResult.livenessScore,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      if (!verificationResult.verified) {
+        _showAttendanceSnackBar(
+          _verificationRejectedMessage(verificationResult),
+        );
+        return;
+      }
+
+      final location = await _recordCurrentLocation(mode: mode);
+      if (location == null || !mounted) {
+        return;
+      }
+
+      await onVerified(location, verificationResult);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showAttendanceSnackBar(
+        describeAttendanceActionError(error, actionLabel: actionLabel),
+      );
     } finally {
       if (mounted) {
         setState(() => _isVerifyingFace = false);
       }
     }
+  }
+
+  Future<FaceScanResult?> _runFaceVerification({
+    required _FaceVerificationMode mode,
+  }) async {
+    return Navigator.of(context).push<FaceScanResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => FaceScanPage.verification(
+          verificationPurpose: mode == _FaceVerificationMode.checkIn
+              ? FaceScanVerificationPurpose.checkIn
+              : FaceScanVerificationPurpose.checkOut,
+        ),
+      ),
+    );
   }
 
   Future<_AttendanceLocation?> _recordCurrentLocation({
@@ -528,7 +611,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
   Future<void> _checkIn(
     _AttendanceLocation location,
-    XFile faceCapture,
+    FaceVerificationResult verificationResult,
   ) async {
     final now = DateTime.now();
     await widget.controller.createAttendanceRecord(
@@ -548,12 +631,11 @@ class _AttendancePageState extends State<AttendancePage> {
         ),
         verification: FaceVerificationRecord(
           verifiedAt: now,
-          matchScore: 0.98,
-          livenessScore: 0.97,
-          capture: _captureAttachment(
-            faceCapture: faceCapture,
-            idPrefix: 'checkin',
-          ),
+          decision: verificationResult.decision,
+          matchScore: verificationResult.matchScore,
+          livenessScore: verificationResult.livenessScore,
+          capture: verificationResult.capture,
+          note: verificationResult.note,
         ),
         note:
             'Absensi masuk otomatis setelah wajah terverifikasi dan lokasi ${location.label} tercatat.',
@@ -562,14 +644,14 @@ class _AttendancePageState extends State<AttendancePage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Check-in berhasil disimpan')),
+    _showAttendanceSnackBar(
+      'Check-in berhasil disimpan. ${_verificationSummary(verificationResult)}',
     );
   }
 
   Future<void> _checkOut(
     _AttendanceLocation location,
-    XFile faceCapture,
+    FaceVerificationResult verificationResult,
   ) async {
     final now = DateTime.now();
     await widget.controller.createAttendanceRecord(
@@ -589,12 +671,11 @@ class _AttendancePageState extends State<AttendancePage> {
         ),
         verification: FaceVerificationRecord(
           verifiedAt: now,
-          matchScore: 0.98,
-          livenessScore: 0.97,
-          capture: _captureAttachment(
-            faceCapture: faceCapture,
-            idPrefix: 'checkout',
-          ),
+          decision: verificationResult.decision,
+          matchScore: verificationResult.matchScore,
+          livenessScore: verificationResult.livenessScore,
+          capture: verificationResult.capture,
+          note: verificationResult.note,
         ),
         note:
             'Absensi keluar otomatis setelah wajah terverifikasi dan lokasi ${location.label} tercatat.',
@@ -603,32 +684,59 @@ class _AttendancePageState extends State<AttendancePage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Check-out berhasil disimpan')),
+    _showAttendanceSnackBar(
+      'Check-out berhasil disimpan. ${_verificationSummary(verificationResult)}',
     );
   }
 
-  Future<void> _reset() async {
-    await widget.controller.resetAttendanceRecordsForSession(widget.session);
-    if (!mounted) {
-      return;
+  String? _faceEnrollmentBlockReason(String actionLabel) {
+    final profile = widget.controller.faceProfileForSession(widget.session);
+    if (profile.id.isEmpty) {
+      return widget.session.hasFaceEnrollment
+          ? null
+          : 'Daftarkan wajah dulu dari menu Akun sebelum $actionLabel.';
     }
-    setState(() {
-      _locationError = null;
-      _gpsActive = true;
-      _isVerifyingFace = false;
-    });
+
+    return faceEnrollmentBlockReason(
+      profile,
+      actionLabel: actionLabel,
+    );
   }
 
-  RemoteAttachment _captureAttachment({
-    required XFile faceCapture,
-    required String idPrefix,
-  }) {
-    return RemoteAttachment(
-      id: '$idPrefix-${DateTime.now().microsecondsSinceEpoch}',
-      fileName: faceCapture.name,
-      mimeType: 'image/jpeg',
-      url: faceCapture.path,
+  String _verificationRejectedMessage(FaceVerificationResult result) {
+    final details = <String>[];
+    if (result.shouldRetry) {
+      details.add('scan ulang disarankan');
+    }
+    if (result.matchScore != null) {
+      details.add('match ${result.matchScore!.toStringAsFixed(1)}');
+    }
+    if (result.livenessScore != null) {
+      details.add('liveness ${result.livenessScore!.toStringAsFixed(1)}');
+    }
+
+    final scoreSummary = details.isEmpty ? '' : ' (${details.join(' | ')})';
+    return '${result.note ?? 'Verifikasi wajah gagal.'}$scoreSummary';
+  }
+
+  String _verificationSummary(FaceVerificationResult result) {
+    final details = <String>[];
+    details.add(result.decision);
+    if (result.matchScore != null) {
+      details.add('match ${result.matchScore!.toStringAsFixed(1)}');
+    }
+    if (result.livenessScore != null) {
+      details.add('liveness ${result.livenessScore!.toStringAsFixed(1)}');
+    }
+    if (details.isEmpty) {
+      return 'Verifikasi wajah lolos.';
+    }
+    return 'Verifikasi wajah lolos dengan ${details.join(' | ')}.';
+  }
+
+  void _showAttendanceSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
@@ -662,9 +770,58 @@ class _AttendancePageState extends State<AttendancePage> {
     if (value == null) {
       return '-';
     }
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
+    final localValue = value.toLocal();
+    final hour = localValue.hour.toString().padLeft(2, '0');
+    final minute = localValue.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+}
+
+class _AttendanceSessionState {
+  const _AttendanceSessionState({
+    this.activeCheckIn,
+    this.latestCompletedCheckIn,
+    this.latestCompletedCheckOut,
+  });
+
+  final AttendanceRecord? activeCheckIn;
+  final AttendanceRecord? latestCompletedCheckIn;
+  final AttendanceRecord? latestCompletedCheckOut;
+
+  AttendanceRecord? get displayCheckIn => activeCheckIn ?? latestCompletedCheckIn;
+  AttendanceRecord? get displayCheckOut =>
+      activeCheckIn == null ? latestCompletedCheckOut : null;
+
+  static _AttendanceSessionState fromRecords(List<AttendanceRecord> records) {
+    final sorted = [...records]
+      ..sort((left, right) => left.recordedAt.compareTo(right.recordedAt));
+
+    AttendanceRecord? openCheckIn;
+    AttendanceRecord? latestCompletedCheckIn;
+    AttendanceRecord? latestCompletedCheckOut;
+
+    for (final record in sorted) {
+      if (record.status != AttendanceRecordStatus.success) {
+        continue;
+      }
+
+      if (record.action == AttendanceAction.checkIn) {
+        openCheckIn = record;
+        continue;
+      }
+
+      if (record.action == AttendanceAction.checkOut && openCheckIn != null) {
+        latestCompletedCheckIn = openCheckIn;
+        latestCompletedCheckOut = record;
+        openCheckIn = null;
+      }
+    }
+
+    return _AttendanceSessionState(
+      activeCheckIn: openCheckIn,
+      latestCompletedCheckIn: latestCompletedCheckIn,
+      latestCompletedCheckOut: latestCompletedCheckOut,
+    );
   }
 }
 
@@ -727,6 +884,9 @@ class _FacePreviewLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final selectedCapturePath = faceCapturePath;
+    final isRemoteResource = selectedCapturePath != null &&
+        (selectedCapturePath.startsWith('http://') ||
+            selectedCapturePath.startsWith('https://'));
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,17 +913,30 @@ class _FacePreviewLine extends StatelessWidget {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.file(
-                        File(selectedCapturePath),
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                      ),
+                      child: isRemoteResource
+                          ? Image.network(
+                              selectedCapturePath,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const _FacePreviewFallback(),
+                            )
+                          : Image.file(
+                              File(selectedCapturePath),
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const _FacePreviewFallback(),
+                            ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Wajah terakhir terverifikasi',
+                        isRemoteResource
+                            ? 'Wajah terakhir terverifikasi'
+                            : 'Wajah terakhir tersimpan di device',
                         style: theme.textTheme.bodyMedium,
                       ),
                     ),
@@ -771,6 +944,25 @@ class _FacePreviewLine extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _FacePreviewFallback extends StatelessWidget {
+  const _FacePreviewFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 48,
+      height: 48,
+      color: const Color(0xFFF3F4F6),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.face_retouching_natural_rounded,
+        size: 20,
+        color: Color(0xFF6B7280),
+      ),
     );
   }
 }
@@ -841,379 +1033,6 @@ class _RuleTile extends StatelessWidget {
         Expanded(child: Text(text)),
       ],
     );
-  }
-}
-
-class _FaceVerificationPage extends StatefulWidget {
-  const _FaceVerificationPage({
-    required this.mode,
-  });
-
-  final _FaceVerificationMode mode;
-
-  @override
-  State<_FaceVerificationPage> createState() => _FaceVerificationPageState();
-}
-
-class _FaceVerificationPageState extends State<_FaceVerificationPage>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1600),
-  )..repeat(reverse: true);
-
-  CameraController? _cameraController;
-  String? _cameraError;
-  bool _isProcessing = false;
-  bool _scanQueued = false;
-  String _statusText =
-      'Menyiapkan kamera depan. Scan wajah akan berjalan otomatis.';
-
-  @override
-  void initState() {
-    super.initState();
-    _initCamera();
-  }
-
-  @override
-  void dispose() {
-    _cameraController?.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isCheckIn = widget.mode == _FaceVerificationMode.checkIn;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isCheckIn ? 'Face Check-in' : 'Face Check-out'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        child: Column(
-          children: [
-            Text(
-              isCheckIn
-                  ? 'Verifikasi wajah untuk check-in otomatis'
-                  : 'Verifikasi wajah untuk check-out otomatis',
-              style: theme.textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              flex: 6,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF8FBF9),
-                  ),
-                  child: SizedBox.expand(
-                    child: _buildCameraFrame(theme),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _statusText,
-              style: theme.textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed:
-                        _isProcessing ? null : () => Navigator.pop(context),
-                    child: const Text('Batal'),
-                  ),
-                ),
-                if (_showRetryButton) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _startScan,
-                      child: const Text('Coba Lagi'),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  bool get _canStartScan {
-    final controller = _cameraController;
-    return !_isProcessing &&
-        _cameraError == null &&
-        controller != null &&
-        controller.value.isInitialized &&
-        !controller.value.isTakingPicture;
-  }
-
-  bool get _showRetryButton {
-    final controller = _cameraController;
-    return !_isProcessing &&
-        _cameraError == null &&
-        !_scanQueued &&
-        controller != null &&
-        controller.value.isInitialized;
-  }
-
-  Widget _buildCameraFrame(ThemeData theme) {
-    if (_cameraError != null) {
-      return _buildCameraPlaceholder(
-        theme,
-        icon: Icons.videocam_off_rounded,
-        message: _cameraError!,
-      );
-    }
-
-    final controller = _cameraController;
-    if (controller == null || !controller.value.isInitialized) {
-      return _buildCameraPlaceholder(
-        theme,
-        icon: Icons.camera_alt_rounded,
-        message: 'Menyiapkan kamera depan untuk face scan...',
-      );
-    }
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Positioned.fill(
-          child: ColorFiltered(
-            colorFilter: const ColorFilter.matrix(<double>[
-              1.08, 0, 0, 0, 12,
-              0, 1.08, 0, 0, 12,
-              0, 0, 1.08, 0, 12,
-              0, 0, 0, 1, 0,
-            ]),
-            child: CameraPreview(controller),
-          ),
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFDDE8E2)),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withValues(alpha: 0.05),
-                  Colors.transparent,
-                  Colors.white.withValues(alpha: 0.03),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Container(
-          width: 190,
-          height: 240,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(120),
-            border: Border.all(
-              color: Colors.white,
-              width: 2,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x44000000),
-                blurRadius: 16,
-              ),
-            ],
-          ),
-        ),
-        AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            return Positioned(
-              top: 36 + (170 * _controller.value),
-              child: Container(
-                width: 170,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.35),
-                      blurRadius: 12,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-        const Positioned(
-          bottom: 22,
-          child: StatusBadge(
-            label: 'Kamera Depan Aktif',
-            color: Colors.green,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCameraPlaceholder(
-    ThemeData theme, {
-    required IconData icon,
-    required String message,
-  }) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFE4F2ED),
-            Color(0xFFF6F2EA),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 56, color: theme.colorScheme.primary),
-              const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _initCamera() async {
-    try {
-      final cameras = await availableCameras();
-      if (!mounted) {
-        return;
-      }
-
-      if (cameras.isEmpty) {
-        setState(() {
-          _cameraError = 'Kamera tidak ditemukan di device ini.';
-        });
-        return;
-      }
-
-      final selectedCamera = cameras.firstWhere(
-        (camera) => camera.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-
-      final controller = CameraController(
-        selectedCamera,
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-
-      await controller.initialize();
-      await controller.setFocusMode(FocusMode.auto);
-      await controller.setExposureMode(ExposureMode.auto);
-
-      if (!mounted) {
-        await controller.dispose();
-        return;
-      }
-
-      setState(() {
-        _cameraController = controller;
-        _cameraError = null;
-        _statusText = 'Arahkan wajah ke frame. Scan otomatis akan dimulai.';
-      });
-      _queueAutoScan();
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _cameraError =
-            'Kamera tidak bisa diakses. Pastikan izin kamera tersedia.';
-      });
-    }
-  }
-
-  void _queueAutoScan() {
-    if (_scanQueued) {
-      return;
-    }
-
-    _scanQueued = true;
-    Future<void>.delayed(const Duration(milliseconds: 900), () {
-      if (!mounted) {
-        return;
-      }
-      _startScan();
-    });
-  }
-
-  Future<void> _startScan() async {
-    final controller = _cameraController;
-    if (!_canStartScan || controller == null || !controller.value.isInitialized) {
-      return;
-    }
-
-    setState(() {
-      _isProcessing = true;
-      _statusText = 'Mendeteksi wajah secara live dari kamera depan...';
-    });
-
-    if (!mounted) {
-      return;
-    }
-
-    try {
-      await Future<void>.delayed(const Duration(milliseconds: 900));
-      final photo = await controller.takePicture();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _statusText = 'Mencocokkan pola wajah dan validasi liveness mock...';
-      });
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
-
-      if (!mounted) {
-        return;
-      }
-
-      Navigator.pop(context, photo);
-    } catch (_) {
-      setState(() {
-        _scanQueued = false;
-        _isProcessing = false;
-        _statusText =
-            'Scan wajah gagal. Pastikan wajah terlihat jelas lalu coba lagi.';
-      });
-    }
   }
 }
 

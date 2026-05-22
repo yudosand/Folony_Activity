@@ -5,18 +5,22 @@ namespace App\Services;
 use App\Models\NetworkFollowUp;
 use App\Models\NetworkProfile;
 use App\Models\User;
+use App\Support\Territory\TerritoryData;
 use App\Support\Workflow\UserRole;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class NetworkService
 {
     public function create(array $payload, User $owner): NetworkProfile
     {
+        $territory = TerritoryData::payloadTerritory($payload);
+        $this->assertWithinTerritory($owner, $territory, $payload['type']);
+
         $profileId = Arr::get($payload, 'id', (string) Str::uuid());
         $existing = NetworkProfile::query()
             ->where('id', $profileId)
-            ->where('owner_id', $owner->id)
             ->first();
 
         if ($existing) {
@@ -28,7 +32,11 @@ class NetworkService
             'owner_id' => $owner->id,
             'owner_name' => $owner->full_name,
             'owner_role' => $owner->role,
-            'area_name' => $owner->area_name,
+            'area_name' => TerritoryData::displayLabel($territory),
+            'territory_province' => $territory['territory_province'],
+            'territory_city' => $territory['territory_city'],
+            'territory_district' => $territory['territory_district'],
+            'territory_subdistrict' => $territory['territory_subdistrict'],
             'type' => $payload['type'],
             'name' => $payload['name'],
             'address' => $payload['address'],
@@ -50,11 +58,21 @@ class NetworkService
     public function update(NetworkProfile $profile, array $payload, User $actor): NetworkProfile
     {
         $this->assertEditable($profile, $actor);
+        $territory = TerritoryData::payloadTerritory($payload + TerritoryData::profileTerritory($profile));
+        $this->assertWithinTerritory($actor, $territory, $payload['type'] ?? $profile->type);
 
         $profile->update([
+            'owner_id' => $actor->id,
+            'owner_name' => $actor->full_name,
+            'owner_role' => $actor->role,
+            'area_name' => TerritoryData::displayLabel($territory),
             'type' => $payload['type'] ?? $profile->type,
             'name' => $payload['name'] ?? $profile->name,
             'address' => $payload['address'] ?? $profile->address,
+            'territory_province' => $territory['territory_province'],
+            'territory_city' => $territory['territory_city'],
+            'territory_district' => $territory['territory_district'],
+            'territory_subdistrict' => $territory['territory_subdistrict'],
             'business_type' => $payload['business_type'] ?? $profile->business_type,
             'phone_number' => $payload['phone_number'] ?? $profile->phone_number,
             'status' => $payload['status'] ?? $profile->status,
@@ -93,8 +111,29 @@ class NetworkService
     ): NetworkProfile {
         $this->assertViewable($profile, $actor);
 
+        $followUpId = Arr::get($payload, 'id', (string) Str::uuid());
+        $existingFollowUp = NetworkFollowUp::query()
+            ->where('id', $followUpId)
+            ->first();
+
+        if ($existingFollowUp !== null) {
+            if ($existingFollowUp->network_profile_id !== $profile->id) {
+                throw ValidationException::withMessages([
+                    'id' => 'ID follow-up sudah dipakai pada data jaringan lain.',
+                ]);
+            }
+
+            if (Arr::has($payload, 'next_status')) {
+                $profile->update([
+                    'status' => Arr::get($payload, 'next_status'),
+                ]);
+            }
+
+            return $this->refresh($profile);
+        }
+
         NetworkFollowUp::query()->create([
-            'id' => Arr::get($payload, 'id', (string) Str::uuid()),
+            'id' => $followUpId,
             'network_profile_id' => $profile->id,
             'title' => $payload['title'],
             'note' => $payload['note'],
@@ -116,8 +155,16 @@ class NetworkService
     {
         $query = NetworkProfile::query()
             ->with('followUps')
-            ->where('owner_id', $owner->id)
             ->orderByDesc('created_at');
+
+        if ($owner->role === UserRole::FGG && TerritoryData::isAssigned($owner)) {
+            $this->applyTerritoryScope($query, $owner);
+        } elseif ($owner->role === UserRole::AREA_MANAGER && TerritoryData::isAssigned($owner)) {
+            $this->applyTerritoryScope($query, $owner);
+            $query->where('owner_role', '!=', UserRole::FGG);
+        } else {
+            $query->where('owner_id', $owner->id);
+        }
 
         if ($type !== null && $type !== '') {
             $query->where('type', $type);
@@ -140,8 +187,13 @@ class NetworkService
             ->with('followUps')
             ->where('type', 'ukm')
             ->where('owner_role', UserRole::FGG)
-            ->where('area_name', $areaManager->area_name)
             ->orderByDesc('created_at');
+
+        if (TerritoryData::isAssigned($areaManager)) {
+            $this->applyTerritoryScope($query, $areaManager);
+        } else {
+            $query->where('area_name', $areaManager->area_name);
+        }
 
         if ($search !== null && $search !== '') {
             $query->where(function ($builder) use ($search): void {
@@ -154,20 +206,24 @@ class NetworkService
         return $query;
     }
 
+    public function applyTerritoryScopeToQuery($query, User $actor): void
+    {
+        $this->applyTerritoryScope($query, $actor);
+    }
+
     public function scopeForHeatMap(User $actor)
     {
         $query = NetworkProfile::query()->with('followUps');
 
-        if ($actor->role === UserRole::AREA_MANAGER) {
-            return $query->where(function ($builder) use ($actor): void {
-                $builder
-                    ->where('owner_id', $actor->id)
-                    ->orWhere(function ($inner) use ($actor): void {
-                        $inner
-                            ->where('owner_role', UserRole::FGG)
-                            ->where('area_name', $actor->area_name);
-                    });
-            });
+        if (($actor->role === UserRole::AREA_MANAGER || $actor->role === UserRole::FGG)
+            && TerritoryData::isAssigned($actor)) {
+            $this->applyTerritoryScope($query, $actor);
+
+            if ($actor->role === UserRole::FGG) {
+                $query->where('type', 'ukm');
+            }
+
+            return $query;
         }
 
         return $query->where('owner_id', $actor->id);
@@ -182,7 +238,21 @@ class NetworkService
 
     private function assertEditable(NetworkProfile $profile, User $actor): void
     {
-        abort_if($profile->owner_id !== $actor->id, 403, 'Data jaringan ini bukan milik user aktif.');
+        if ($profile->owner_id === $actor->id) {
+            return;
+        }
+
+        if (($actor->role === UserRole::FGG || $actor->role === UserRole::AREA_MANAGER)
+            && TerritoryData::isAssigned($actor)
+            && TerritoryData::coversProfile($actor, $profile)) {
+            if ($actor->role === UserRole::FGG && $profile->type !== 'ukm') {
+                abort(403, 'FGG hanya bisa mengelola data UKM di area kerjanya.');
+            }
+
+            return;
+        }
+
+        abort(403, 'Data jaringan ini bukan milik area kerja user aktif.');
     }
 
     private function assertViewable(NetworkProfile $profile, User $actor): void
@@ -191,10 +261,94 @@ class NetworkService
             return;
         }
 
-        $isAreaManagerScope = $actor->role === UserRole::AREA_MANAGER
-            && $profile->owner_role === UserRole::FGG
-            && $profile->area_name === $actor->area_name;
+        $isAreaScope = ($actor->role === UserRole::FGG || $actor->role === UserRole::AREA_MANAGER)
+            && TerritoryData::isAssigned($actor)
+            && TerritoryData::coversProfile($actor, $profile);
 
-        abort_if(! $isAreaManagerScope, 403, 'Data jaringan ini tidak bisa diakses user aktif.');
+        if ($isAreaScope) {
+            if ($actor->role === UserRole::FGG && $profile->type !== 'ukm') {
+                abort(403, 'FGG hanya bisa membuka data UKM di area kerjanya.');
+            }
+
+            return;
+        }
+
+        abort(403, 'Data jaringan ini tidak bisa diakses user aktif.');
+    }
+
+    private function applyTerritoryScope($query, User $actor): void
+    {
+        $assignments = TerritoryData::userAssignments($actor);
+        $includes = TerritoryData::includeAssignments($assignments);
+        $excludes = TerritoryData::excludeAssignments($assignments);
+
+        if ($includes === []) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $query->where(function ($builder) use ($includes): void {
+            foreach ($includes as $assignment) {
+                $this->applyAssignmentClause($builder, $assignment, 'orWhere');
+            }
+        });
+
+        if ($excludes !== []) {
+            $query->where(function ($builder) use ($excludes): void {
+                foreach ($excludes as $assignment) {
+                    $this->applyAssignmentClause($builder, $assignment, 'whereNot');
+                }
+            });
+        }
+    }
+
+    private function applyAssignmentClause($builder, array $assignment, string $method = 'orWhere'): void
+    {
+        $scopeField = TerritoryData::scopedField($assignment['territory_scope'] ?? null);
+        $legacyLabel = $scopeField === null ? null : ($assignment[$scopeField] ?? null);
+
+        $builder->{$method}(function ($group) use ($assignment, $scopeField, $legacyLabel): void {
+            $group->where(function ($structured) use ($assignment): void {
+                if (filled($assignment['territory_province'])) {
+                    $structured->where('territory_province', $assignment['territory_province']);
+                }
+                if (filled($assignment['territory_city'])) {
+                    $structured->where('territory_city', $assignment['territory_city']);
+                }
+                if (filled($assignment['territory_district'])) {
+                    $structured->where('territory_district', $assignment['territory_district']);
+                }
+                if (filled($assignment['territory_subdistrict'])) {
+                    $structured->where('territory_subdistrict', $assignment['territory_subdistrict']);
+                }
+            });
+
+            if ($scopeField !== null && filled($legacyLabel)) {
+                $group->orWhere(function ($legacy) use ($scopeField, $legacyLabel): void {
+                    $legacy
+                        ->whereNull($scopeField)
+                        ->where('area_name', $legacyLabel);
+                });
+            }
+        });
+    }
+
+    private function assertWithinTerritory(User $actor, array $territory, string $profileType): void
+    {
+        if (! in_array($actor->role, [UserRole::FGG, UserRole::AREA_MANAGER], true)) {
+            return;
+        }
+
+        if (! TerritoryData::isAssigned($actor)) {
+            throw ValidationException::withMessages([
+                'territory' => TerritoryData::assignmentHint($actor),
+            ]);
+        }
+
+        if (! TerritoryData::covers($actor, $territory)) {
+            throw ValidationException::withMessages([
+                'territory' => TerritoryData::messageForOutsideArea($profileType),
+            ]);
+        }
     }
 }

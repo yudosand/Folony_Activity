@@ -36,10 +36,10 @@ class FallbackLeaveRepository implements LeaveRepository {
 
   @override
   Future<LeaveRequestRecord> submit(LeaveRequestRecord request) async {
-    return _guard(
-      remote: () => _remote.submit(request),
-      local: () => _local.submit(request),
-    );
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.submit(request);
+    }
+    return _remote.submit(request);
   }
 
   @override
@@ -48,17 +48,17 @@ class FallbackLeaveRepository implements LeaveRepository {
     required WorkflowStatus status,
     String? note,
   }) async {
-    return _guard(
-      remote: () => _remote.updateStatus(
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.updateStatus(
         requestId: requestId,
         status: status,
         note: note,
-      ),
-      local: () => _local.updateStatus(
-        requestId: requestId,
-        status: status,
-        note: note,
-      ),
+      );
+    }
+    return _remote.updateStatus(
+      requestId: requestId,
+      status: status,
+      note: note,
     );
   }
 

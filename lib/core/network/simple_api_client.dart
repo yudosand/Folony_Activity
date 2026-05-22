@@ -226,6 +226,27 @@ class SimpleApiClient {
           if (message is String && message.isNotEmpty) {
             return message;
           }
+          final data = decoded['data'];
+          if (data is Map<String, dynamic>) {
+            final dataMessage = data['message'];
+            if (dataMessage is String && dataMessage.isNotEmpty) {
+              return dataMessage;
+            }
+            final note = data['note'];
+            if (note is String && note.isNotEmpty) {
+              return note;
+            }
+          } else if (data is Map) {
+            final normalized = Map<String, dynamic>.from(data);
+            final dataMessage = normalized['message'];
+            if (dataMessage is String && dataMessage.isNotEmpty) {
+              return dataMessage;
+            }
+            final note = normalized['note'];
+            if (note is String && note.isNotEmpty) {
+              return note;
+            }
+          }
           final errors = decoded['errors'];
           if (errors is Map) {
             for (final value in errors.values) {

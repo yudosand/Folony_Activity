@@ -13,6 +13,10 @@ class NetworkEntry {
     required this.type,
     required this.name,
     required this.address,
+    required this.territoryProvince,
+    required this.territoryCity,
+    required this.territoryDistrict,
+    required this.territorySubdistrict,
     required this.businessType,
     required this.phone,
     required this.reference,
@@ -25,6 +29,8 @@ class NetworkEntry {
     required this.documents,
     required this.followUps,
     required this.createdAt,
+    this.latitude,
+    this.longitude,
   });
 
   factory NetworkEntry.mock({
@@ -51,6 +57,10 @@ class NetworkEntry {
       type: type,
       name: name,
       address: address,
+      territoryProvince: '',
+      territoryCity: '',
+      territoryDistrict: '',
+      territorySubdistrict: '',
       businessType: businessType,
       phone: phone,
       reference: reference,
@@ -63,6 +73,8 @@ class NetworkEntry {
       documents: const {},
       followUps: followUps,
       createdAt: DateTime.now(),
+      latitude: null,
+      longitude: null,
     );
   }
 
@@ -73,6 +85,10 @@ class NetworkEntry {
   final NetworkEntryType type;
   final String name;
   final String address;
+  final String territoryProvince;
+  final String territoryCity;
+  final String territoryDistrict;
+  final String territorySubdistrict;
   final String businessType;
   final String phone;
   final String reference;
@@ -85,6 +101,8 @@ class NetworkEntry {
   final Map<String, PartnerDocumentState> documents;
   final List<NetworkFollowUp> followUps;
   final DateTime createdAt;
+  final double? latitude;
+  final double? longitude;
 
   NetworkEntry copyWith({
     String? id,
@@ -94,6 +112,10 @@ class NetworkEntry {
     NetworkEntryType? type,
     String? name,
     String? address,
+    String? territoryProvince,
+    String? territoryCity,
+    String? territoryDistrict,
+    String? territorySubdistrict,
     String? businessType,
     String? phone,
     String? reference,
@@ -106,6 +128,8 @@ class NetworkEntry {
     Map<String, PartnerDocumentState>? documents,
     List<NetworkFollowUp>? followUps,
     DateTime? createdAt,
+    double? latitude,
+    double? longitude,
   }) {
     return NetworkEntry(
       id: id ?? this.id,
@@ -115,6 +139,10 @@ class NetworkEntry {
       type: type ?? this.type,
       name: name ?? this.name,
       address: address ?? this.address,
+      territoryProvince: territoryProvince ?? this.territoryProvince,
+      territoryCity: territoryCity ?? this.territoryCity,
+      territoryDistrict: territoryDistrict ?? this.territoryDistrict,
+      territorySubdistrict: territorySubdistrict ?? this.territorySubdistrict,
       businessType: businessType ?? this.businessType,
       phone: phone ?? this.phone,
       reference: reference ?? this.reference,
@@ -127,16 +155,29 @@ class NetworkEntry {
       documents: documents ?? this.documents,
       followUps: followUps ?? this.followUps,
       createdAt: createdAt ?? this.createdAt,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 
   String get subtitle {
     switch (type) {
       case NetworkEntryType.ukm:
-        return '$businessType - $address';
+        return '$businessType - $territorySummary';
       case NetworkEntryType.mitraHub:
         return 'Personality ${personalityScore ?? 0}% - dokumen $validDocumentCount/${documents.length}';
     }
+  }
+
+  String get territorySummary {
+    final parts = [
+      territorySubdistrict,
+      territoryDistrict,
+      territoryCity,
+      territoryProvince,
+    ].where((item) => item.trim().isNotEmpty).toList();
+
+    return parts.isEmpty ? address : parts.join(', ');
   }
 
   int get validDocumentCount {
@@ -175,12 +216,14 @@ class NetworkEntry {
 
 class NetworkFollowUp {
   const NetworkFollowUp({
+    this.id,
     required this.title,
     required this.note,
     required this.actorName,
     required this.createdAt,
   });
 
+  final String? id;
   final String title;
   final String note;
   final String actorName;

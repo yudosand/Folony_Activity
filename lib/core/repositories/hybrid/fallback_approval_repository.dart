@@ -39,19 +39,19 @@ class FallbackApprovalRepository implements ApprovalRepository {
     required String approverName,
     String? note,
   }) async {
-    return _guard(
-      remote: () => _remote.approve(
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.approve(
         approvalId: approvalId,
         approverId: approverId,
         approverName: approverName,
         note: note,
-      ),
-      local: () => _local.approve(
-        approvalId: approvalId,
-        approverId: approverId,
-        approverName: approverName,
-        note: note,
-      ),
+      );
+    }
+    return _remote.approve(
+      approvalId: approvalId,
+      approverId: approverId,
+      approverName: approverName,
+      note: note,
     );
   }
 
@@ -62,19 +62,19 @@ class FallbackApprovalRepository implements ApprovalRepository {
     required String approverName,
     String? note,
   }) async {
-    return _guard(
-      remote: () => _remote.reject(
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.reject(
         approvalId: approvalId,
         approverId: approverId,
         approverName: approverName,
         note: note,
-      ),
-      local: () => _local.reject(
-        approvalId: approvalId,
-        approverId: approverId,
-        approverName: approverName,
-        note: note,
-      ),
+      );
+    }
+    return _remote.reject(
+      approvalId: approvalId,
+      approverId: approverId,
+      approverName: approverName,
+      note: note,
     );
   }
 
@@ -86,21 +86,21 @@ class FallbackApprovalRepository implements ApprovalRepository {
     required ApprovalStepStatus status,
     String? note,
   }) async {
-    return _guard(
-      remote: () => _remote.moveToStatus(
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.moveToStatus(
         approvalId: approvalId,
         approverId: approverId,
         approverName: approverName,
         status: status,
         note: note,
-      ),
-      local: () => _local.moveToStatus(
-        approvalId: approvalId,
-        approverId: approverId,
-        approverName: approverName,
-        status: status,
-        note: note,
-      ),
+      );
+    }
+    return _remote.moveToStatus(
+      approvalId: approvalId,
+      approverId: approverId,
+      approverName: approverName,
+      status: status,
+      note: note,
     );
   }
 

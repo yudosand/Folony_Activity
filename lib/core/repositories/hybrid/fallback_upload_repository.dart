@@ -22,10 +22,6 @@ class FallbackUploadRepository implements UploadRepository {
     if (mode == WorkflowRepositoryMode.mockOnly) {
       return _local.uploadAttachment(filePath: filePath, label: label);
     }
-    try {
-      return await _remote.uploadAttachment(filePath: filePath, label: label);
-    } catch (_) {
-      return _local.uploadAttachment(filePath: filePath, label: label);
-    }
+    return _remote.uploadAttachment(filePath: filePath, label: label);
   }
 }

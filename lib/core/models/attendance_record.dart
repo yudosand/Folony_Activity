@@ -54,33 +54,41 @@ class AttendanceLocationRecord {
 class FaceVerificationRecord {
   const FaceVerificationRecord({
     required this.verifiedAt,
+    this.decision,
     this.matchScore,
     this.livenessScore,
     this.capture,
+    this.note,
   });
 
   final DateTime verifiedAt;
+  final String? decision;
   final double? matchScore;
   final double? livenessScore;
   final RemoteAttachment? capture;
+  final String? note;
 
   factory FaceVerificationRecord.fromJson(Map<String, dynamic> json) {
     return FaceVerificationRecord(
       verifiedAt: _requiredDateTime(json['verified_at']),
+      decision: json['decision'] as String?,
       matchScore: (json['match_score'] as num?)?.toDouble(),
       livenessScore: (json['liveness_score'] as num?)?.toDouble(),
       capture: json['capture'] is Map<String, dynamic>
           ? RemoteAttachment.fromJson(json['capture'] as Map<String, dynamic>)
           : null,
+      note: json['note'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'verified_at': verifiedAt.toIso8601String(),
+      'decision': decision,
       'match_score': matchScore,
       'liveness_score': livenessScore,
       'capture': capture?.toJson(),
+      'note': note,
     };
   }
 }
@@ -153,7 +161,7 @@ DateTime _requiredDateTime(Object? value) {
   if (value is String) {
     final parsed = DateTime.tryParse(value);
     if (parsed != null) {
-      return parsed;
+      return parsed.toLocal();
     }
   }
   return DateTime.fromMillisecondsSinceEpoch(0);

@@ -14,17 +14,23 @@ import '../core/repositories/hybrid/fallback_wfa_repository.dart';
 import '../core/repositories/hybrid/workflow_repository_mode.dart';
 import '../core/repositories/mock/mock_approval_repository.dart';
 import '../core/repositories/mock/mock_attendance_repository.dart';
+import '../core/repositories/mock/mock_face_profile_repository.dart';
 import '../core/repositories/mock/mock_heat_map_repository.dart';
 import '../core/repositories/mock/mock_leave_repository.dart';
 import '../core/repositories/mock/mock_network_repository.dart';
+import '../core/repositories/mock/mock_performance_repository.dart';
+import '../core/repositories/mock/mock_territory_repository.dart';
 import '../core/repositories/mock/mock_upload_repository.dart';
 import '../core/repositories/mock/mock_wfa_repository.dart';
 import '../core/repositories/remote/remote_attendance_repository.dart';
 import '../core/repositories/remote/remote_auth_repository.dart';
 import '../core/repositories/remote/remote_approval_repository.dart';
+import '../core/repositories/remote/remote_face_profile_repository.dart';
 import '../core/repositories/remote/remote_heat_map_repository.dart';
 import '../core/repositories/remote/remote_leave_repository.dart';
 import '../core/repositories/remote/remote_network_repository.dart';
+import '../core/repositories/remote/remote_performance_repository.dart';
+import '../core/repositories/remote/remote_territory_repository.dart';
 import '../core/repositories/remote/remote_upload_repository.dart';
 import '../core/repositories/remote/remote_wfa_repository.dart';
 import '../core/repositories/hybrid/fallback_upload_repository.dart';
@@ -68,7 +74,11 @@ class _HexActivityAppState extends State<HexActivityApp> {
     return AppController(
       authRepository: authRepository,
       useRemoteAuth: backendConfig.workflowRemoteEnabled,
+      allowDemoMode: backendConfig.demoModeEnabled,
       useCanonicalWorkflowIds: backendConfig.workflowRemoteEnabled,
+      faceProfileRepository: backendConfig.workflowRemoteEnabled
+          ? RemoteFaceProfileRepository(client: apiClient)
+          : MockFaceProfileRepository(),
       networkRepository: FallbackNetworkRepository(
         mode: workflowMode,
         remote: RemoteNetworkRepository(client: apiClient),
@@ -100,6 +110,12 @@ class _HexActivityAppState extends State<HexActivityApp> {
         remote: RemoteUploadRepository(client: apiClient),
         local: const MockUploadRepository(),
       ),
+      performanceRepository: backendConfig.workflowRemoteEnabled
+          ? RemotePerformanceRepository(client: apiClient)
+          : const MockPerformanceRepository(),
+      territoryRepository: backendConfig.workflowRemoteEnabled
+          ? RemoteTerritoryRepository(client: apiClient)
+          : const MockTerritoryRepository(),
       seedWorkflowDemoData: !backendConfig.workflowRemoteEnabled,
     );
   }

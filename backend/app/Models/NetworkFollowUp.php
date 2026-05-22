@@ -34,4 +34,9 @@ class NetworkFollowUp extends Model
     {
         return $this->belongsTo(NetworkProfile::class, 'network_profile_id');
     }
+
+    public function actor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_id');
+    }
 }

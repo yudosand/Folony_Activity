@@ -37,18 +37,18 @@ class FallbackNetworkRepository implements NetworkRepository {
 
   @override
   Future<NetworkProfile> upsert(NetworkProfile profile) {
-    return _guard(
-      remote: () => _remote.upsert(profile),
-      local: () => _local.upsert(profile),
-    );
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.upsert(profile);
+    }
+    return _remote.upsert(profile);
   }
 
   @override
   Future<void> delete(String profileId) {
-    return _guard(
-      remote: () => _remote.delete(profileId),
-      local: () => _local.delete(profileId),
-    );
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.delete(profileId);
+    }
+    return _remote.delete(profileId);
   }
 
   @override
@@ -57,17 +57,17 @@ class FallbackNetworkRepository implements NetworkRepository {
     required NetworkFollowUpRecord followUp,
     NetworkProfileStatus? nextStatus,
   }) {
-    return _guard(
-      remote: () => _remote.appendFollowUp(
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.appendFollowUp(
         profileId: profileId,
         followUp: followUp,
         nextStatus: nextStatus,
-      ),
-      local: () => _local.appendFollowUp(
-        profileId: profileId,
-        followUp: followUp,
-        nextStatus: nextStatus,
-      ),
+      );
+    }
+    return _remote.appendFollowUp(
+      profileId: profileId,
+      followUp: followUp,
+      nextStatus: nextStatus,
     );
   }
 
@@ -78,10 +78,6 @@ class FallbackNetworkRepository implements NetworkRepository {
     if (mode == WorkflowRepositoryMode.mockOnly) {
       return local();
     }
-    try {
-      return await remote();
-    } catch (_) {
-      return local();
-    }
+    return remote();
   }
 }

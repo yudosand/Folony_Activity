@@ -59,6 +59,10 @@ class AttendancePolicy {
     final lateDuration = checkInAt != null && checkInAt.isAfter(startBoundary)
         ? checkInAt.difference(startBoundary)
         : Duration.zero;
+    final earlyArrivalDuration =
+        checkInAt != null && checkInAt.isBefore(startBoundary)
+            ? startBoundary.difference(checkInAt)
+            : Duration.zero;
     final earlyLeaveDuration = checkOutAt != null && checkOutAt.isBefore(endBoundary)
         ? endBoundary.difference(checkOutAt)
         : Duration.zero;
@@ -78,12 +82,16 @@ class AttendancePolicy {
         ? 'Belum check-in'
         : lateDuration > Duration.zero
             ? 'Terlambat'
-            : 'Tepat waktu';
+            : earlyArrivalDuration > Duration.zero
+                ? 'Lebih awal'
+                : 'Tepat waktu';
     final arrivalNote = checkInAt == null
         ? 'Target masuk $officeStart.'
         : lateDuration > Duration.zero
-            ? 'Masuk terlambat ${_formatDuration(lateDuration)} dari jadwal $officeStart.'
-            : 'Masuk sesuai atau sebelum jadwal $officeStart.';
+            ? 'Terlambat ${_formatDuration(lateDuration)} dari jadwal $officeStart.'
+            : earlyArrivalDuration > Duration.zero
+                ? 'Lebih awal ${_formatDuration(earlyArrivalDuration)} dari jadwal $officeStart.'
+                : 'Tepat waktu sesuai jadwal $officeStart.';
 
     final departureLabel = checkOutAt == null
         ? 'Belum check-out'
@@ -95,7 +103,7 @@ class AttendancePolicy {
     final departureNote = checkOutAt == null
         ? 'Target pulang $officeEnd.'
         : effectiveOvertime > Duration.zero
-            ? 'Ada lembur ${_formatDuration(effectiveOvertime)} dibanding jadwal pulang $officeEnd.'
+            ? 'Pulang ${_formatDuration(effectiveOvertime)} setelah jadwal $officeEnd.'
             : earlyLeaveDuration > Duration.zero
                 ? 'Pulang lebih cepat ${_formatDuration(earlyLeaveDuration)} dari jadwal $officeEnd.'
                 : 'Pulang sesuai jadwal $officeEnd.';
@@ -200,6 +208,15 @@ class AttendancePolicy {
   static String _formatDuration(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
+
+    if (hours == 0) {
+      return '$minutes menit';
+    }
+
+    if (minutes == 0) {
+      return '$hours jam';
+    }
+
     return '${hours}j ${minutes}m';
   }
 

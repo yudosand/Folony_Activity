@@ -1,12 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/app_controller.dart';
 import '../../../core/enums/app_role.dart';
 import '../../../core/models/app_session.dart';
 import '../../../core/models/network_entry.dart';
+import '../../../core/models/territory_assignment.dart';
+import '../../../core/models/territory_option.dart';
 import '../../../core/widgets/adaptive_image.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -32,7 +36,6 @@ class _NetworkPageState extends State<NetworkPage> {
 
   String _selectedFollowUpStatus = 'Follow-up';
   bool _isSaving = false;
-  bool _isSubmittingFollowUp = false;
 
   bool get _isAreaManager => widget.session.role == AppRole.areaManager;
 
@@ -41,6 +44,14 @@ class _NetworkPageState extends State<NetworkPage> {
       return const [NetworkEntryType.ukm, NetworkEntryType.mitraHub];
     }
     return const [NetworkEntryType.ukm];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_refreshEntries(showFeedback: true));
+    });
   }
 
   @override
@@ -80,80 +91,88 @@ class _NetworkPageState extends State<NetworkPage> {
             onPressed: _isSaving ? null : _openCreateMenu,
             child: const Icon(Icons.add_rounded),
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE7E5E4)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _isAreaManager
-                          ? 'Monitoring Area dan Jaringan'
-                          : 'Pengembangan UKM Saya',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _isAreaManager
-                          ? 'Area Manager bisa menambah UKM dan Mitra lewat tombol tambah, sekaligus melihat UKM yang sudah ditambahkan oleh tim FGG.'
-                          : 'FGG bisa menambah UKM lewat tombol tambah. Semua UKM yang dibuat akan menjadi milik FGG ini.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+          body: RefreshIndicator(
+            onRefresh: _refreshEntries,
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE7E5E4)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isAreaManager
+                            ? 'Monitoring Area dan Jaringan'
+                            : 'Pengembangan UKM Saya',
+                        style: theme.textTheme.titleMedium,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Cari nama / lokasi',
-                        hintText: 'Contoh: Harapan atau Jagakarsa',
-                        prefixIcon: Icon(Icons.search_rounded),
+                      const SizedBox(height: 6),
+                      Text(
+                        _isAreaManager
+                            ? 'Area Manager bisa menambah data di wilayah kerja yang ditetapkan HR, sekaligus memantau seluruh UKM FGG di wilayah tersebut.'
+                            : 'FGG hanya bisa menambah UKM di wilayah kerja yang ditetapkan HR. Data UKM akan mengikuti wilayah kerja, bukan orangnya.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _searchController,
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(
+                          labelText: 'Cari nama / lokasi',
+                          hintText: 'Contoh: Harapan atau Jagakarsa',
+                          prefixIcon: Icon(Icons.search_rounded),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _NetworkSection(
-                title: 'UKM Saya',
-                subtitle:
-                    '${ownUkmEntries.length} data UKM milik ${widget.session.userName}.',
-                entries: ownUkmEntries,
-                emptyMessage: 'Tekan tombol tambah untuk membuat data UKM baru.',
-                onTap: (entry) => _showDetail(entry, canEdit: true),
-              ),
-              if (_isAreaManager) ...[
                 const SizedBox(height: 24),
+                if (_isAreaManager) ...[
+                  _NetworkSection(
+                    title: 'UKM Tim FGG',
+                    subtitle:
+                        '${teamUkmEntries.length} data UKM FGG yang berada di wilayah kerja anda.',
+                    entries: teamUkmEntries,
+                    emptyMessage:
+                        'Data UKM dari FGG akan muncul di sini sebagai monitoring area.',
+                    onTap: (entry) => _showDetail(entry, canEdit: false),
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 _NetworkSection(
-                  title: 'Mitra Saya',
-                  subtitle:
-                      '${ownMitraEntries.length} data mitra milik ${widget.session.userName}.',
-                  entries: ownMitraEntries,
-                  emptyMessage:
-                      'Tekan tombol tambah untuk membuat data mitra baru.',
+                  title: _isAreaManager ? 'UKM Milik Area Manager' : 'UKM Area Kerja',
+                  subtitle: _isAreaManager
+                      ? '${ownUkmEntries.length} data UKM yang Anda buat sendiri di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.'
+                      : '${ownUkmEntries.length} data UKM yang berada di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
+                  entries: ownUkmEntries,
+                  emptyMessage: _isAreaManager
+                      ? 'Belum ada UKM yang dibuat langsung oleh Area Manager.'
+                      : 'Tekan tombol tambah untuk membuat data UKM baru.',
                   onTap: (entry) => _showDetail(entry, canEdit: true),
                 ),
-                const SizedBox(height: 24),
-                _NetworkSection(
-                  title: 'UKM Tim FGG',
-                  subtitle:
-                      '${teamUkmEntries.length} data UKM yang sudah ditambahkan tim FGG.',
-                  entries: teamUkmEntries,
-                  emptyMessage:
-                      'Data UKM dari FGG akan muncul di sini sebagai monitoring area.',
-                  onTap: (entry) => _showDetail(entry, canEdit: false),
-                ),
+                if (_isAreaManager) ...[
+                  const SizedBox(height: 24),
+                  _NetworkSection(
+                    title: 'Mitra Area Kerja',
+                    subtitle:
+                      '${ownMitraEntries.length} data mitra non-FGG di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
+                    entries: ownMitraEntries,
+                    emptyMessage:
+                        'Tekan tombol tambah untuk membuat data mitra baru.',
+                    onTap: (entry) => _showDetail(entry, canEdit: true),
+                  ),
+                ],
+                const SizedBox(height: 80),
               ],
-              const SizedBox(height: 80),
-            ],
+            ),
           ),
         );
       },
@@ -211,6 +230,28 @@ class _NetworkPageState extends State<NetworkPage> {
     await _openForm(type: selectedType);
   }
 
+  Future<void> _refreshEntries({
+    bool showFeedback = false,
+  }) async {
+    try {
+      await widget.controller.refreshNetworkDataForSession(widget.session);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      if (!showFeedback) {
+        rethrow;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Muat data jaringan gagal: $error'),
+        ),
+      );
+    }
+  }
+
   Future<void> _openForm({
     required NetworkEntryType type,
     NetworkEntry? existingEntry,
@@ -218,6 +259,7 @@ class _NetworkPageState extends State<NetworkPage> {
     final result = await Navigator.of(context).push<NetworkEntry>(
       MaterialPageRoute(
         builder: (context) => _NetworkFormPage(
+          controller: widget.controller,
           session: widget.session,
           type: type,
           existingEntry: existingEntry,
@@ -241,8 +283,8 @@ class _NetworkPageState extends State<NetworkPage> {
         SnackBar(
           content: Text(
             existingEntry == null
-                ? 'Data masuk ke daftar milik ${widget.session.userName}'
-                : 'Data milik ${widget.session.userName} berhasil diperbarui',
+                ? 'Data berhasil masuk ke wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName} dengan titik ${result.latitude?.toStringAsFixed(5)}, ${result.longitude?.toStringAsFixed(5)}'
+                : 'Data wilayah kerja berhasil diperbarui di titik ${result.latitude?.toStringAsFixed(5)}, ${result.longitude?.toStringAsFixed(5)}',
           ),
         ),
       );
@@ -324,6 +366,11 @@ class _NetworkPageState extends State<NetworkPage> {
                   _DetailLine(
                     label: 'Dibuat',
                     value: refreshedEntry.createdAtLabel,
+                  ),
+                  const Divider(height: 24),
+                  _DetailLine(
+                    label: 'Wilayah',
+                    value: refreshedEntry.territorySummary,
                   ),
                   const Divider(height: 24),
                   _DetailLine(label: 'Alamat', value: refreshedEntry.address),
@@ -442,12 +489,14 @@ class _NetworkPageState extends State<NetworkPage> {
     _followUpTitleController.clear();
     _followUpNoteController.clear();
     _selectedFollowUpStatus = entry.status == 'Draft' ? 'Follow-up' : entry.status;
+    var selectedStatus = _selectedFollowUpStatus;
+    var isSubmitting = false;
+    String? pendingFollowUpId;
+    DateTime? pendingFollowUpCreatedAt;
 
     await showDialog<void>(
       context: context,
       builder: (context) {
-        String selectedStatus = _selectedFollowUpStatus;
-
         return StatefulBuilder(
           builder: (context, setLocalState) {
             return AlertDialog(
@@ -505,7 +554,7 @@ class _NetworkPageState extends State<NetworkPage> {
                   child: const Text('Batal'),
                 ),
                 FilledButton(
-                  onPressed: _isSubmittingFollowUp
+                  onPressed: isSubmitting
                       ? null
                       : () async {
                     final dialogContext = context;
@@ -522,17 +571,23 @@ class _NetworkPageState extends State<NetworkPage> {
                       return;
                     }
 
-                    setState(() => _isSubmittingFollowUp = true);
+                    final createdAt =
+                        pendingFollowUpCreatedAt ??= DateTime.now();
+                    final followUpId =
+                        pendingFollowUpId ??=
+                            '${entry.id}-${createdAt.microsecondsSinceEpoch}';
+                    setLocalState(() => isSubmitting = true);
                     try {
                       await widget.controller.addFollowUpToEntry(
                         entry: entry,
                         status: selectedStatus,
                         statusColor: _statusColorFor(selectedStatus),
                         followUp: NetworkFollowUp(
+                          id: followUpId,
                           title: title,
                           note: note,
                           actorName: widget.session.userName,
-                          createdAt: DateTime.now(),
+                          createdAt: createdAt,
                         ),
                       );
 
@@ -554,8 +609,8 @@ class _NetworkPageState extends State<NetworkPage> {
                         ),
                       );
                     } finally {
-                      if (mounted) {
-                        setState(() => _isSubmittingFollowUp = false);
+                      if (dialogContext.mounted) {
+                        setLocalState(() => isSubmitting = false);
                       }
                     }
                   },
@@ -638,11 +693,13 @@ class _NetworkPageState extends State<NetworkPage> {
 
 class _NetworkFormPage extends StatefulWidget {
   const _NetworkFormPage({
+    required this.controller,
     required this.session,
     required this.type,
     this.existingEntry,
   });
 
+  final AppController controller;
   final AppSession session;
   final NetworkEntryType type;
   final NetworkEntry? existingEntry;
@@ -661,7 +718,21 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
   final _phoneController = TextEditingController();
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
+  final _territoryProvinceController = TextEditingController();
+  final _territoryCityController = TextEditingController();
+  final _territoryDistrictController = TextEditingController();
+  final _territorySubdistrictController = TextEditingController();
   final _imagePicker = ImagePicker();
+  bool _isLoadingTerritories = false;
+  bool _isSubmitting = false;
+  List<TerritoryOption> _provinceOptions = const [];
+  List<TerritoryOption> _cityOptions = const [];
+  List<TerritoryOption> _districtOptions = const [];
+  List<TerritoryOption> _subdistrictOptions = const [];
+  TerritoryOption? _selectedProvince;
+  TerritoryOption? _selectedCity;
+  TerritoryOption? _selectedDistrict;
+  TerritoryOption? _selectedSubdistrict;
 
   late final Map<String, double> _personalityScores = {
     'Etika pribadi': 75,
@@ -690,6 +761,10 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     if (existingEntry != null) {
       _nameController.text = existingEntry.name;
       _addressController.text = existingEntry.address;
+      _territoryProvinceController.text = existingEntry.territoryProvince;
+      _territoryCityController.text = existingEntry.territoryCity;
+      _territoryDistrictController.text = existingEntry.territoryDistrict;
+      _territorySubdistrictController.text = existingEntry.territorySubdistrict;
       _businessTypeController.text = existingEntry.businessType;
       _phoneController.text = existingEntry.phone;
       _referenceController.text = existingEntry.reference;
@@ -701,7 +776,19 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       for (final item in existingEntry.documents.entries) {
         _partnerDocuments[item.key] = item.value;
       }
+    } else {
+      _territoryProvinceController.text = widget.session.territoryProvince ?? '';
+      _territoryCityController.text = widget.session.territoryCity ?? '';
+      _territoryDistrictController.text = widget.session.territoryDistrict ?? '';
+      _territorySubdistrictController.text =
+          widget.session.territorySubdistrict ?? '';
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _bootstrapTerritories();
+    });
   }
 
   @override
@@ -712,7 +799,369 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     _phoneController.dispose();
     _referenceController.dispose();
     _notesController.dispose();
+    _territoryProvinceController.dispose();
+    _territoryCityController.dispose();
+    _territoryDistrictController.dispose();
+    _territorySubdistrictController.dispose();
     super.dispose();
+  }
+
+  Future<void> _bootstrapTerritories() async {
+    setState(() => _isLoadingTerritories = true);
+    try {
+      final provinces = await widget.controller.territoryProvinces();
+      final allowedProvinces = _filterProvinces(provinces);
+      final selectedProvince = _findByName(
+            allowedProvinces,
+            _territoryProvinceController.text,
+          ) ??
+          _autoPickSingle(allowedProvinces);
+
+      List<TerritoryOption> cities = const [];
+      List<TerritoryOption> districts = const [];
+      List<TerritoryOption> subdistricts = const [];
+      TerritoryOption? selectedCity;
+      TerritoryOption? selectedDistrict;
+      TerritoryOption? selectedSubdistrict;
+
+      if (selectedProvince != null) {
+        cities = _filterCities(
+          await widget.controller.territoryCities(selectedProvince.code),
+          selectedProvince,
+        );
+        selectedCity = _findByName(cities, _territoryCityController.text) ??
+            _autoPickSingle(cities);
+      }
+
+      if (selectedCity != null) {
+        districts = _filterDistricts(
+          await widget.controller.territoryDistricts(selectedCity.code),
+          selectedCity,
+        );
+        selectedDistrict =
+            _findByName(districts, _territoryDistrictController.text) ??
+                _autoPickSingle(districts);
+      }
+
+      if (selectedDistrict != null) {
+        subdistricts = _filterSubdistricts(
+          await widget.controller.territorySubdistricts(selectedDistrict.code),
+          selectedDistrict,
+        );
+        selectedSubdistrict = _findByName(
+              subdistricts,
+              _territorySubdistrictController.text,
+            ) ??
+            _autoPickSingle(subdistricts);
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _provinceOptions = allowedProvinces;
+        _cityOptions = cities;
+        _districtOptions = districts;
+        _subdistrictOptions = subdistricts;
+        _selectedProvince = selectedProvince;
+        _selectedCity = selectedCity;
+        _selectedDistrict = selectedDistrict;
+        _selectedSubdistrict = selectedSubdistrict;
+        _applySelectedTerritoryTexts();
+        _isLoadingTerritories = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isLoadingTerritories = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Master wilayah gagal dimuat: $error')),
+      );
+    }
+  }
+
+  List<TerritoryAssignment> get _effectiveAssignments {
+    if (widget.session.territoryAssignments.isNotEmpty) {
+      return widget.session.territoryAssignments;
+    }
+
+    return [
+      TerritoryAssignment(
+        ruleType: 'include',
+        scope: widget.session.territoryScope,
+        province: widget.session.territoryProvince,
+        city: widget.session.territoryCity,
+        district: widget.session.territoryDistrict,
+        subdistrict: widget.session.territorySubdistrict,
+      ),
+    ];
+  }
+
+  List<TerritoryOption> _filterProvinces(List<TerritoryOption> options) {
+    final allowedNames = _effectiveAssignments
+        .map((item) => item.province?.trim())
+        .whereType<String>()
+        .where((item) => item.isNotEmpty)
+        .map(_normalize)
+        .toSet();
+
+    if (allowedNames.isEmpty) {
+      return options;
+    }
+
+    return options
+        .where((option) => allowedNames.contains(_normalize(option.name)))
+        .toList();
+  }
+
+  List<TerritoryOption> _filterCities(
+    List<TerritoryOption> options,
+    TerritoryOption province,
+  ) {
+    final relevantAssignments = _matchingAssignments(
+      provinceName: province.name,
+    );
+    final allowedNames = relevantAssignments
+        .map((item) => item.city?.trim())
+        .whereType<String>()
+        .where((item) => item.isNotEmpty)
+        .map(_normalize)
+        .toSet();
+
+    if (allowedNames.isEmpty) {
+      return options;
+    }
+
+    return options
+        .where((option) => allowedNames.contains(_normalize(option.name)))
+        .toList();
+  }
+
+  List<TerritoryOption> _filterDistricts(
+    List<TerritoryOption> options,
+    TerritoryOption city,
+  ) {
+    final relevantAssignments = _matchingAssignments(
+      provinceName: _selectedProvince?.name,
+      cityName: city.name,
+    );
+    final allowedNames = relevantAssignments
+        .map((item) => item.district?.trim())
+        .whereType<String>()
+        .where((item) => item.isNotEmpty)
+        .map(_normalize)
+        .toSet();
+
+    if (allowedNames.isEmpty) {
+      return options;
+    }
+
+    return options
+        .where((option) => allowedNames.contains(_normalize(option.name)))
+        .toList();
+  }
+
+  List<TerritoryOption> _filterSubdistricts(
+    List<TerritoryOption> options,
+    TerritoryOption district,
+  ) {
+    final relevantAssignments = _matchingAssignments(
+      provinceName: _selectedProvince?.name,
+      cityName: _selectedCity?.name,
+      districtName: district.name,
+    );
+    final allowedNames = relevantAssignments
+        .map((item) => item.subdistrict?.trim())
+        .whereType<String>()
+        .where((item) => item.isNotEmpty)
+        .map(_normalize)
+        .toSet();
+
+    if (allowedNames.isEmpty) {
+      return options;
+    }
+
+    return options
+        .where((option) => allowedNames.contains(_normalize(option.name)))
+        .toList();
+  }
+
+  List<TerritoryAssignment> _matchingAssignments({
+    String? provinceName,
+    String? cityName,
+    String? districtName,
+  }) {
+    return _effectiveAssignments.where((assignment) {
+      if (!_matchesTerritoryName(assignment.province, provinceName)) {
+        return false;
+      }
+      if (!_matchesTerritoryName(assignment.city, cityName)) {
+        return false;
+      }
+      if (!_matchesTerritoryName(assignment.district, districtName)) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  bool _matchesTerritoryName(String? assignmentValue, String? actualValue) {
+    final normalizedAssignment = _normalizeNullable(assignmentValue);
+    if (normalizedAssignment == null) {
+      return true;
+    }
+
+    return normalizedAssignment == _normalizeNullable(actualValue);
+  }
+
+  TerritoryOption? _findByName(
+    List<TerritoryOption> options,
+    String rawName,
+  ) {
+    final normalizedTarget = _normalizeNullable(rawName);
+    if (normalizedTarget == null) {
+      return null;
+    }
+
+    for (final option in options) {
+      if (_normalize(option.name) == normalizedTarget) {
+        return option;
+      }
+    }
+
+    return null;
+  }
+
+  TerritoryOption? _autoPickSingle(List<TerritoryOption> options) {
+    return options.length == 1 ? options.first : null;
+  }
+
+  String _normalize(String value) {
+    return value.trim().toLowerCase();
+  }
+
+  String? _normalizeNullable(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    return _normalize(trimmed);
+  }
+
+  void _applySelectedTerritoryTexts() {
+    _territoryProvinceController.text = _selectedProvince?.name ?? '';
+    _territoryCityController.text = _selectedCity?.name ?? '';
+    _territoryDistrictController.text = _selectedDistrict?.name ?? '';
+    _territorySubdistrictController.text = _selectedSubdistrict?.name ?? '';
+  }
+
+  Future<void> _onProvinceChanged(TerritoryOption? province) async {
+    setState(() {
+      _isLoadingTerritories = true;
+      _selectedProvince = province;
+      _selectedCity = null;
+      _selectedDistrict = null;
+      _selectedSubdistrict = null;
+      _cityOptions = const [];
+      _districtOptions = const [];
+      _subdistrictOptions = const [];
+      _applySelectedTerritoryTexts();
+    });
+
+    if (province == null) {
+      setState(() => _isLoadingTerritories = false);
+      return;
+    }
+
+    final cities = _filterCities(
+      await widget.controller.territoryCities(province.code),
+      province,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _cityOptions = cities;
+      _selectedCity = _autoPickSingle(cities);
+      _applySelectedTerritoryTexts();
+      _isLoadingTerritories = false;
+    });
+
+    if (_selectedCity != null) {
+      await _onCityChanged(_selectedCity);
+    }
+  }
+
+  Future<void> _onCityChanged(TerritoryOption? city) async {
+    setState(() {
+      _isLoadingTerritories = true;
+      _selectedCity = city;
+      _selectedDistrict = null;
+      _selectedSubdistrict = null;
+      _districtOptions = const [];
+      _subdistrictOptions = const [];
+      _applySelectedTerritoryTexts();
+    });
+
+    if (city == null) {
+      setState(() => _isLoadingTerritories = false);
+      return;
+    }
+
+    final districts = _filterDistricts(
+      await widget.controller.territoryDistricts(city.code),
+      city,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _districtOptions = districts;
+      _selectedDistrict = _autoPickSingle(districts);
+      _applySelectedTerritoryTexts();
+      _isLoadingTerritories = false;
+    });
+
+    if (_selectedDistrict != null) {
+      await _onDistrictChanged(_selectedDistrict);
+    }
+  }
+
+  Future<void> _onDistrictChanged(TerritoryOption? district) async {
+    setState(() {
+      _isLoadingTerritories = true;
+      _selectedDistrict = district;
+      _selectedSubdistrict = null;
+      _subdistrictOptions = const [];
+      _applySelectedTerritoryTexts();
+    });
+
+    if (district == null) {
+      setState(() => _isLoadingTerritories = false);
+      return;
+    }
+
+    final subdistricts = _filterSubdistricts(
+      await widget.controller.territorySubdistricts(district.code),
+      district,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _subdistrictOptions = subdistricts;
+      _selectedSubdistrict = _autoPickSingle(subdistricts);
+      _applySelectedTerritoryTexts();
+      _isLoadingTerritories = false;
+    });
   }
 
   @override
@@ -734,12 +1183,23 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
           children: [
             Text(
               widget.isEditing
-                  ? 'Perbarui data ${widget.type.shortLabel.toLowerCase()} milik ${widget.session.userName}.'
+                  ? 'Perbarui data ${widget.type.shortLabel.toLowerCase()} di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.'
                   : 'Isi form untuk menambahkan ${widget.type.shortLabel.toLowerCase()} baru.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Wilayah kerja aktif: ${widget.session.territoryLabel ?? widget.session.areaName}. Data di luar wilayah ini akan ditolak.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (_isLoadingTerritories) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(minHeight: 3),
+            ],
             const SizedBox(height: 16),
             StatusBadge(label: widget.type.shortLabel, color: Colors.teal),
             const SizedBox(height: 20),
@@ -763,6 +1223,61 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
               hint: 'Masukkan alamat singkat',
               required: true,
               maxLines: 2,
+            ),
+            const Divider(height: 24),
+            _TerritoryDropdownField(
+              label: 'Provinsi',
+              value: _selectedProvince,
+              items: _provinceOptions,
+              enabled: !_isProvinceLocked && _provinceOptions.isNotEmpty,
+              hint: _provinceOptions.isEmpty
+                  ? 'Wilayah provinsi tidak tersedia'
+                  : 'Pilih provinsi',
+              onChanged: _onProvinceChanged,
+            ),
+            const Divider(height: 24),
+            _TerritoryDropdownField(
+              label: 'Kota/Kabupaten',
+              value: _selectedCity,
+              items: _cityOptions,
+              enabled: !_isCityLocked && _selectedProvince != null,
+              hint: _selectedProvince == null
+                  ? 'Pilih provinsi dulu'
+                  : _cityOptions.isEmpty
+                      ? 'Tidak ada kota/kabupaten yang sesuai'
+                      : 'Pilih kota/kabupaten',
+              onChanged: _onCityChanged,
+            ),
+            const Divider(height: 24),
+            _TerritoryDropdownField(
+              label: 'Kecamatan',
+              value: _selectedDistrict,
+              items: _districtOptions,
+              enabled: !_isDistrictLocked && _selectedCity != null,
+              hint: _selectedCity == null
+                  ? 'Pilih kota/kabupaten dulu'
+                  : _districtOptions.isEmpty
+                      ? 'Tidak ada kecamatan yang sesuai'
+                      : 'Pilih kecamatan',
+              onChanged: _onDistrictChanged,
+            ),
+            const Divider(height: 24),
+            _TerritoryDropdownField(
+              label: 'Kelurahan',
+              value: _selectedSubdistrict,
+              items: _subdistrictOptions,
+              enabled: !_isSubdistrictLocked && _selectedDistrict != null,
+              hint: _selectedDistrict == null
+                  ? 'Pilih kecamatan dulu'
+                  : _subdistrictOptions.isEmpty
+                      ? 'Tidak ada kelurahan yang sesuai'
+                      : 'Pilih kelurahan',
+              onChanged: (value) {
+                setState(() {
+                  _selectedSubdistrict = value;
+                  _applySelectedTerritoryTexts();
+                });
+              },
             ),
             const Divider(height: 24),
             _TextInput(
@@ -821,7 +1336,7 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: _submit,
+                    onPressed: _isSubmitting ? null : _submit,
                     child: Text(widget.isEditing ? 'Update' : 'Simpan'),
                   ),
                 ),
@@ -836,8 +1351,9 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
   Future<void> _pickPhoto(ImageSource source) async {
     final photo = await _imagePicker.pickImage(
       source: source,
-      imageQuality: 72,
-      maxWidth: 1600,
+      imageQuality: 52,
+      maxWidth: 960,
+      maxHeight: 960,
     );
     if (photo == null) {
       return;
@@ -860,8 +1376,19 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     return null;
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    if (_selectedProvince == null ||
+        _selectedCity == null ||
+        _selectedDistrict == null ||
+        _selectedSubdistrict == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih wilayah sampai level kelurahan terlebih dahulu'),
+        ),
+      );
       return;
     }
     if (_photo == null) {
@@ -872,46 +1399,108 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       );
       return;
     }
+    setState(() => _isSubmitting = true);
+    try {
+      final location = await _captureCurrentLocation();
+      if (!mounted || location == null) {
+        return;
+      }
 
-    final existingEntry = widget.existingEntry;
-    final personalityScore = _personalityAverage.round();
-    final documentComplete = _partnerDocuments.values
-        .where((item) => item.exists && item.isValid)
-        .length;
-    final status = switch (widget.type) {
-      NetworkEntryType.ukm => existingEntry?.status ?? 'Draft',
-      NetworkEntryType.mitraHub =>
-        documentComplete == _partnerDocuments.length ? 'Lengkap' : 'Follow-up',
-    };
+      final existingEntry = widget.existingEntry;
+      final personalityScore = _personalityAverage.round();
+      final documentComplete = _partnerDocuments.values
+          .where((item) => item.exists && item.isValid)
+          .length;
+      final status = switch (widget.type) {
+        NetworkEntryType.ukm => existingEntry?.status ?? 'Draft',
+        NetworkEntryType.mitraHub =>
+          documentComplete == _partnerDocuments.length ? 'Lengkap' : 'Follow-up',
+      };
 
-    Navigator.pop(
-      context,
-      NetworkEntry(
-        id: existingEntry?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
-        ownerKey: widget.session.ownerKey,
-        ownerName: widget.session.userName,
-        ownerRole: widget.session.role,
-        type: widget.type,
-        name: _nameController.text.trim(),
-        address: _addressController.text.trim(),
-        businessType: _businessTypeController.text.trim(),
-        phone: _phoneController.text.trim(),
-        reference: _referenceController.text.trim(),
-        notes: _notesController.text.trim(),
-        photoPath: _photo?.path,
-        status: status,
-        statusColor: _statusColorFor(status),
-        personalityScore:
-            widget.type == NetworkEntryType.mitraHub ? personalityScore : null,
-        personalityScores: widget.type == NetworkEntryType.mitraHub
-            ? Map<String, double>.from(_personalityScores)
-            : const {},
-        documents: widget.type == NetworkEntryType.mitraHub
-            ? Map<String, PartnerDocumentState>.from(_partnerDocuments)
-            : const {},
-        followUps: existingEntry?.followUps ?? const [],
-        createdAt: existingEntry?.createdAt ?? DateTime.now(),
-      ),
+      Navigator.pop(
+        context,
+        NetworkEntry(
+          id: existingEntry?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          ownerKey: widget.session.ownerKey,
+          ownerName: widget.session.userName,
+          ownerRole: widget.session.role,
+          type: widget.type,
+          name: _nameController.text.trim(),
+          address: _addressController.text.trim(),
+          territoryProvince: _territoryProvinceController.text.trim(),
+          territoryCity: _territoryCityController.text.trim(),
+          territoryDistrict: _territoryDistrictController.text.trim(),
+          territorySubdistrict: _territorySubdistrictController.text.trim(),
+          businessType: _businessTypeController.text.trim(),
+          phone: _phoneController.text.trim(),
+          reference: _referenceController.text.trim(),
+          notes: _notesController.text.trim(),
+          photoPath: _photo?.path,
+          status: status,
+          statusColor: _statusColorFor(status),
+          personalityScore:
+              widget.type == NetworkEntryType.mitraHub ? personalityScore : null,
+          personalityScores: widget.type == NetworkEntryType.mitraHub
+              ? Map<String, double>.from(_personalityScores)
+              : const {},
+          documents: widget.type == NetworkEntryType.mitraHub
+              ? Map<String, PartnerDocumentState>.from(_partnerDocuments)
+              : const {},
+          followUps: existingEntry?.followUps ?? const [],
+          createdAt: existingEntry?.createdAt ?? DateTime.now(),
+          latitude: location.latitude,
+          longitude: location.longitude,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  Future<({double latitude, double longitude})?> _captureCurrentLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showLocationError('Layanan lokasi device sedang nonaktif.');
+        return null;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _showLocationError(
+          'Izin lokasi dibutuhkan agar data jaringan menyimpan koordinat.',
+        );
+        return null;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      return (latitude: position.latitude, longitude: position.longitude);
+    } catch (_) {
+      _showLocationError(
+        'Lokasi belum berhasil didapatkan. Pastikan sinyal GPS stabil lalu coba lagi.',
+      );
+      return null;
+    }
+  }
+
+  void _showLocationError(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
@@ -919,6 +1508,57 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     final total =
         _personalityScores.values.fold<double>(0, (sum, value) => sum + value);
     return total / _personalityScores.length;
+  }
+
+  int _distinctAssignmentCount(String? Function(TerritoryAssignment) pick) {
+    return _effectiveAssignments
+        .map(pick)
+        .whereType<String>()
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .map(_normalize)
+        .toSet()
+        .length;
+  }
+
+  bool get _isProvinceLocked {
+    if ((widget.session.territoryProvince ?? '').trim().isEmpty) {
+      return false;
+    }
+    return _distinctAssignmentCount((item) => item.province) <= 1;
+  }
+
+  bool get _isCityLocked {
+    final scope = widget.session.territoryScope;
+    if ((widget.session.territoryCity ?? '').trim().isEmpty) {
+      return false;
+    }
+    if (!(scope == 'city' || scope == 'district' || scope == 'subdistrict')) {
+      return false;
+    }
+    return _distinctAssignmentCount((item) => item.city) <= 1;
+  }
+
+  bool get _isDistrictLocked {
+    final scope = widget.session.territoryScope;
+    if ((widget.session.territoryDistrict ?? '').trim().isEmpty) {
+      return false;
+    }
+    if (!(scope == 'district' || scope == 'subdistrict')) {
+      return false;
+    }
+    return _distinctAssignmentCount((item) => item.district) <= 1;
+  }
+
+  bool get _isSubdistrictLocked {
+    final scope = widget.session.territoryScope;
+    if ((widget.session.territorySubdistrict ?? '').trim().isEmpty) {
+      return false;
+    }
+    if (scope != 'subdistrict') {
+      return false;
+    }
+    return _distinctAssignmentCount((item) => item.subdistrict) <= 1;
   }
 
   Color _statusColorFor(String status) {
@@ -1144,6 +1784,71 @@ class _CompactDocumentList extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+class _TerritoryDropdownField extends StatelessWidget {
+  const _TerritoryDropdownField({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.enabled,
+    required this.hint,
+    required this.onChanged,
+  });
+
+  final String label;
+  final TerritoryOption? value;
+  final List<TerritoryOption> items;
+  final bool enabled;
+  final String hint;
+  final ValueChanged<TerritoryOption?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 112,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Text(
+              '$label *',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: DropdownButtonFormField<TerritoryOption>(
+            key: ValueKey('${label}_${value?.code ?? 'none'}_${items.length}_$enabled'),
+            initialValue: value,
+            isExpanded: true,
+            decoration: InputDecoration(hintText: hint),
+            items: items
+                .map(
+                  (item) => DropdownMenuItem<TerritoryOption>(
+                    value: item,
+                    child: Text(item.name),
+                  ),
+                )
+                .toList(),
+            onChanged: enabled ? onChanged : null,
+            validator: (selected) {
+              if (selected == null) {
+                return '$label wajib dipilih';
+              }
+              return null;
+            },
+          ),
+        ),
+      ],
     );
   }
 }

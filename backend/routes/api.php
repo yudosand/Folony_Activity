@@ -3,15 +3,24 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\FaceProfileController;
+use App\Http\Controllers\Api\FaceVerificationController;
 use App\Http\Controllers\Api\HeatMapController;
 use App\Http\Controllers\Api\LeaveController;
 use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\NetworkController;
+use App\Http\Controllers\Api\PerformanceController;
+use App\Http\Controllers\Api\TerritoryController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\WfaController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login']);
+
+Route::get('/territories/provinces', [TerritoryController::class, 'provinces']);
+Route::get('/territories/cities', [TerritoryController::class, 'cities']);
+Route::get('/territories/districts', [TerritoryController::class, 'districts']);
+Route::get('/territories/subdistricts', [TerritoryController::class, 'subdistricts']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -35,11 +44,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/network/{networkProfile}', [NetworkController::class, 'destroy']);
     Route::post('/network/{networkProfile}/follow-ups', [NetworkController::class, 'storeFollowUp']);
 
+    Route::get('/performance/summary', [PerformanceController::class, 'summary']);
+
     Route::get('/attendance', [AttendanceController::class, 'index']);
     Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn']);
     Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut']);
     Route::get('/attendance/daily-summary', [AttendanceController::class, 'dailySummary']);
     Route::delete('/attendance', [AttendanceController::class, 'destroy']);
+
+    Route::get('/face/profile', [FaceProfileController::class, 'show']);
+    Route::post('/face/profile', [FaceProfileController::class, 'upsert']);
+    Route::post('/face/verify', [FaceVerificationController::class, 'store']);
 
     Route::get('/heat-map', HeatMapController::class);
     Route::post('/uploads/attachments', [UploadController::class, 'store']);

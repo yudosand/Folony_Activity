@@ -28,9 +28,11 @@ class StoreAttendanceCheckInRequest extends FormRequest
             'location.within_radius' => ['nullable', 'boolean'],
             'verification' => ['nullable', 'array'],
             'verification.verified_at' => ['required_with:verification', 'date'],
+            'verification.decision' => ['nullable', Rule::in(['verified', 'retry', 'rejected'])],
             'verification.match_score' => ['nullable', 'numeric'],
             'verification.liveness_score' => ['nullable', 'numeric'],
             'verification.capture' => ['nullable', 'array'],
+            'verification.note' => ['nullable', 'string'],
             'note' => ['nullable', 'string'],
         ];
     }

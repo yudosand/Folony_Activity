@@ -4,9 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folony_activity/app/app.dart';
 import 'package:folony_activity/app/app_controller.dart';
 import 'package:folony_activity/core/enums/app_role.dart';
+import 'package:folony_activity/core/models/attendance_record.dart';
 import 'package:folony_activity/core/models/approval_step.dart';
 import 'package:folony_activity/core/models/app_session.dart';
+import 'package:folony_activity/core/models/face_profile.dart';
+import 'package:folony_activity/core/models/face_verification_result.dart';
 import 'package:folony_activity/core/models/network_entry.dart';
+import 'package:folony_activity/core/models/remote_attachment.dart';
+import 'package:folony_activity/core/repositories/attendance_repository.dart';
+import 'package:folony_activity/core/repositories/face_profile_repository.dart';
+import 'package:folony_activity/core/repositories/hybrid/fallback_attendance_repository.dart';
+import 'package:folony_activity/core/repositories/hybrid/workflow_repository_mode.dart';
+import 'package:folony_activity/core/repositories/upload_repository.dart';
+import 'package:folony_activity/features/face/data/face_biometric_analyzer.dart';
 import 'package:folony_activity/core/models/leave_request_record.dart'
     as leave_model;
 import 'package:folony_activity/core/models/wfa_request_record.dart'
@@ -17,9 +27,10 @@ import 'package:folony_activity/features/wfh/presentation/wfh_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
-  test('multi-role tester can sign in and switch roles', () async {
+  test('multi-role tester can sign in and switch roles in local mode', () async {
     final controller = AppController(
-      useRemoteAuth: true,
+      useRemoteAuth: false,
+      allowDemoMode: true,
       seedWorkflowDemoData: false,
     );
 
@@ -37,6 +48,51 @@ void main() {
 
     expect(controller.session!.role, AppRole.management);
     expect(controller.session!.canSwitchRoles, isTrue);
+  });
+
+  test('multi-role tester is blocked in remote mode', () async {
+    final controller = AppController(
+      useRemoteAuth: true,
+      seedWorkflowDemoData: false,
+    );
+
+    expect(
+      () => controller.signIn(
+        identifier: AppController.multiRoleTesterIdentifier,
+        password: AppController.multiRoleTesterPassword,
+        fallbackRole: AppRole.staff,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('Akun allrole hanya tersedia di mode demo lokal'),
+        ),
+      ),
+    );
+  });
+
+  test('demo login is blocked when local demo mode is disabled', () async {
+    final controller = AppController(
+      useRemoteAuth: false,
+      allowDemoMode: false,
+      seedWorkflowDemoData: false,
+    );
+
+    expect(
+      () => controller.signIn(
+        identifier: 'asal',
+        password: '123456',
+        fallbackRole: AppRole.staff,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('Mode demo tidak aktif'),
+        ),
+      ),
+    );
   });
 
   test('leave balance is deducted on submit and restored on rejection', () async {
@@ -204,13 +260,93 @@ void main() {
     expect(storedEntries.first.followUps.first.title, 'Kunjungan pertama');
   });
 
+  test(
+    'remote attendance writes fail loudly instead of falling back to local data',
+    () async {
+      final local = _RecordingAttendanceRepository();
+      final repository = FallbackAttendanceRepository(
+        mode: WorkflowRepositoryMode.remotePreferred,
+        remote: _ThrowingAttendanceRepository(),
+        local: local,
+      );
+
+      final record = AttendanceRecord(
+        id: 'att-remote-strict-test',
+        userId: 'usr_001',
+        workDate: DateTime(2026, 5, 20),
+        action: AttendanceAction.checkIn,
+        status: AttendanceRecordStatus.pending,
+        recordedAt: DateTime(2026, 5, 20, 8, 0),
+        location: AttendanceLocationRecord(
+          latitude: -6.2,
+          longitude: 106.8,
+          recordedAt: DateTime(2026, 5, 20, 8, 0),
+        ),
+      );
+
+      expect(
+        () => repository.createRecord(record),
+        throwsA(isA<StateError>()),
+      );
+      expect(local.createdRecords, isEmpty);
+    },
+  );
+
+  test('face enrollment updates session state without heavy processing', () async {
+    final controller = AppController(
+      faceProfileRepository: _FakeFaceProfileRepository(),
+      uploadRepository: const _FakeUploadRepository(),
+      faceBiometricAnalyzer: _FakeFaceBiometricAnalyzer(),
+      seedWorkflowDemoData: false,
+    );
+
+    controller.signInAs(AppRole.staff, userName: 'Tester Staff');
+
+    final enrolled = await controller.enrollFaceForSession(
+      controller.session!,
+      samplePaths: const ['sample-1.jpg', 'sample-2.jpg', 'sample-3.jpg'],
+    );
+
+    expect(enrolled.isEnrolled, isTrue);
+    expect(controller.hasFaceEnrollmentForSession(controller.session!), isTrue);
+  });
+
   testWidgets('login form is shown on first launch', (tester) async {
-    await tester.pumpWidget(const HexActivityApp());
+    final controller = AppController(
+      useRemoteAuth: true,
+      allowDemoMode: false,
+      seedWorkflowDemoData: false,
+    );
+
+    await tester.pumpWidget(HexActivityApp(controller: controller));
+    await tester.pumpAndSettle();
 
     expect(find.text('HEX Activity'), findsOneWidget);
     expect(find.text('Login'), findsOneWidget);
     expect(find.text('Masuk'), findsOneWidget);
-    expect(find.text('Mode demo/dev'), findsOneWidget);
+    expect(find.text('Mode demo/dev'), findsNothing);
+    expect(
+      find.text('Mode staging aktif. Gunakan akun backend yang valid.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('login page hides demo mode when remote auth is enabled', (
+    tester,
+  ) async {
+    final controller = AppController(
+      useRemoteAuth: true,
+      seedWorkflowDemoData: false,
+    );
+
+    await tester.pumpWidget(HexActivityApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mode demo/dev'), findsNothing);
+    expect(
+      find.text('Mode staging aktif. Gunakan akun backend yang valid.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('leave page date picker opens without localization errors', (
@@ -461,6 +597,146 @@ class _TestApp extends StatelessWidget {
       ],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: Scaffold(body: child),
+    );
+  }
+}
+
+class _ThrowingAttendanceRepository implements AttendanceRepository {
+  @override
+  Future<void> clearByUser({required String userId}) {
+    throw StateError('Remote attendance write failed');
+  }
+
+  @override
+  Future<AttendanceRecord> createRecord(AttendanceRecord record) {
+    throw StateError('Remote attendance write failed');
+  }
+
+  @override
+  Future<List<AttendanceRecord>> listByUser({
+    required String userId,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) {
+    throw StateError('Remote attendance read failed');
+  }
+
+  @override
+  Future<AttendanceRecord> latestRecordForToday({required String userId}) {
+    throw StateError('Remote attendance read failed');
+  }
+}
+
+class _RecordingAttendanceRepository implements AttendanceRepository {
+  final List<AttendanceRecord> createdRecords = [];
+
+  @override
+  Future<void> clearByUser({required String userId}) async {
+    createdRecords.removeWhere((record) => record.userId == userId);
+  }
+
+  @override
+  Future<AttendanceRecord> createRecord(AttendanceRecord record) async {
+    createdRecords.add(record);
+    return record;
+  }
+
+  @override
+  Future<List<AttendanceRecord>> listByUser({
+    required String userId,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
+    return createdRecords.where((record) => record.userId == userId).toList();
+  }
+
+  @override
+  Future<AttendanceRecord> latestRecordForToday({required String userId}) async {
+    return createdRecords.lastWhere((record) => record.userId == userId);
+  }
+}
+
+class _FakeFaceProfileRepository implements FaceProfileRepository {
+  FaceProfile _profile = FaceProfile.empty(userId: 'usr_001');
+
+  @override
+  Future<FaceProfile> currentProfile() async => _profile;
+
+  @override
+  Future<FaceProfile> enroll({
+    required List<RemoteAttachment> samples,
+    required List<double> biometricTemplate,
+    String? note,
+  }) async {
+    _profile = FaceProfile(
+      id: 'face-profile-1',
+      userId: 'usr_001',
+      status: 'active',
+      samples: samples,
+      samplesCount: samples.length,
+      biometricTemplateReady: biometricTemplate.length >= 64,
+      enrolledAt: DateTime.now(),
+      verificationMode: 'lightweight_signature_v2',
+      note: note,
+    );
+    return _profile;
+  }
+
+  @override
+  Future<FaceVerificationResult> verify({
+    required String action,
+    required RemoteAttachment capture,
+    required List<double> signature,
+    required double livenessScore,
+    String? note,
+  }) async {
+    return FaceVerificationResult(
+      verified: _profile.isEnrolled,
+      decision: _profile.isEnrolled ? 'verified' : 'rejected',
+      matchScore: 100,
+      livenessScore: livenessScore,
+      capture: capture,
+      profile: _profile,
+      note: note,
+      verifiedAt: DateTime.now(),
+    );
+  }
+}
+
+class _FakeFaceBiometricAnalyzer extends FaceBiometricAnalyzer {
+  @override
+  Future<FaceBiometricTemplate> buildEnrollmentTemplate(
+    List<String> samplePaths,
+  ) async {
+    return FaceBiometricTemplate(
+      template: List<double>.filled(128, 0.088388),
+      samplesCount: samplePaths.length,
+    );
+  }
+
+  @override
+  Future<FaceBiometricCapture> analyzeCapture(String imagePath) async {
+    return FaceBiometricCapture(
+      signature: List<double>.filled(128, 0.088388),
+    );
+  }
+}
+
+class _FakeUploadRepository implements UploadRepository {
+  const _FakeUploadRepository();
+
+  @override
+  Future<RemoteAttachment> uploadAttachment({
+    required String filePath,
+    String? label,
+  }) async {
+    return RemoteAttachment(
+      id: filePath,
+      fileName: label ?? filePath,
+      mimeType: 'image/jpeg',
+      url: 'https://mock.local/$filePath',
+      thumbnailUrl: 'https://mock.local/$filePath-thumb',
+      sizeInBytes: 1024,
     );
   }
 }

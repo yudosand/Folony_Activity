@@ -36,10 +36,10 @@ class FallbackAttendanceRepository implements AttendanceRepository {
 
   @override
   Future<AttendanceRecord> createRecord(AttendanceRecord record) {
-    return _guard(
-      remote: () => _remote.createRecord(record),
-      local: () => _local.createRecord(record),
-    );
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.createRecord(record);
+    }
+    return _remote.createRecord(record);
   }
 
   @override
@@ -56,10 +56,10 @@ class FallbackAttendanceRepository implements AttendanceRepository {
   Future<void> clearByUser({
     required String userId,
   }) {
-    return _guard(
-      remote: () => _remote.clearByUser(userId: userId),
-      local: () => _local.clearByUser(userId: userId),
-    );
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.clearByUser(userId: userId);
+    }
+    return _remote.clearByUser(userId: userId);
   }
 
   Future<T> _guard<T>({

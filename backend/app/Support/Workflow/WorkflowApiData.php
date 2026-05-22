@@ -3,27 +3,74 @@
 namespace App\Support\Workflow;
 
 use App\Models\ApprovalStep;
+use App\Models\FaceProfile;
+use App\Models\FaceVerificationLog;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Models\WfaRequest;
 use App\Models\WfaTaskUpdate;
+use App\Support\Territory\TerritoryData;
 use Illuminate\Support\Carbon;
 
 class WorkflowApiData
 {
     public static function user(User $user): array
     {
+        $user->loadMissing('faceProfile');
+
         return [
             'id' => $user->id,
             'full_name' => $user->full_name,
             'phone_number' => $user->phone_number,
             'area_name' => $user->area_name,
+            'territory_scope' => $user->territory_scope,
+            'territory_province' => $user->territory_province,
+            'territory_city' => $user->territory_city,
+            'territory_district' => $user->territory_district,
+            'territory_subdistrict' => $user->territory_subdistrict,
+            'territory_assignments' => TerritoryData::userAssignments($user),
+            'territory_label' => TerritoryData::displayAssignmentsLabel(TerritoryData::userAssignments($user)),
             'role' => $user->role,
             'spv_id' => $user->spv_id,
             'spv_name' => $user->spv?->full_name,
             'management_id' => $user->management_id,
             'management_name' => $user->management?->full_name,
             'is_active' => $user->is_active,
+            'face_enrollment_status' => $user->faceProfile?->status ?? 'pending',
+            'face_samples_count' => count($user->faceProfile?->samples ?? []),
+        ];
+    }
+
+    public static function faceProfile(FaceProfile $profile): array
+    {
+        return [
+            'id' => $profile->id,
+            'user_id' => $profile->user_id,
+            'status' => $profile->status,
+            'samples' => $profile->samples ?? [],
+            'samples_count' => count($profile->samples ?? []),
+            'enrolled_at' => self::dateTime($profile->enrolled_at),
+            'last_verified_at' => self::dateTime($profile->last_verified_at),
+            'verification_mode' => $profile->verification_mode,
+            'biometric_template_ready' => count($profile->biometric_template ?? []) >= 64,
+            'note' => $profile->note,
+        ];
+    }
+
+    public static function faceVerificationLog(FaceVerificationLog $log): array
+    {
+        return [
+            'id' => $log->id,
+            'user_id' => $log->user_id,
+            'face_profile_id' => $log->face_profile_id,
+            'action' => $log->action,
+            'result' => $log->result,
+            'match_score' => $log->match_score === null ? null : (float) $log->match_score,
+            'liveness_score' => $log->liveness_score === null ? null : (float) $log->liveness_score,
+            'capture_attachment' => $log->capture_attachment,
+            'metadata' => $log->metadata ?? [],
+            'verified_at' => self::dateTime($log->verified_at),
+            'note' => $log->note,
         ];
     }
 

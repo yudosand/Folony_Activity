@@ -76,6 +76,12 @@ SESSION_DRIVER=database
 QUEUE_CONNECTION=database
 ```
 
+Kalau staging sementara memakai host `nip.io` dan bukan `activity.foodcolony.com`, jangan pakai `SESSION_DOMAIN=.foodcolony.com`. Gunakan template:
+
+- [backend/.env.nipio.staging.example](/C:/Users/user/Desktop/FolonyActivity/backend/.env.nipio.staging.example)
+
+Supaya login web admin HR di `/admin/login` tetap menyimpan session dengan benar.
+
 ## Command Setelah Upload
 
 Jika hosting menyediakan terminal atau SSH:

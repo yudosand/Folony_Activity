@@ -13,6 +13,7 @@ use App\Models\Attachment;
 use App\Services\LeaveService;
 use App\Services\WfaService;
 use App\Support\Workflow\ApprovalStepStatus;
+use App\Support\Territory\TerritoryScope;
 use App\Support\Workflow\UserRole;
 use App\Support\Workflow\WorkflowModule;
 use App\Support\Workflow\WorkflowStatus;
@@ -23,13 +24,42 @@ class WorkflowDemoSeeder extends Seeder
 {
     public function run(): void
     {
+        User::query()->updateOrCreate(
+            ['id' => 'usr_hr_001'],
+            [
+                'employee_code' => 'EMP-HR-001',
+                'full_name' => 'Alya HR',
+                'phone_number' => '086666666666',
+                'area_name' => 'Head Office',
+                'work_location' => 'Kantor Pusat',
+                'role' => UserRole::HR,
+                'job_title' => 'Human Resources',
+                'leave_balance_days' => 14,
+                'joined_at' => now()->subYears(2)->toDateString(),
+                'address' => 'Jl. HRD No. 1, Jakarta',
+                'emergency_contact_name' => 'Nina Keluarga',
+                'emergency_contact_phone' => '081200000001',
+                'email' => 'hr@hex.local',
+                'password' => '123456',
+                'is_active' => true,
+            ],
+        );
+
         $management = User::query()->updateOrCreate(
             ['id' => 'usr_mgt_001'],
             [
+                'employee_code' => 'EMP-MGT-001',
                 'full_name' => 'Sinta Management',
                 'phone_number' => '081111111111',
                 'area_name' => 'Head Office',
+                'work_location' => 'Kantor Pusat',
                 'role' => UserRole::MANAGEMENT,
+                'job_title' => 'Management',
+                'leave_balance_days' => 18,
+                'joined_at' => now()->subYears(5)->toDateString(),
+                'address' => 'Jl. Management No. 8, Jakarta',
+                'emergency_contact_name' => 'Rudi Management',
+                'emergency_contact_phone' => '081200000002',
                 'email' => 'management@hex.local',
                 'password' => '123456',
                 'is_active' => true,
@@ -39,11 +69,19 @@ class WorkflowDemoSeeder extends Seeder
         $spv = User::query()->updateOrCreate(
             ['id' => 'usr_spv_001'],
             [
+                'employee_code' => 'EMP-SPV-001',
                 'full_name' => 'Dimas SPV',
                 'phone_number' => '082222222222',
                 'area_name' => 'Jakarta Selatan',
+                'work_location' => 'Jakarta Selatan',
                 'role' => UserRole::SPV,
+                'job_title' => 'Supervisor',
                 'management_id' => $management->id,
+                'leave_balance_days' => 12,
+                'joined_at' => now()->subYears(3)->toDateString(),
+                'address' => 'Jl. Kemang Raya No. 21',
+                'emergency_contact_name' => 'Rina SPV',
+                'emergency_contact_phone' => '081200000003',
                 'email' => 'spv@hex.local',
                 'password' => '123456',
                 'is_active' => true,
@@ -53,12 +91,20 @@ class WorkflowDemoSeeder extends Seeder
         $staff = User::query()->updateOrCreate(
             ['id' => 'usr_001'],
             [
+                'employee_code' => 'EMP-STF-001',
                 'full_name' => 'Nadia Staff',
                 'phone_number' => '083333333333',
                 'area_name' => 'Head Office',
+                'work_location' => 'Kantor Pusat',
                 'role' => UserRole::STAFF,
+                'job_title' => 'Admin Staff',
                 'spv_id' => $spv->id,
                 'management_id' => $management->id,
+                'leave_balance_days' => 10,
+                'joined_at' => now()->subYears(1)->toDateString(),
+                'address' => 'Jl. Tebet Timur No. 10',
+                'emergency_contact_name' => 'Sari Staff',
+                'emergency_contact_phone' => '081200000004',
                 'email' => 'staff@hex.local',
                 'password' => '123456',
                 'is_active' => true,
@@ -68,11 +114,21 @@ class WorkflowDemoSeeder extends Seeder
         User::query()->updateOrCreate(
             ['id' => 'usr_area_001'],
             [
+                'employee_code' => 'EMP-ARM-001',
                 'full_name' => 'Raka Area Manager',
                 'phone_number' => '084444444444',
-                'area_name' => 'Depok',
+                'area_name' => 'DKI Jakarta',
+                'work_location' => 'DKI Jakarta',
+                'territory_scope' => TerritoryScope::PROVINCE,
+                'territory_province' => 'DKI Jakarta',
                 'role' => UserRole::AREA_MANAGER,
+                'job_title' => 'Area Manager',
                 'management_id' => $management->id,
+                'leave_balance_days' => 12,
+                'joined_at' => now()->subYears(4)->toDateString(),
+                'address' => 'Jl. Margonda Raya No. 80',
+                'emergency_contact_name' => 'Budi Area',
+                'emergency_contact_phone' => '081200000005',
                 'email' => 'area.manager@hex.local',
                 'password' => '123456',
                 'is_active' => true,
@@ -82,10 +138,22 @@ class WorkflowDemoSeeder extends Seeder
         User::query()->updateOrCreate(
             ['id' => 'usr_fgg_001'],
             [
+                'employee_code' => 'EMP-FGG-001',
                 'full_name' => 'Bima FGG',
                 'phone_number' => '085555555555',
-                'area_name' => 'Depok',
+                'area_name' => 'Pasar Minggu',
+                'work_location' => 'Pasar Minggu',
+                'territory_scope' => TerritoryScope::DISTRICT,
+                'territory_province' => 'DKI Jakarta',
+                'territory_city' => 'Jakarta Selatan',
+                'territory_district' => 'Pasar Minggu',
                 'role' => UserRole::FGG,
+                'job_title' => 'Field Growth Guide',
+                'leave_balance_days' => 10,
+                'joined_at' => now()->subMonths(8)->toDateString(),
+                'address' => 'Jl. Sawangan Baru No. 6',
+                'emergency_contact_name' => 'Rani FGG',
+                'emergency_contact_phone' => '081200000006',
                 'email' => 'fgg@hex.local',
                 'password' => '123456',
                 'is_active' => true,
@@ -199,6 +267,10 @@ class WorkflowDemoSeeder extends Seeder
                 'owner_name' => $areaManager->full_name,
                 'owner_role' => $areaManager->role,
                 'area_name' => $areaManager->area_name,
+                'territory_province' => 'DKI Jakarta',
+                'territory_city' => 'Jakarta Selatan',
+                'territory_district' => 'Jagakarsa',
+                'territory_subdistrict' => 'Jagakarsa',
                 'type' => 'mitra',
                 'name' => 'Mitra Hub Budi Jaya',
                 'address' => 'Jl. Jagakarsa Raya No. 18',
@@ -227,6 +299,10 @@ class WorkflowDemoSeeder extends Seeder
                 'owner_name' => $fgg->full_name,
                 'owner_role' => $fgg->role,
                 'area_name' => $fgg->area_name,
+                'territory_province' => 'DKI Jakarta',
+                'territory_city' => 'Jakarta Selatan',
+                'territory_district' => 'Pasar Minggu',
+                'territory_subdistrict' => 'Pejaten Timur',
                 'type' => 'ukm',
                 'name' => 'UKM Toko Harapan',
                 'address' => 'Pasar Minggu Blok A',

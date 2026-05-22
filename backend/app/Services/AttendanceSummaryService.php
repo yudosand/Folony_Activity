@@ -52,6 +52,9 @@ class AttendanceSummaryService
         $lateDuration = $checkInAt !== null && $checkInAt->greaterThan($startBoundary)
             ? $startBoundary->diff($checkInAt)
             : Carbon::createFromTimestamp(0)->diff(Carbon::createFromTimestamp(0));
+        $earlyArrivalDuration = $checkInAt !== null && $checkInAt->lessThan($startBoundary)
+            ? $checkInAt->diff($startBoundary)
+            : Carbon::createFromTimestamp(0)->diff(Carbon::createFromTimestamp(0));
         $earlyLeaveDuration = $checkOutAt !== null && $checkOutAt->lessThan($endBoundary)
             ? $checkOutAt->diff($endBoundary)
             : Carbon::createFromTimestamp(0)->diff(Carbon::createFromTimestamp(0));
@@ -68,8 +71,8 @@ class AttendanceSummaryService
             'standard_end_time' => self::OFFICE_END,
             'check_in_at' => $checkInAt?->toIso8601String(),
             'check_out_at' => $checkOutAt?->toIso8601String(),
-            'arrival_label' => $this->arrivalLabel($checkInAt, $lateDuration),
-            'arrival_note' => $this->arrivalNote($checkInAt, $lateDuration),
+            'arrival_label' => $this->arrivalLabel($checkInAt, $lateDuration, $earlyArrivalDuration),
+            'arrival_note' => $this->arrivalNote($checkInAt, $lateDuration, $earlyArrivalDuration),
             'departure_label' => $this->departureLabel($checkOutAt, $earlyLeaveDuration, $effectiveOvertime),
             'departure_note' => $this->departureNote($checkOutAt, $earlyLeaveDuration, $effectiveOvertime),
             'summary_label' => $this->summaryLabel($checkInAt, $checkOutAt, $lateDuration, $earlyLeaveDuration, $effectiveOvertime),
@@ -91,26 +94,38 @@ class AttendanceSummaryService
         ];
     }
 
-    private function arrivalLabel(?Carbon $checkInAt, $lateDuration): string
+    private function arrivalLabel(?Carbon $checkInAt, $lateDuration, $earlyArrivalDuration): string
     {
         if ($checkInAt === null) {
             return 'Belum check-in';
         }
 
-        return $lateDuration->totalSeconds > 0 ? 'Terlambat' : 'Tepat waktu';
+        if ($lateDuration->totalSeconds > 0) {
+            return 'Terlambat';
+        }
+
+        if ($earlyArrivalDuration->totalSeconds > 0) {
+            return 'Lebih awal';
+        }
+
+        return 'Tepat waktu';
     }
 
-    private function arrivalNote(?Carbon $checkInAt, $lateDuration): string
+    private function arrivalNote(?Carbon $checkInAt, $lateDuration, $earlyArrivalDuration): string
     {
         if ($checkInAt === null) {
             return 'Target masuk ' . self::OFFICE_START . '.';
         }
 
         if ($lateDuration->totalSeconds > 0) {
-            return 'Masuk terlambat ' . $this->formatDuration($lateDuration) . ' dari jadwal ' . self::OFFICE_START . '.';
+            return 'Terlambat ' . $this->formatDuration($lateDuration) . ' dari jadwal ' . self::OFFICE_START . '.';
         }
 
-        return 'Masuk sesuai atau sebelum jadwal ' . self::OFFICE_START . '.';
+        if ($earlyArrivalDuration->totalSeconds > 0) {
+            return 'Lebih awal ' . $this->formatDuration($earlyArrivalDuration) . ' dari jadwal ' . self::OFFICE_START . '.';
+        }
+
+        return 'Tepat waktu sesuai jadwal ' . self::OFFICE_START . '.';
     }
 
     private function departureLabel(?Carbon $checkOutAt, $earlyLeaveDuration, $effectiveOvertime): string
@@ -137,7 +152,7 @@ class AttendanceSummaryService
         }
 
         if ($effectiveOvertime->totalSeconds > 0) {
-            return 'Ada lembur ' . $this->formatDuration($effectiveOvertime) . ' dibanding jadwal pulang ' . self::OFFICE_END . '.';
+            return 'Pulang ' . $this->formatDuration($effectiveOvertime) . ' setelah jadwal ' . self::OFFICE_END . '.';
         }
 
         if ($earlyLeaveDuration->totalSeconds > 0) {
@@ -211,6 +226,14 @@ class AttendanceSummaryService
     {
         $hours = (int) floor($duration->totalMinutes / 60);
         $minutes = (int) round($duration->totalMinutes % 60);
+
+        if ($hours === 0) {
+            return $minutes . ' menit';
+        }
+
+        if ($minutes === 0) {
+            return $hours . ' jam';
+        }
 
         return $hours . 'j ' . $minutes . 'm';
     }

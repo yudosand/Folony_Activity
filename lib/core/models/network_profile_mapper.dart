@@ -28,6 +28,10 @@ extension NetworkProfileUiMapper on NetworkProfile {
           : NetworkEntryType.mitraHub,
       name: name,
       address: address,
+      territoryProvince: territoryProvince,
+      territoryCity: territoryCity,
+      territoryDistrict: territoryDistrict,
+      territorySubdistrict: territorySubdistrict,
       businessType: businessType,
       phone: phoneNumber,
       reference: referenceName ?? '',
@@ -46,6 +50,7 @@ extension NetworkProfileUiMapper on NetworkProfile {
       followUps: followUps
           .map(
             (item) => NetworkFollowUp(
+              id: item.id,
               title: item.title,
               note: item.note,
               actorName: item.actorName,
@@ -54,6 +59,8 @@ extension NetworkProfileUiMapper on NetworkProfile {
           )
           .toList(),
       createdAt: createdAt,
+      latitude: latitude,
+      longitude: longitude,
     );
   }
 }
@@ -90,6 +97,10 @@ extension NetworkEntryDomainMapper on NetworkEntry {
           : NetworkProfileType.mitra,
       name: name,
       address: address,
+      territoryProvince: territoryProvince,
+      territoryCity: territoryCity,
+      territoryDistrict: territoryDistrict,
+      territorySubdistrict: territorySubdistrict,
       businessType: businessType,
       phoneNumber: phone,
       status: _networkStatusFromLabel(status),
@@ -109,7 +120,7 @@ extension NetworkEntryDomainMapper on NetworkEntry {
       followUps: followUps
           .map(
             (item) => NetworkFollowUpRecord(
-              id: '$id-${item.createdAt.microsecondsSinceEpoch}',
+              id: item.id ?? '$id-${item.createdAt.microsecondsSinceEpoch}',
               title: item.title,
               note: item.note,
               actorId: ownerId ?? ownerKey,
@@ -118,6 +129,8 @@ extension NetworkEntryDomainMapper on NetworkEntry {
             ),
           )
           .toList(),
+      latitude: latitude,
+      longitude: longitude,
     );
   }
 }

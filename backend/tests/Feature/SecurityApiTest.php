@@ -12,6 +12,27 @@ class SecurityApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_login_rejects_invalid_credentials_and_requires_known_identifier(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $this->postJson('/api/auth/login', [
+            'identifier' => 'asal-sekali',
+            'password' => '123456',
+        ])->assertStatus(422);
+
+        $this->postJson('/api/auth/login', [
+            'identifier' => 'Nadia Staff',
+            'password' => '123456',
+        ])->assertStatus(422);
+
+        $this->postJson('/api/auth/login', [
+            'identifier' => 'EMP-STF-001',
+            'password' => '123456',
+        ])->assertOk()
+            ->assertJsonPath('data.user.id', 'usr_001');
+    }
+
     public function test_fgg_cannot_open_team_ukm_endpoint(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
@@ -21,15 +42,19 @@ class SecurityApiTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_user_cannot_update_network_profile_owned_by_another_user(): void
+    public function test_staff_cannot_update_network_profile_owned_by_other_area(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
-        Sanctum::actingAs(User::query()->findOrFail('usr_area_001'));
+        Sanctum::actingAs(User::query()->findOrFail('usr_001'));
 
         $this->patchJson('/api/network/net_fgg_001', [
             'type' => 'ukm',
             'name' => 'Override tidak sah',
             'address' => 'Alamat override',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Pejaten Timur',
             'business_type' => 'Override',
             'phone_number' => '081300000000',
             'status' => 'draft',
@@ -41,6 +66,14 @@ class SecurityApiTest extends TestCase
         $this->seed(WorkflowDemoSeeder::class);
 
         $this->post('/api/uploads/attachments')
+            ->assertUnauthorized();
+    }
+
+    public function test_me_endpoint_requires_authentication_and_ignores_user_id_fallback(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $this->getJson('/api/me?user_id=usr_001')
             ->assertUnauthorized();
     }
 }

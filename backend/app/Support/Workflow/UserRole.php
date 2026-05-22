@@ -4,6 +4,7 @@ namespace App\Support\Workflow;
 
 final class UserRole
 {
+    public const HR = 'hr';
     public const STAFF = 'staff';
     public const SPV = 'spv';
     public const AREA_MANAGER = 'areaManager';
@@ -11,6 +12,7 @@ final class UserRole
     public const FGG = 'fgg';
 
     public const ALL = [
+        self::HR,
         self::STAFF,
         self::SPV,
         self::AREA_MANAGER,

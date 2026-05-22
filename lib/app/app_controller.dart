@@ -6,29 +6,40 @@ import '../core/enums/app_role.dart';
 import '../core/models/app_session.dart';
 import '../core/models/app_user.dart';
 import '../core/models/attendance_record.dart';
+import '../core/models/face_profile.dart';
+import '../core/models/face_verification_result.dart';
 import '../core/models/heat_map_snapshot.dart';
 import '../core/models/network_entry.dart';
 import '../core/models/network_profile.dart';
 import '../core/models/network_profile_mapper.dart';
+import '../core/models/performance_summary.dart';
 import '../core/models/approval_step.dart';
 import '../core/models/leave_request_record.dart' as leave_model;
 import '../core/models/remote_attachment.dart';
+import '../core/models/territory_option.dart';
 import '../core/models/wfa_request_record.dart' as wfa_model;
 import '../core/repositories/approval_repository.dart';
 import '../core/repositories/attendance_repository.dart';
 import '../core/repositories/auth_repository.dart';
+import '../core/repositories/face_profile_repository.dart';
 import '../core/repositories/heat_map_repository.dart';
 import '../core/repositories/leave_repository.dart';
 import '../core/repositories/mock/mock_attendance_repository.dart';
+import '../core/repositories/mock/mock_face_profile_repository.dart';
 import '../core/repositories/mock/mock_heat_map_repository.dart';
 import '../core/repositories/mock/mock_network_repository.dart';
+import '../core/repositories/mock/mock_performance_repository.dart';
 import '../core/repositories/mock/mock_approval_repository.dart';
 import '../core/repositories/mock/mock_leave_repository.dart';
+import '../core/repositories/mock/mock_territory_repository.dart';
 import '../core/repositories/mock/mock_wfa_repository.dart';
 import '../core/repositories/mock/mock_upload_repository.dart';
 import '../core/repositories/network_repository.dart';
+import '../core/repositories/performance_repository.dart';
+import '../core/repositories/territory_repository.dart';
 import '../core/repositories/upload_repository.dart';
 import '../core/repositories/wfa_repository.dart';
+import '../features/face/data/face_biometric_analyzer.dart';
 
 class AppController extends ChangeNotifier {
   static const String multiRoleTesterIdentifier = 'allrole';
@@ -43,7 +54,12 @@ class AppController extends ChangeNotifier {
     ApprovalRepository? approvalRepository,
     HeatMapRepository? heatMapRepository,
     UploadRepository? uploadRepository,
+    PerformanceRepository? performanceRepository,
+    TerritoryRepository? territoryRepository,
+    FaceProfileRepository? faceProfileRepository,
+    FaceBiometricAnalyzer? faceBiometricAnalyzer,
     bool useRemoteAuth = false,
+    bool allowDemoMode = false,
     bool useCanonicalWorkflowIds = false,
     bool seedWorkflowDemoData = true,
   })  : _authRepository = authRepository,
@@ -54,7 +70,16 @@ class AppController extends ChangeNotifier {
         _approvalRepository = approvalRepository ?? MockApprovalRepository(),
         _heatMapRepository = heatMapRepository ?? const MockHeatMapRepository(),
         _uploadRepository = uploadRepository ?? const MockUploadRepository(),
+        _performanceRepository =
+            performanceRepository ?? const MockPerformanceRepository(),
+        _territoryRepository =
+            territoryRepository ?? const MockTerritoryRepository(),
+        _faceProfileRepository =
+            faceProfileRepository ?? MockFaceProfileRepository(),
+        _faceBiometricAnalyzer =
+            faceBiometricAnalyzer ?? FaceBiometricAnalyzer(),
         _useRemoteAuth = useRemoteAuth,
+        _allowDemoMode = allowDemoMode,
         _useCanonicalWorkflowIds = useCanonicalWorkflowIds,
         _seedWorkflowDemoData = seedWorkflowDemoData {
     if (_seedWorkflowDemoData) {
@@ -73,7 +98,12 @@ class AppController extends ChangeNotifier {
   final ApprovalRepository _approvalRepository;
   final HeatMapRepository _heatMapRepository;
   final UploadRepository _uploadRepository;
+  final PerformanceRepository _performanceRepository;
+  final TerritoryRepository _territoryRepository;
+  final FaceProfileRepository _faceProfileRepository;
+  final FaceBiometricAnalyzer _faceBiometricAnalyzer;
   final bool _useRemoteAuth;
+  final bool _allowDemoMode;
   final bool _useCanonicalWorkflowIds;
   final bool _seedWorkflowDemoData;
   bool _isAuthenticating = false;
@@ -81,6 +111,7 @@ class AppController extends ChangeNotifier {
   final Map<String, List<NetworkEntry>> _networkEntriesByOwner = {};
   final Map<String, List<NetworkEntry>> _teamUkmEntriesByAreaManager = {};
   final Map<String, List<AttendanceRecord>> _attendanceRecordsByOwner = {};
+  final Map<String, PerformanceSummary?> _performanceSummaryByOwner = {};
   final Map<String, List<leave_model.LeaveRequestRecord>> _leaveRequestsByOwner = {};
   final Map<String, List<wfa_model.WfaRequestRecord>> _wfaRequestsByOwner = {};
   final Map<String, List<leave_model.LeaveRequestRecord>> _leaveApprovalRequestsByApprover =
@@ -88,12 +119,18 @@ class AppController extends ChangeNotifier {
   final Map<String, List<wfa_model.WfaRequestRecord>> _wfaApprovalRequestsByApprover =
       {};
   final Map<String, double> _leaveBalanceByUserId = {};
+  final Map<String, FaceProfile> _faceProfilesByOwner = {};
+  List<TerritoryOption>? _territoryProvinceCache;
+  final Map<String, List<TerritoryOption>> _territoryCityCache = {};
+  final Map<String, List<TerritoryOption>> _territoryDistrictCache = {};
+  final Map<String, List<TerritoryOption>> _territorySubdistrictCache = {};
 
   AppSession? get session => _session;
   bool get isAuthenticated => _session != null;
   bool get isAuthenticating => _isAuthenticating;
   bool get isBootstrapping => _isBootstrapping;
   bool get isRemoteAuthEnabled => _useRemoteAuth;
+  bool get isDemoModeEnabled => _allowDemoMode && !_useRemoteAuth;
   bool canSwitchRolesForSession(AppSession session) =>
       !_useRemoteAuth || session.canSwitchRoles;
   List<AppRole> switchableRolesForSession(AppSession session) =>
@@ -115,6 +152,11 @@ class AppController extends ChangeNotifier {
     required AppRole fallbackRole,
   }) async {
     if (_matchesMultiRoleTester(identifier: identifier, password: password)) {
+      if (_useRemoteAuth || !_allowDemoMode) {
+        throw StateError(
+          'Akun allrole hanya tersedia di mode demo lokal. Gunakan akun backend yang valid untuk staging/live.',
+        );
+      }
       if (_authRepository != null) {
         await _authRepository.signOut();
       }
@@ -125,6 +167,11 @@ class AppController extends ChangeNotifier {
     }
 
     if (!_useRemoteAuth || _authRepository == null) {
+      if (!_allowDemoMode) {
+        throw StateError(
+          'Mode demo tidak aktif. Login harus menggunakan backend staging/live yang valid.',
+        );
+      }
       signInAs(fallbackRole, userName: identifier);
       return;
     }
@@ -200,6 +247,78 @@ class AppController extends ChangeNotifier {
     return List.unmodifiable(_attendanceRecordsByOwner[session.ownerKey] ?? const []);
   }
 
+  PerformanceSummary? performanceSummaryForSession(AppSession session) {
+    if (session.role != AppRole.fgg && session.role != AppRole.areaManager) {
+      return null;
+    }
+
+    return _performanceSummaryByOwner[session.ownerKey];
+  }
+
+  FaceProfile faceProfileForSession(AppSession session) {
+    return _faceProfilesByOwner[session.ownerKey] ??
+        FaceProfile.empty(userId: _workflowUserIdForSession(session));
+  }
+
+  bool hasFaceEnrollmentForSession(AppSession session) {
+    final cachedProfile = _faceProfilesByOwner[session.ownerKey];
+    if (cachedProfile != null) {
+      return cachedProfile.isEnrolled && cachedProfile.biometricTemplateReady;
+    }
+
+    return session.hasFaceEnrollment;
+  }
+
+  Future<List<TerritoryOption>> territoryProvinces() async {
+    final cached = _territoryProvinceCache;
+    if (cached != null) {
+      return cached;
+    }
+
+    final provinces = await _territoryRepository.listProvinces();
+    _territoryProvinceCache = provinces;
+    return provinces;
+  }
+
+  Future<List<TerritoryOption>> territoryCities(String provinceCode) async {
+    final cached = _territoryCityCache[provinceCode];
+    if (cached != null) {
+      return cached;
+    }
+
+    final cities = await _territoryRepository.listCities(
+      provinceCode: provinceCode,
+    );
+    _territoryCityCache[provinceCode] = cities;
+    return cities;
+  }
+
+  Future<List<TerritoryOption>> territoryDistricts(String cityCode) async {
+    final cached = _territoryDistrictCache[cityCode];
+    if (cached != null) {
+      return cached;
+    }
+
+    final districts = await _territoryRepository.listDistricts(
+      cityCode: cityCode,
+    );
+    _territoryDistrictCache[cityCode] = districts;
+    return districts;
+  }
+
+  Future<List<TerritoryOption>> territorySubdistricts(String districtCode) async {
+    final cached = _territorySubdistrictCache[districtCode];
+    if (cached != null) {
+      return cached;
+    }
+
+    final subdistricts = await _territoryRepository.listSubdistricts(
+      districtCode: districtCode,
+    );
+    _territorySubdistrictCache[districtCode] = subdistricts;
+    return subdistricts;
+  }
+
   Future<void> createAttendanceRecord(
     AppSession session,
     AttendanceRecord record,
@@ -226,6 +345,71 @@ class AppController extends ChangeNotifier {
     await _loadAttendanceData(session);
   }
 
+  Future<FaceProfile> enrollFaceForSession(
+    AppSession session, {
+    required List<String> samplePaths,
+  }) async {
+    final biometricTemplate = await _faceBiometricAnalyzer
+        .buildEnrollmentTemplate(samplePaths);
+    final uploadedSamples = <RemoteAttachment>[];
+    for (var index = 0; index < samplePaths.length; index++) {
+      final samplePath = samplePaths[index];
+      final attachment = await _uploadAttachmentIfNeeded(
+        filePath: samplePath,
+        label: 'Face Sample ${index + 1}',
+      );
+      if (attachment != null) {
+        uploadedSamples.add(attachment);
+      }
+    }
+
+    final profile = await _faceProfileRepository.enroll(
+      samples: uploadedSamples,
+      biometricTemplate: biometricTemplate.template,
+      note:
+          'Enrollment wajah diperbarui dari aplikasi mobile dengan lightweight signature v2.',
+    );
+    _faceProfilesByOwner[session.ownerKey] = profile;
+    _session = _session?.copyWith(
+      faceEnrollmentStatus: profile.status,
+      faceSamplesCount: profile.samplesCount,
+    );
+    notifyListeners();
+    return profile;
+  }
+
+  Future<FaceVerificationResult> verifyFaceForSession(
+    AppSession session, {
+    required String action,
+    required String capturePath,
+    double livenessScore = 100,
+  }) async {
+    final analyzedCapture =
+        await _faceBiometricAnalyzer.analyzeCapture(capturePath);
+    final uploadedCapture = await _uploadAttachmentIfNeeded(
+      filePath: capturePath,
+      label: 'Face $action ${DateTime.now().toIso8601String()}',
+    );
+    if (uploadedCapture == null) {
+      throw StateError('Capture wajah tidak berhasil diunggah.');
+    }
+
+    final result = await _faceProfileRepository.verify(
+      action: action,
+      capture: uploadedCapture,
+      signature: analyzedCapture.signature,
+      livenessScore: livenessScore,
+      note: 'Verifikasi wajah dipicu dari flow absensi mobile (signature v2).',
+    );
+    _faceProfilesByOwner[session.ownerKey] = result.profile;
+    _session = _session?.copyWith(
+      faceEnrollmentStatus: result.profile.status,
+      faceSamplesCount: result.profile.samplesCount,
+    );
+    notifyListeners();
+    return result;
+  }
+
   Future<void> upsertNetworkEntryForSession(
     AppSession session,
     NetworkEntry entry,
@@ -243,10 +427,23 @@ class AppController extends ChangeNotifier {
         ownerId: _workflowUserIdForSession(session),
       ),
     );
+    if (storedProfile.latitude == null || storedProfile.longitude == null) {
+      throw StateError(
+        'Koordinat belum ikut tersimpan di server. Pastikan izin lokasi aktif lalu coba lagi.',
+      );
+    }
     await _refreshNetworkCachesAfterMutation(
-      ownerId: storedProfile.ownerId,
+      session: session,
       ownerRole: storedProfile.ownerRole,
     );
+  }
+
+  Future<void> refreshNetworkDataForSession(AppSession session) async {
+    await _loadNetworkEntries(session);
+  }
+
+  Future<void> refreshPerformanceSummaryForSession(AppSession session) async {
+    await _loadPerformanceSummary(session);
   }
 
   Future<void> _loadAttendanceData(AppSession session) async {
@@ -501,7 +698,7 @@ class AppController extends ChangeNotifier {
         );
     await _networkRepository.delete(entryId);
     await _refreshNetworkCachesAfterMutation(
-      ownerId: targetEntry?.ownerKey ?? _workflowUserIdForSession(session),
+      session: session,
       ownerRole: targetEntry?.ownerRole ?? session.role,
     );
   }
@@ -517,7 +714,7 @@ class AppController extends ChangeNotifier {
       profileId: entry.id,
       nextStatus: _profileStatusFromLabel(status ?? entry.status),
       followUp: NetworkFollowUpRecord(
-        id: '${entry.id}-${followUp.createdAt.microsecondsSinceEpoch}',
+        id: followUp.id ?? '${entry.id}-${followUp.createdAt.microsecondsSinceEpoch}',
         title: followUp.title,
         note: followUp.note,
         actorId: activeSession == null
@@ -528,10 +725,14 @@ class AppController extends ChangeNotifier {
       ),
     );
     _replaceEntryInVisibleCaches(profile.toNetworkEntry());
-    await _refreshNetworkCachesAfterMutation(
-      ownerId: profile.ownerId,
-      ownerRole: profile.ownerRole,
-    );
+    if (activeSession != null) {
+      await _refreshNetworkCachesAfterMutation(
+        session: activeSession,
+        ownerRole: profile.ownerRole,
+      );
+    } else {
+      notifyListeners();
+    }
   }
 
   Future<void> _loadWorkflowData(AppSession session) async {
@@ -562,6 +763,16 @@ class AppController extends ChangeNotifier {
       _wfaApprovalRequestsByApprover[session.ownerKey] = const [];
     }
 
+    notifyListeners();
+  }
+
+  Future<void> _loadFaceProfileData(AppSession session) async {
+    final profile = await _faceProfileRepository.currentProfile();
+    _faceProfilesByOwner[session.ownerKey] = profile;
+    _session = _session?.copyWith(
+      faceEnrollmentStatus: profile.status,
+      faceSamplesCount: profile.samplesCount,
+    );
     notifyListeners();
   }
 
@@ -609,21 +820,28 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _loadPerformanceSummary(AppSession session) async {
+    if (session.role != AppRole.fgg && session.role != AppRole.areaManager) {
+      _performanceSummaryByOwner.remove(session.ownerKey);
+      notifyListeners();
+      return;
+    }
+
+    final summary = await _performanceRepository.currentSummary(session: session);
+    _performanceSummaryByOwner[session.ownerKey] = summary;
+    notifyListeners();
+  }
+
   Future<void> _refreshNetworkCachesAfterMutation({
-    required String ownerId,
+    required AppSession session,
     required AppRole ownerRole,
   }) async {
-    await _refreshOwnedNetworkCache(ownerId);
+    await _loadNetworkEntries(session);
+    await _loadPerformanceSummary(session);
     if (ownerRole == AppRole.fgg) {
       await _refreshTeamUkmCaches();
     }
     notifyListeners();
-  }
-
-  Future<void> _refreshOwnedNetworkCache(String ownerId) async {
-    final ownProfiles = await _networkRepository.listOwnedByUser(userId: ownerId);
-    _networkEntriesByOwner[ownerId] =
-        ownProfiles.map((item) => item.toNetworkEntry()).toList();
   }
 
   Future<void> _refreshTeamUkmCaches() async {
@@ -653,6 +871,10 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _ensureSeedForSession(AppSession session) async {
+    if (_useRemoteAuth) {
+      return;
+    }
+
     final existing = await _networkRepository.listOwnedByUser(
       userId: _workflowUserIdForSession(session),
     );
@@ -1423,10 +1645,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _applySignedInUser(AppUser user) async {
-    final session = user.canSwitchRoles && user.availableRoles.isNotEmpty
-        ? AppSession.multiRoleTester(user.availableRoles.first)
-        : AppSession.fromUser(user);
-    await _activateSession(session);
+    await _activateSession(AppSession.fromUser(user));
   }
 
   Future<void> _logoutAsync() async {
@@ -1452,9 +1671,11 @@ class AppController extends ChangeNotifier {
   }) async {
     _session = session;
     await _loadAttendanceData(session);
+    await _loadFaceProfileData(session);
     await _loadWorkflowData(session);
     if (session.role == AppRole.fgg || session.role == AppRole.areaManager) {
       await _loadNetworkEntries(session);
+      await _loadPerformanceSummary(session);
     }
     if (notify) {
       notifyListeners();

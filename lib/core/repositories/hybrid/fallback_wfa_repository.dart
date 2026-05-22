@@ -36,10 +36,10 @@ class FallbackWfaRepository implements WfaRepository {
 
   @override
   Future<WfaRequestRecord> submit(WfaRequestRecord request) async {
-    return _guard(
-      remote: () => _remote.submit(request),
-      local: () => _local.submit(request),
-    );
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.submit(request);
+    }
+    return _remote.submit(request);
   }
 
   @override
@@ -50,21 +50,21 @@ class FallbackWfaRepository implements WfaRepository {
     DateTime? actualEndAt,
     String? note,
   }) async {
-    return _guard(
-      remote: () => _remote.updateStatus(
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.updateStatus(
         requestId: requestId,
         status: status,
         actualStartAt: actualStartAt,
         actualEndAt: actualEndAt,
         note: note,
-      ),
-      local: () => _local.updateStatus(
-        requestId: requestId,
-        status: status,
-        actualStartAt: actualStartAt,
-        actualEndAt: actualEndAt,
-        note: note,
-      ),
+      );
+    }
+    return _remote.updateStatus(
+      requestId: requestId,
+      status: status,
+      actualStartAt: actualStartAt,
+      actualEndAt: actualEndAt,
+      note: note,
     );
   }
 
@@ -73,15 +73,15 @@ class FallbackWfaRepository implements WfaRepository {
     required String requestId,
     required WfaTaskUpdateRecord update,
   }) async {
-    return _guard(
-      remote: () => _remote.appendTaskUpdate(
+    if (mode == WorkflowRepositoryMode.mockOnly) {
+      return _local.appendTaskUpdate(
         requestId: requestId,
         update: update,
-      ),
-      local: () => _local.appendTaskUpdate(
-        requestId: requestId,
-        update: update,
-      ),
+      );
+    }
+    return _remote.appendTaskUpdate(
+      requestId: requestId,
+      update: update,
     );
   }
 

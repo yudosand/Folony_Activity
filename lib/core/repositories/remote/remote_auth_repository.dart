@@ -25,26 +25,15 @@ class RemoteAuthRepository implements AuthRepository {
     }
 
     _client.setAuthToken(token);
-
-    final cachedUser = preferences.getString(_userKey);
-    if (cachedUser != null && cachedUser.isNotEmpty) {
-      try {
-        final json = jsonDecode(cachedUser);
-        if (json is Map<String, dynamic>) {
-          return AppUser.fromJson(json);
-        }
-        if (json is Map) {
-          return AppUser.fromJson(Map<String, dynamic>.from(json));
-        }
-      } catch (_) {
-        // fall back to network fetch below
-      }
+    try {
+      final response = await _client.get('/me');
+      final user = AppUser.fromJson(_unwrapMap(response));
+      await preferences.setString(_userKey, jsonEncode(user.toJson()));
+      return user;
+    } catch (_) {
+      await _clearLocalAuth(preferences);
+      return null;
     }
-
-    final response = await _client.get('/me');
-    final user = AppUser.fromJson(_unwrapMap(response));
-    await preferences.setString(_userKey, jsonEncode(user.toJson()));
-    return user;
   }
 
   @override
@@ -85,6 +74,10 @@ class RemoteAuthRepository implements AuthRepository {
     } catch (_) {
       // clear local state even if remote logout fails
     }
+    await _clearLocalAuth(preferences);
+  }
+
+  Future<void> _clearLocalAuth(SharedPreferences preferences) async {
     _client.setAuthToken(null);
     await preferences.remove(_tokenKey);
     await preferences.remove(_userKey);

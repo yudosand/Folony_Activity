@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Upload\UploadAttachmentRequest;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 class UploadController extends Controller
@@ -15,11 +15,26 @@ class UploadController extends Controller
         $file = $request->file('file');
         $fileId = (string) Str::uuid();
         $directory = 'field-uploads/' . now()->format('Y/m');
-        $path = $file->storeAs(
-            $directory,
-            $fileId . '.' . $file->getClientOriginalExtension(),
-            'public',
-        );
+        $extension = $file->getClientOriginalExtension();
+        $targetFileName = $extension !== ''
+            ? $fileId . '.' . $extension
+            : $fileId;
+        $mimeType = $file->getClientMimeType() ?? 'application/octet-stream';
+        $sizeInBytes = $file->getSize();
+
+        if (class_exists(\finfo::class)) {
+            $path = $file->storeAs(
+                $directory,
+                $targetFileName,
+                'public',
+            );
+        } else {
+            $targetDirectory = storage_path('app/public/' . $directory);
+            File::ensureDirectoryExists($targetDirectory);
+            $file->move($targetDirectory, $targetFileName);
+            $path = $directory . '/' . $targetFileName;
+        }
+
         $publicUrl = $request->getSchemeAndHttpHost() . '/storage/' . ltrim($path, '/');
 
         return response()->json([
@@ -28,12 +43,12 @@ class UploadController extends Controller
                 'file_name' => $request->string('label')->toString() !== ''
                     ? $request->string('label')->toString()
                     : $file->getClientOriginalName(),
-                'mime_type' => $file->getClientMimeType() ?? 'application/octet-stream',
+                'mime_type' => $mimeType,
                 'url' => $publicUrl,
-                'thumbnail_url' => str_starts_with($file->getMimeType() ?? '', 'image/')
+                'thumbnail_url' => str_starts_with($mimeType, 'image/')
                     ? $publicUrl
                     : null,
-                'size_in_bytes' => $file->getSize(),
+                'size_in_bytes' => $sizeInBytes,
             ],
         ], 201);
     }
