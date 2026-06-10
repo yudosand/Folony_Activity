@@ -39,6 +39,7 @@ import '../core/repositories/performance_repository.dart';
 import '../core/repositories/territory_repository.dart';
 import '../core/repositories/upload_repository.dart';
 import '../core/repositories/wfa_repository.dart';
+import '../core/services/push_notification_service.dart';
 import '../features/face/data/face_biometric_analyzer.dart';
 
 class AppController extends ChangeNotifier {
@@ -58,6 +59,7 @@ class AppController extends ChangeNotifier {
     TerritoryRepository? territoryRepository,
     FaceProfileRepository? faceProfileRepository,
     FaceBiometricAnalyzer? faceBiometricAnalyzer,
+    PushNotificationService? pushNotificationService,
     bool useRemoteAuth = false,
     bool allowDemoMode = false,
     bool useCanonicalWorkflowIds = false,
@@ -78,6 +80,7 @@ class AppController extends ChangeNotifier {
             faceProfileRepository ?? MockFaceProfileRepository(),
         _faceBiometricAnalyzer =
             faceBiometricAnalyzer ?? FaceBiometricAnalyzer(),
+        _pushNotificationService = pushNotificationService,
         _useRemoteAuth = useRemoteAuth,
         _allowDemoMode = allowDemoMode,
         _useCanonicalWorkflowIds = useCanonicalWorkflowIds,
@@ -86,6 +89,11 @@ class AppController extends ChangeNotifier {
       _seedDemoFggEntries();
       _seedDemoWorkflowRequests();
     }
+    _pushTokenSubscription = _pushNotificationService?.tokenStream.listen((_) {
+      if (_session != null && _useRemoteAuth) {
+        unawaited(_syncPushTokenRegistration());
+      }
+    });
     unawaited(_restoreSession());
   }
 
@@ -102,6 +110,7 @@ class AppController extends ChangeNotifier {
   final TerritoryRepository _territoryRepository;
   final FaceProfileRepository _faceProfileRepository;
   final FaceBiometricAnalyzer _faceBiometricAnalyzer;
+  final PushNotificationService? _pushNotificationService;
   final bool _useRemoteAuth;
   final bool _allowDemoMode;
   final bool _useCanonicalWorkflowIds;
@@ -124,6 +133,7 @@ class AppController extends ChangeNotifier {
   final Map<String, List<TerritoryOption>> _territoryCityCache = {};
   final Map<String, List<TerritoryOption>> _territoryDistrictCache = {};
   final Map<String, List<TerritoryOption>> _territorySubdistrictCache = {};
+  StreamSubscription<String>? _pushTokenSubscription;
 
   AppSession? get session => _session;
   bool get isAuthenticated => _session != null;
@@ -189,6 +199,23 @@ class AppController extends ChangeNotifier {
       _isAuthenticating = false;
       notifyListeners();
     }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    final authRepository = _authRepository;
+    if (!_useRemoteAuth || authRepository == null) {
+      throw StateError('Ubah password hanya tersedia pada mode staging/backend.');
+    }
+
+    await authRepository.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+      newPasswordConfirmation: newPasswordConfirmation,
+    );
   }
 
   void switchRole(AppRole role) {
@@ -331,6 +358,7 @@ class AppController extends ChangeNotifier {
       status: record.status,
       recordedAt: record.recordedAt,
       location: record.location,
+      metadata: record.metadata,
       verification: record.verification,
       note: record.note,
     );
@@ -410,6 +438,20 @@ class AppController extends ChangeNotifier {
     return result;
   }
 
+  Future<RemoteAttachment> uploadAttachment({
+    required String filePath,
+    required String label,
+  }) async {
+    final attachment = await _uploadAttachmentIfNeeded(
+      filePath: filePath,
+      label: label,
+    );
+    if (attachment == null) {
+      throw StateError('Lampiran tidak berhasil diunggah.');
+    }
+    return attachment;
+  }
+
   Future<void> upsertNetworkEntryForSession(
     AppSession session,
     NetworkEntry entry,
@@ -427,7 +469,9 @@ class AppController extends ChangeNotifier {
         ownerId: _workflowUserIdForSession(session),
       ),
     );
-    if (storedProfile.latitude == null || storedProfile.longitude == null) {
+    if (resolvedEntry.latitude != null &&
+        resolvedEntry.longitude != null &&
+        (storedProfile.latitude == null || storedProfile.longitude == null)) {
       throw StateError(
         'Koordinat belum ikut tersimpan di server. Pastikan izin lokasi aktif lalu coba lagi.',
       );
@@ -490,10 +534,16 @@ class AppController extends ChangeNotifier {
   Future<void> submitLeaveRequest(
     AppSession session,
     leave_model.LeaveRequestRecord request,
+    {String? evidencePath}
   ) async {
+    final uploadedAttachment = await _uploadAttachmentIfNeeded(
+      filePath: evidencePath,
+      label: 'Leave ${request.category.name} ${DateTime.now().toIso8601String()}',
+    );
     final resolvedRequest = request.copyWith(
       requesterId: _workflowUserIdForSession(session),
       requesterName: _workflowUserNameForSession(session),
+      attachments: uploadedAttachment == null ? request.attachments : [uploadedAttachment],
     );
     if (_usesLeaveBalance(resolvedRequest) &&
         resolvedRequest.durationValue > leaveBalanceDaysForSession(session)) {
@@ -1646,15 +1696,49 @@ class AppController extends ChangeNotifier {
 
   Future<void> _applySignedInUser(AppUser user) async {
     await _activateSession(AppSession.fromUser(user));
+    await _syncPushTokenRegistration();
   }
 
   Future<void> _logoutAsync() async {
     final authRepository = _authRepository;
     if (authRepository != null && _useRemoteAuth) {
+      final token = _pushNotificationService?.currentToken;
+      if (token != null && token.isNotEmpty) {
+        try {
+          await authRepository.unregisterPushToken(token: token);
+        } catch (_) {
+          // best effort, keep logout flow running
+        }
+      }
       await authRepository.signOut();
     }
     _session = null;
     notifyListeners();
+  }
+
+  Future<void> _syncPushTokenRegistration() async {
+    final authRepository = _authRepository;
+    final pushNotificationService = _pushNotificationService;
+    if (!_useRemoteAuth || authRepository == null || pushNotificationService == null) {
+      return;
+    }
+
+    final token = await pushNotificationService.ensureToken();
+    if (token == null || token.isEmpty) {
+      return;
+    }
+
+    await authRepository.registerPushToken(
+      token: token,
+      platform: 'android',
+      deviceName: 'android',
+    );
+  }
+
+  @override
+  void dispose() {
+    _pushTokenSubscription?.cancel();
+    super.dispose();
   }
 
   bool _matchesMultiRoleTester({

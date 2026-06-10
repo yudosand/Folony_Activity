@@ -22,7 +22,7 @@ class LeaveMonitoringController extends Controller
         ]);
 
         $query = LeaveRequest::query()
-            ->with('approvalSteps')
+            ->with(['approvalSteps', 'attachments'])
             ->when($filters['search'] ?? null, function ($query, string $search) {
                 $query->where('requester_name', 'like', '%' . $search . '%')
                     ->orWhere('id', 'like', '%' . $search . '%');

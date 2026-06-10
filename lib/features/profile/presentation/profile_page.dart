@@ -48,10 +48,8 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 20),
             Text('Pengaturan Berikutnya', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
-            const _SettingTile(
-              icon: Icons.lock_outline_rounded,
-              title: 'Keamanan akun',
-              subtitle: 'Password, session, dan device binding.',
+            _ChangePasswordTile(
+              controller: controller,
             ),
             const Divider(height: 24),
             const _SettingTile(
@@ -307,16 +305,201 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+class _ChangePasswordTile extends StatefulWidget {
+  const _ChangePasswordTile({
+    required this.controller,
+  });
+
+  final AppController controller;
+
+  @override
+  State<_ChangePasswordTile> createState() => _ChangePasswordTileState();
+}
+
+class _ChangePasswordTileState extends State<_ChangePasswordTile> {
+  bool _isSubmitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingTile(
+      icon: Icons.lock_outline_rounded,
+      title: 'Keamanan akun',
+      subtitle: 'Password, session, dan device binding.',
+      trailing: FilledButton.tonal(
+        onPressed: _isSubmitting ? null : _showChangePasswordDialog,
+        child: Text(_isSubmitting ? 'Memproses...' : 'Ubah Password'),
+      ),
+    );
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool showCurrentPassword = false;
+    bool showNewPassword = false;
+    bool showConfirmPassword = false;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Ubah Password'),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: currentPasswordController,
+                        obscureText: !showCurrentPassword,
+                        decoration: InputDecoration(
+                          labelText: 'Password saat ini',
+                          suffixIcon: IconButton(
+                            onPressed: () => setDialogState(
+                              () => showCurrentPassword = !showCurrentPassword,
+                            ),
+                            icon: Icon(
+                              showCurrentPassword
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                            ),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Password saat ini wajib diisi';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: newPasswordController,
+                        obscureText: !showNewPassword,
+                        decoration: InputDecoration(
+                          labelText: 'Password baru',
+                          suffixIcon: IconButton(
+                            onPressed: () => setDialogState(
+                              () => showNewPassword = !showNewPassword,
+                            ),
+                            icon: Icon(
+                              showNewPassword
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                            ),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Password baru wajib diisi';
+                          }
+                          if (value.trim().length < 6) {
+                            return 'Password baru minimal 6 karakter';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: confirmPasswordController,
+                        obscureText: !showConfirmPassword,
+                        decoration: InputDecoration(
+                          labelText: 'Konfirmasi password baru',
+                          suffixIcon: IconButton(
+                            onPressed: () => setDialogState(
+                              () => showConfirmPassword = !showConfirmPassword,
+                            ),
+                            icon: Icon(
+                              showConfirmPassword
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                            ),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Konfirmasi password wajib diisi';
+                          }
+                          if (value.trim() != newPasswordController.text.trim()) {
+                            return 'Konfirmasi password belum sama';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Batal'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (!formKey.currentState!.validate()) {
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(true);
+                  },
+                  child: const Text('Simpan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await widget.controller.changePassword(
+        currentPassword: currentPasswordController.text.trim(),
+        newPassword: newPasswordController.text.trim(),
+        newPasswordConfirmation: confirmPasswordController.text.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password berhasil diperbarui.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ubah password gagal: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+}
+
 class _SettingTile extends StatelessWidget {
   const _SettingTile({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.trailing,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -342,6 +525,10 @@ class _SettingTile extends StatelessWidget {
             ],
           ),
         ),
+        if (trailing != null) ...[
+          const SizedBox(width: 12),
+          trailing!,
+        ],
       ],
     );
   }

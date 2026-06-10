@@ -33,6 +33,9 @@ class User extends Authenticatable
         'phone_number',
         'area_name',
         'work_location',
+        'office_latitude',
+        'office_longitude',
+        'attendance_radius_meters',
         'territory_scope',
         'territory_province',
         'territory_city',
@@ -74,6 +77,9 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'is_active' => 'boolean',
             'leave_balance_days' => 'decimal:2',
+            'office_latitude' => 'decimal:7',
+            'office_longitude' => 'decimal:7',
+            'attendance_radius_meters' => 'integer',
             'joined_at' => 'date',
             'territory_assignments' => 'array',
             'password' => 'hashed',
@@ -128,5 +134,10 @@ class User extends Authenticatable
     public function performanceTargets(): HasMany
     {
         return $this->hasMany(PerformanceTarget::class, 'user_id');
+    }
+
+    public function pushDeviceTokens(): HasMany
+    {
+        return $this->hasMany(PushDeviceToken::class, 'user_id');
     }
 }

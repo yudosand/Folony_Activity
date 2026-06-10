@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class AttendanceRecord extends Model
+class PushDeviceToken extends Model
 {
     public $incrementing = false;
 
@@ -14,24 +14,18 @@ class AttendanceRecord extends Model
     protected $fillable = [
         'id',
         'user_id',
-        'work_date',
-        'action',
-        'status',
-        'recorded_at',
-        'location',
-        'verification',
-        'metadata',
-        'note',
+        'platform',
+        'token',
+        'token_hash',
+        'device_name',
+        'app_version',
+        'last_seen_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'work_date' => 'date',
-            'recorded_at' => 'datetime',
-            'location' => 'array',
-            'verification' => 'array',
-            'metadata' => 'array',
+            'last_seen_at' => 'datetime',
         ];
     }
 

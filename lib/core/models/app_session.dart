@@ -8,6 +8,10 @@ class AppSession {
     required this.userName,
     required this.phoneNumber,
     required this.areaName,
+    required this.workLocation,
+    required this.officeLatitude,
+    required this.officeLongitude,
+    required this.attendanceRadiusMeters,
     required this.territoryScope,
     required this.territoryProvince,
     required this.territoryCity,
@@ -30,6 +34,10 @@ class AppSession {
   final String userName;
   final String phoneNumber;
   final String areaName;
+  final String? workLocation;
+  final double? officeLatitude;
+  final double? officeLongitude;
+  final int? attendanceRadiusMeters;
   final String? territoryScope;
   final String? territoryProvince;
   final String? territoryCity;
@@ -61,6 +69,10 @@ class AppSession {
           : role.mockUserName,
       phoneNumber: '081234567890',
       areaName: role.defaultArea,
+      workLocation: role.defaultArea,
+      officeLatitude: null,
+      officeLongitude: null,
+      attendanceRadiusMeters: null,
       territoryScope: null,
       territoryProvince: null,
       territoryCity: role.defaultArea,
@@ -105,6 +117,10 @@ class AppSession {
       userName: user.fullName,
       phoneNumber: user.phoneNumber,
       areaName: user.areaName,
+      workLocation: user.workLocation,
+      officeLatitude: user.officeLatitude,
+      officeLongitude: user.officeLongitude,
+      attendanceRadiusMeters: user.attendanceRadiusMeters,
       territoryScope: user.territoryScope,
       territoryProvince: user.territoryProvince,
       territoryCity: user.territoryCity,
@@ -150,6 +166,10 @@ class AppSession {
     String? userName,
     String? phoneNumber,
     String? areaName,
+    String? workLocation,
+    double? officeLatitude,
+    double? officeLongitude,
+    int? attendanceRadiusMeters,
     String? territoryScope,
     String? territoryProvince,
     String? territoryCity,
@@ -172,6 +192,11 @@ class AppSession {
       userName: userName ?? this.userName,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       areaName: areaName ?? this.areaName,
+      workLocation: workLocation ?? this.workLocation,
+      officeLatitude: officeLatitude ?? this.officeLatitude,
+      officeLongitude: officeLongitude ?? this.officeLongitude,
+      attendanceRadiusMeters:
+          attendanceRadiusMeters ?? this.attendanceRadiusMeters,
       territoryScope: territoryScope ?? this.territoryScope,
       territoryProvince: territoryProvince ?? this.territoryProvince,
       territoryCity: territoryCity ?? this.territoryCity,

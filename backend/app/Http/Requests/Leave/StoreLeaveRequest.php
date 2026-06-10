@@ -24,6 +24,13 @@ class StoreLeaveRequest extends FormRequest
             'duration_value' => ['required', 'numeric', 'gt:0'],
             'reason' => ['required', 'string'],
             'delegate_to' => ['nullable', 'string'],
+            'attachments' => ['required', 'array', 'min:1'],
+            'attachments.*.id' => ['required', 'string'],
+            'attachments.*.file_name' => ['required', 'string'],
+            'attachments.*.mime_type' => ['required', 'string'],
+            'attachments.*.url' => ['required', 'string'],
+            'attachments.*.thumbnail_url' => ['nullable', 'string'],
+            'attachments.*.size_in_bytes' => ['nullable', 'integer'],
             'note' => ['nullable', 'string'],
         ];
     }

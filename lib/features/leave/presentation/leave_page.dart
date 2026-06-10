@@ -1,10 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../app/app_controller.dart';
 import '../../../core/enums/app_role.dart';
 import '../../../core/models/app_session.dart';
 import '../../../core/models/approval_step.dart';
 import '../../../core/models/leave_request_record.dart' as leave_model;
+import '../../../core/models/remote_attachment.dart';
 import '../../../core/widgets/approval_step_list.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -24,6 +28,7 @@ class LeavePage extends StatefulWidget {
 }
 
 class _LeavePageState extends State<LeavePage> {
+  final ImagePicker _picker = ImagePicker();
   final _formKey = GlobalKey<FormState>();
   final _startDateController = TextEditingController();
   final _endDateController = TextEditingController();
@@ -39,6 +44,7 @@ class _LeavePageState extends State<LeavePage> {
   bool _isSubmitting = false;
   DateTime? _selectedStartDate;
   DateTime? _selectedEndDate;
+  String? _evidencePhotoPath;
 
   List<LeaveRequest> get _requests => widget.controller
       .leaveRequestsForSession(widget.session)
@@ -186,6 +192,15 @@ class _LeavePageState extends State<LeavePage> {
             hint: 'Nama pengganti tugas',
             required: true,
           ),
+          const Divider(height: 24),
+          _EvidenceInput(
+            photoPath: _evidencePhotoPath,
+            onCamera: () => _pickEvidence(ImageSource.camera),
+            onGallery: () => _pickEvidence(ImageSource.gallery),
+            onRemove: _evidencePhotoPath == null
+                ? null
+                : () => setState(() => _evidencePhotoPath = null),
+          ),
           if (_showSpvField) ...[
             const Divider(height: 24),
             _SelectionLine<String>(
@@ -281,6 +296,12 @@ class _LeavePageState extends State<LeavePage> {
       );
       return;
     }
+    if (_evidencePhotoPath == null || _evidencePhotoPath!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bukti dokumentasi wajib diunggah.')),
+      );
+      return;
+    }
 
     final now = DateTime.now();
     final request = leave_model.LeaveRequestRecord(
@@ -301,13 +322,18 @@ class _LeavePageState extends State<LeavePage> {
           : leave_model.WorkflowStatus.pending,
       approvalSteps: _approvalStepsForRequest,
       submittedAt: now,
+      attachments: const [],
       note:
           'Pengajuan ${_selectedRequestType.label.toLowerCase()} dibuat user dan menunggu approval berikutnya.',
     );
 
     setState(() => _isSubmitting = true);
     try {
-      await widget.controller.submitLeaveRequest(widget.session, request);
+      await widget.controller.submitLeaveRequest(
+        widget.session,
+        request,
+        evidencePath: _evidencePhotoPath,
+      );
       if (!mounted) {
         return;
       }
@@ -356,6 +382,21 @@ class _LeavePageState extends State<LeavePage> {
     _selectedManagement = widget.session.defaultManagement;
     _selectedStartDate = null;
     _selectedEndDate = null;
+    _evidencePhotoPath = null;
+  }
+
+  Future<void> _pickEvidence(ImageSource source) async {
+    final file = await _picker.pickImage(
+      source: source,
+      imageQuality: 58,
+      maxWidth: 1280,
+      maxHeight: 1280,
+    );
+    if (!mounted || file == null) {
+      return;
+    }
+
+    setState(() => _evidencePhotoPath = file.path);
   }
 
   Future<void> _pickStartDate() async {
@@ -506,6 +547,7 @@ class _LeavePageState extends State<LeavePage> {
       compensationType: record.compensationOption.toUiCompensation(),
       status: record.status.toUiStatus(),
       detailNote: record.note ?? '-',
+      attachments: record.attachments,
       spvName: _approverNameForRole(record.approvalSteps, AppRole.spv),
       managementName: _approverNameForRole(
         record.approvalSteps,
@@ -618,6 +660,15 @@ class _LeavePageState extends State<LeavePage> {
                     label: 'Catatan',
                     value: request.detailNote,
                   ),
+                  if (request.attachments.isNotEmpty) ...[
+                    const Divider(height: 24),
+                    _DetailLine(
+                      label: 'Bukti',
+                      value: request.attachments
+                          .map((item) => item.fileName)
+                          .join(', '),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -776,6 +827,92 @@ class _TextInput extends StatelessWidget {
   }
 }
 
+class _EvidenceInput extends StatelessWidget {
+  const _EvidenceInput({
+    required this.photoPath,
+    required this.onCamera,
+    required this.onGallery,
+    required this.onRemove,
+  });
+
+  final String? photoPath;
+  final VoidCallback onCamera;
+  final VoidCallback onGallery;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final path = photoPath;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Text(
+              'Bukti *',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onCamera,
+                    icon: const Icon(Icons.photo_camera_rounded),
+                    label: const Text('Kamera'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onGallery,
+                    icon: const Icon(Icons.photo_library_rounded),
+                    label: const Text('Galeri'),
+                  ),
+                  if (onRemove != null)
+                    TextButton.icon(
+                      onPressed: onRemove,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      label: const Text('Hapus'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (path == null)
+                Text(
+                  'Foto bukti wajib diisi agar HR bisa melihat dokumentasi pengajuan.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                )
+              else
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.file(
+                    File(path),
+                    height: 140,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SummaryLine extends StatelessWidget {
   const _SummaryLine({
     required this.label,
@@ -920,6 +1057,7 @@ class LeaveRequest {
     required this.status,
     required this.detailNote,
     required this.approvalSteps,
+    required this.attachments,
     this.spvName,
     this.managementName,
   });
@@ -933,6 +1071,7 @@ class LeaveRequest {
   final LeaveStatus status;
   final String detailNote;
   final List<ApprovalStep> approvalSteps;
+  final List<RemoteAttachment> attachments;
   final String? spvName;
   final String? managementName;
 }

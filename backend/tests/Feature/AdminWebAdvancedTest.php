@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AppSetting;
 use App\Models\User;
 use App\Models\LeaveRequest;
 use App\Models\NetworkFollowUp;
@@ -213,6 +214,14 @@ class AdminWebAdvancedTest extends TestCase
             'duration_value' => 2,
             'reason' => 'Cuti sinkron admin HR',
             'delegate_to' => 'Rekan Tim Operasional',
+            'attachments' => [[
+                'id' => 'leave_attachment_admin_sync_001',
+                'file_name' => 'bukti-cuti.jpg',
+                'mime_type' => 'image/jpeg',
+                'url' => 'https://cdn.example.test/bukti-cuti.jpg',
+                'thumbnail_url' => 'https://cdn.example.test/bukti-cuti-thumb.jpg',
+                'size_in_bytes' => 130045,
+            ]],
         ])->assertCreated();
 
         $this->postJson('/api/attendance/check-in', [
@@ -221,8 +230,8 @@ class AdminWebAdvancedTest extends TestCase
             'recorded_at' => now()->addDays(5)->setTime(8, 31)->toIso8601String(),
             'status' => 'success',
             'location' => [
-                'latitude' => -6.2,
-                'longitude' => 106.8166,
+                'latitude' => -6.1596929,
+                'longitude' => 106.8180445,
                 'recorded_at' => now()->addDays(5)->setTime(8, 31)->toIso8601String(),
                 'address_label' => 'Gudang Barat',
             ],
@@ -245,8 +254,8 @@ class AdminWebAdvancedTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('Gudang Barat')
-            ->assertSee('-6.200000, 106.816600')
-            ->assertSee('https://www.google.com/maps?q=-6.2,106.8166', false)
+            ->assertSee('-6.159693, 106.818045')
+            ->assertSee('https://www.google.com/maps?q=-6.1596929,106.8180445', false)
             ->assertSee('Terlambat 1 menit dari jadwal 08:30.')
             ->assertSee('Terverifikasi');
 
@@ -254,9 +263,9 @@ class AdminWebAdvancedTest extends TestCase
             ->get(route('admin.employees.show', $staff))
             ->assertOk()
             ->assertSee('Gudang Barat')
-            ->assertSee('-6.200000, 106.816600')
+            ->assertSee('-6.159693, 106.818045')
             ->assertSee('Terlambat 1 menit dari jadwal 08:30.')
-            ->assertSee('https://www.google.com/maps?q=-6.2,106.8166', false);
+            ->assertSee('https://www.google.com/maps?q=-6.1596929,106.8180445', false);
     }
 
     public function test_hr_can_export_employee_csv(): void
@@ -499,6 +508,38 @@ class AdminWebAdvancedTest extends TestCase
             ->assertSee('WFA review laporan')
             ->assertSee('04 May 2026')
             ->assertSee('Tidak ada absensi');
+    }
+
+    public function test_hr_can_view_and_update_global_office_attendance_setting(): void
+    {
+        $this->actingAs($this->hr)
+            ->get(route('admin.attendance.index'))
+            ->assertOk()
+            ->assertSee('Pengaturan Kantor Absensi')
+            ->assertSee('-6.1596928900889')
+            ->assertSee('106.81804453791')
+            ->assertSee('1000');
+
+        $this->actingAs($this->hr)
+            ->post(route('admin.attendance.office-setting.update'), [
+                'office_latitude' => '-6.1700000',
+                'office_longitude' => '106.8200000',
+                'attendance_radius_meters' => '1500',
+            ])
+            ->assertRedirect(route('admin.attendance.index'));
+
+        $this->assertDatabaseHas('app_settings', [
+            'key' => 'attendance.office_latitude',
+            'value' => '-6.17',
+        ]);
+        $this->assertDatabaseHas('app_settings', [
+            'key' => 'attendance.office_longitude',
+            'value' => '106.82',
+        ]);
+        $this->assertDatabaseHas('app_settings', [
+            'key' => 'attendance.office_radius_meters',
+            'value' => '1500',
+        ]);
     }
 
     public function test_hr_can_see_network_activity_recap_for_owner_and_period(): void

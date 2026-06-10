@@ -2,7 +2,9 @@ import 'remote_attachment.dart';
 
 enum AttendanceAction {
   checkIn,
-  checkOut;
+  checkOut,
+  outsideOfficeStart,
+  outsideOfficeFinish;
 }
 
 enum AttendanceRecordStatus {
@@ -102,6 +104,7 @@ class AttendanceRecord {
     required this.status,
     required this.recordedAt,
     required this.location,
+    this.metadata,
     this.verification,
     this.note,
   });
@@ -113,6 +116,7 @@ class AttendanceRecord {
   final AttendanceRecordStatus status;
   final DateTime recordedAt;
   final AttendanceLocationRecord location;
+  final AttendanceMetadata? metadata;
   final FaceVerificationRecord? verification;
   final String? note;
 
@@ -133,6 +137,11 @@ class AttendanceRecord {
       location: AttendanceLocationRecord.fromJson(
         json['location'] as Map<String, dynamic>? ?? const {},
       ),
+      metadata: json['metadata'] is Map<String, dynamic>
+          ? AttendanceMetadata.fromJson(
+              json['metadata'] as Map<String, dynamic>,
+            )
+          : null,
       verification: json['verification'] is Map<String, dynamic>
           ? FaceVerificationRecord.fromJson(
               json['verification'] as Map<String, dynamic>,
@@ -151,8 +160,69 @@ class AttendanceRecord {
       'status': status.name,
       'recorded_at': recordedAt.toIso8601String(),
       'location': location.toJson(),
+      'metadata': metadata?.toJson(),
       'verification': verification?.toJson(),
       'note': note,
+    };
+  }
+}
+
+class AttendanceMetadata {
+  const AttendanceMetadata({
+    this.attendanceMode,
+    this.placeDescription,
+    this.ukmName,
+    this.reportType,
+    this.reportText,
+    this.evidenceAttachment,
+    this.startedAt,
+    this.finishedAt,
+    this.startRecordId,
+    this.durationMinutes,
+  });
+
+  final String? attendanceMode;
+  final String? placeDescription;
+  final String? ukmName;
+  final String? reportType;
+  final String? reportText;
+  final RemoteAttachment? evidenceAttachment;
+  final DateTime? startedAt;
+  final DateTime? finishedAt;
+  final String? startRecordId;
+  final int? durationMinutes;
+
+  factory AttendanceMetadata.fromJson(Map<String, dynamic> json) {
+    return AttendanceMetadata(
+      attendanceMode: json['attendance_mode'] as String?,
+      placeDescription: json['place_description'] as String?,
+      ukmName: json['ukm_name'] as String?,
+      reportType: json['report_type'] as String?,
+      reportText: json['report_text'] as String?,
+      evidenceAttachment: json['evidence_attachment'] is Map<String, dynamic>
+          ? RemoteAttachment.fromJson(
+              json['evidence_attachment'] as Map<String, dynamic>,
+            )
+          : null,
+      startedAt: _optionalDateTime(json['started_at']),
+      finishedAt: _optionalDateTime(json['finished_at']),
+      startRecordId: json['start_record_id'] as String?,
+      durationMinutes: (json['duration_minutes'] as num?)?.toInt(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'attendance_mode': attendanceMode,
+      'place_description': placeDescription,
+      'ukm_name': ukmName,
+      'report_type': reportType,
+      'report_text': reportText,
+      'evidence_attachment': evidenceAttachment?.toJson(),
+      'started_at': startedAt?.toIso8601String(),
+      'finished_at': finishedAt?.toIso8601String(),
+      'start_record_id': startRecordId,
+      'duration_minutes': durationMinutes,
     };
   }
 }
@@ -165,4 +235,11 @@ DateTime _requiredDateTime(Object? value) {
     }
   }
   return DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+DateTime? _optionalDateTime(Object? value) {
+  if (value is String) {
+    return DateTime.tryParse(value)?.toLocal();
+  }
+  return null;
 }

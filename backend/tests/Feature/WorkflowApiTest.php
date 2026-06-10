@@ -26,6 +26,14 @@ class WorkflowApiTest extends TestCase
             'duration_value' => 1,
             'reason' => 'Kontrol kesehatan keluarga',
             'delegate_to' => 'Tim Operasional',
+            'attachments' => [[
+                'id' => 'leave_workflow_attachment_001',
+                'file_name' => 'kontrol-kesehatan.jpg',
+                'mime_type' => 'image/jpeg',
+                'url' => 'https://cdn.example.test/kontrol-kesehatan.jpg',
+                'thumbnail_url' => 'https://cdn.example.test/kontrol-kesehatan-thumb.jpg',
+                'size_in_bytes' => 88000,
+            ]],
         ]);
 
         $response

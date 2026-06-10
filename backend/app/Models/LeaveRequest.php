@@ -50,4 +50,11 @@ class LeaveRequest extends Model
             ->where('module', 'leave')
             ->orderBy('sequence');
     }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(Attachment::class, 'reference_id', 'id')
+            ->where('module', 'leave')
+            ->orderBy('created_at');
+    }
 }

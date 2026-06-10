@@ -39,6 +39,7 @@
                     <th>Periode</th>
                     <th>Durasi</th>
                     <th>Status</th>
+                    <th>Bukti</th>
                     <th>Alur Approval</th>
                 </tr>
                 </thead>
@@ -55,6 +56,17 @@
                         <td><span class="pill">{{ $request->status }}</span></td>
                         <td>
                             <div class="grid" style="gap:8px;">
+                                @forelse($request->attachments as $attachment)
+                                    <a class="attachment-link" href="{{ $attachment->url }}" target="_blank" rel="noreferrer">
+                                        {{ $attachment->file_name }}
+                                    </a>
+                                @empty
+                                    <span class="muted">Belum ada bukti</span>
+                                @endforelse
+                            </div>
+                        </td>
+                        <td>
+                            <div class="grid" style="gap:8px;">
                                 @forelse($request->approvalSteps as $step)
                                     <span class="pill {{ $step->status === 'approved' ? 'success' : ($step->status === 'rejected' ? 'danger' : 'warning') }}">
                                         {{ strtoupper($step->approver_role) }} &middot; {{ $step->status }}
@@ -66,7 +78,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="muted">Belum ada data pengajuan cuti.</td></tr>
+                    <tr><td colspan="6" class="muted">Belum ada data pengajuan cuti.</td></tr>
                 @endforelse
                 </tbody>
             </table>

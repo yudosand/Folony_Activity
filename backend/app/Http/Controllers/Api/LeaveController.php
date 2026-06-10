@@ -22,7 +22,7 @@ class LeaveController extends Controller
     {
         $requester = $request->user();
         $query = LeaveRequest::query()
-            ->with('approvalSteps')
+            ->with(['approvalSteps', 'attachments'])
             ->orderByDesc('submitted_at');
 
         if ($requester != null) {

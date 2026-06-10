@@ -7,6 +7,10 @@ class AppUser {
     required this.fullName,
     required this.phoneNumber,
     required this.areaName,
+    required this.workLocation,
+    required this.officeLatitude,
+    required this.officeLongitude,
+    required this.attendanceRadiusMeters,
     required this.territoryScope,
     required this.territoryProvince,
     required this.territoryCity,
@@ -30,6 +34,10 @@ class AppUser {
   final String fullName;
   final String phoneNumber;
   final String areaName;
+  final String? workLocation;
+  final double? officeLatitude;
+  final double? officeLongitude;
+  final int? attendanceRadiusMeters;
   final String? territoryScope;
   final String? territoryProvince;
   final String? territoryCity;
@@ -57,6 +65,10 @@ class AppUser {
       fullName: json['full_name'] as String? ?? '',
       phoneNumber: json['phone_number'] as String? ?? '',
       areaName: json['area_name'] as String? ?? '',
+      workLocation: json['work_location'] as String?,
+      officeLatitude: (json['office_latitude'] as num?)?.toDouble(),
+      officeLongitude: (json['office_longitude'] as num?)?.toDouble(),
+      attendanceRadiusMeters: (json['attendance_radius_meters'] as num?)?.toInt(),
       territoryScope: json['territory_scope'] as String?,
       territoryProvince: json['territory_province'] as String?,
       territoryCity: json['territory_city'] as String?,
@@ -86,6 +98,10 @@ class AppUser {
       'full_name': fullName,
       'phone_number': phoneNumber,
       'area_name': areaName,
+      'work_location': workLocation,
+      'office_latitude': officeLatitude,
+      'office_longitude': officeLongitude,
+      'attendance_radius_meters': attendanceRadiusMeters,
       'territory_scope': territoryScope,
       'territory_province': territoryProvince,
       'territory_city': territoryCity,
@@ -112,6 +128,10 @@ class AppUser {
     String? fullName,
     String? phoneNumber,
     String? areaName,
+    String? workLocation,
+    double? officeLatitude,
+    double? officeLongitude,
+    int? attendanceRadiusMeters,
     String? territoryScope,
     String? territoryProvince,
     String? territoryCity,
@@ -135,6 +155,11 @@ class AppUser {
       fullName: fullName ?? this.fullName,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       areaName: areaName ?? this.areaName,
+      workLocation: workLocation ?? this.workLocation,
+      officeLatitude: officeLatitude ?? this.officeLatitude,
+      officeLongitude: officeLongitude ?? this.officeLongitude,
+      attendanceRadiusMeters:
+          attendanceRadiusMeters ?? this.attendanceRadiusMeters,
       territoryScope: territoryScope ?? this.territoryScope,
       territoryProvince: territoryProvince ?? this.territoryProvince,
       territoryCity: territoryCity ?? this.territoryCity,

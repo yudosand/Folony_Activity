@@ -67,6 +67,52 @@ class RemoteAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {
+    await _client.post(
+      '/auth/change-password',
+      body: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+        'new_password_confirmation': newPasswordConfirmation,
+      },
+    );
+  }
+
+  @override
+  Future<void> registerPushToken({
+    required String token,
+    required String platform,
+    String? deviceName,
+    String? appVersion,
+  }) async {
+    await _client.post(
+      '/devices/push-token',
+      body: {
+        'token': token,
+        'platform': platform,
+        'device_name': deviceName,
+        'app_version': appVersion,
+      },
+    );
+  }
+
+  @override
+  Future<void> unregisterPushToken({
+    required String token,
+  }) async {
+    await _client.delete(
+      '/devices/push-token',
+      queryParameters: {
+        'token': token,
+      },
+    );
+  }
+
+  @override
   Future<void> signOut() async {
     final preferences = await SharedPreferences.getInstance();
     try {

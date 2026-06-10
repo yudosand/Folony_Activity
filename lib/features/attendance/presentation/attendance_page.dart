@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../app/app_controller.dart';
 import '../../../core/models/app_session.dart';
@@ -28,9 +29,11 @@ class AttendancePage extends StatefulWidget {
 }
 
 class _AttendancePageState extends State<AttendancePage> {
+  final ImagePicker _picker = ImagePicker();
   String? _locationError;
   bool _gpsActive = true;
   bool _isVerifyingFace = false;
+  bool _isOutsideOfficeSubmitting = false;
 
   List<AttendanceRecord> get _todayRecords {
     final now = DateTime.now();
@@ -84,11 +87,15 @@ class _AttendancePageState extends State<AttendancePage> {
       _AttendanceSessionState.fromRecords(_statusRecords);
 
   AttendanceRecord? get _checkInRecord {
-    return _sessionState.displayCheckIn;
+    return _hasActiveOutsideOffice || _sessionState.latestCompletedOutsideOfficeFinish != null
+        ? _sessionState.displayOutsideOfficeStart
+        : _sessionState.displayCheckIn;
   }
 
   AttendanceRecord? get _checkOutRecord {
-    return _sessionState.displayCheckOut;
+    return _hasActiveOutsideOffice || _sessionState.latestCompletedOutsideOfficeFinish != null
+        ? _sessionState.displayOutsideOfficeFinish
+        : _sessionState.displayCheckOut;
   }
 
   AttendanceRecord? get _latestRecord {
@@ -111,9 +118,14 @@ class _AttendancePageState extends State<AttendancePage> {
   List<_AttendanceEvent> get _events =>
       _statusRecords.map(_mapEventFromRecord).toList();
 
-  bool get _isCheckedIn => _sessionState.activeCheckIn != null;
+  bool get _isCheckedIn => _sessionState.activeRegularCheckIn != null;
+  bool get _hasActiveOutsideOffice =>
+      _sessionState.activeOutsideOfficeStart != null;
   bool get _isFinished =>
-      !_isCheckedIn && _sessionState.latestCompletedCheckOut != null;
+      !_isCheckedIn &&
+      !_hasActiveOutsideOffice &&
+      (_sessionState.latestCompletedCheckOut != null ||
+          _sessionState.latestCompletedOutsideOfficeFinish != null);
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +136,11 @@ class _AttendancePageState extends State<AttendancePage> {
         final insight = _attendanceInsight;
         final status = _isFinished
             ? const StatusBadge(label: 'Selesai', color: Colors.green)
+            : _hasActiveOutsideOffice
+                ? const StatusBadge(
+                    label: 'Kunjungan Aktif',
+                    color: Colors.deepOrange,
+                  )
             : _isCheckedIn
                 ? const StatusBadge(label: 'Aktif', color: Colors.orange)
                 : const StatusBadge(label: 'Belum check-in', color: Colors.blue);
@@ -194,7 +211,10 @@ class _AttendancePageState extends State<AttendancePage> {
                 const Divider(height: 24),
               ],
               _MetricLine(
-                label: 'Check-in',
+                label: _hasActiveOutsideOffice ||
+                        _sessionState.latestCompletedOutsideOfficeFinish != null
+                    ? 'Mulai Kunjungan'
+                    : 'Check-in',
                 value: _formatTime(_checkInRecord?.recordedAt),
                 note: insight.arrivalNote,
               ),
@@ -207,8 +227,14 @@ class _AttendancePageState extends State<AttendancePage> {
               const Divider(height: 24),
               _MetricLine(
                 label: 'Rule Hari Ini',
-                value: insight.summaryLabel,
-                note: insight.departureNote,
+                value: _hasActiveOutsideOffice ||
+                        _sessionState.latestCompletedOutsideOfficeFinish != null
+                    ? 'Absensi luar kantor'
+                    : insight.summaryLabel,
+                note: _hasActiveOutsideOffice ||
+                        _sessionState.latestCompletedOutsideOfficeFinish != null
+                    ? _outsideOfficeSummaryNote
+                    : insight.departureNote,
               ),
               const Divider(height: 24),
               _MetricLine(
@@ -260,7 +286,9 @@ class _AttendancePageState extends State<AttendancePage> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: _isCheckedIn ? null : _toggleGps,
+                onPressed: (_isCheckedIn || _hasActiveOutsideOffice)
+                    ? null
+                    : _toggleGps,
                 child: Text(_gpsActive ? 'GPS Aktif' : 'GPS Nonaktif'),
               ),
             ),
@@ -273,6 +301,19 @@ class _AttendancePageState extends State<AttendancePage> {
             ),
           ],
         ),
+        if (!_isCheckedIn && !_hasActiveOutsideOffice) ...[
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            onPressed:
+                _isOutsideOfficeSubmitting ? null : _startOutsideOfficeAttendance,
+            icon: const Icon(Icons.storefront_rounded),
+            label: Text(
+              _isOutsideOfficeSubmitting
+                  ? 'Memproses...'
+                  : 'Absensi diluar kantor',
+            ),
+          ),
+        ],
         if (_isVerifyingFace) ...[
           const SizedBox(height: 12),
           Row(
@@ -348,6 +389,10 @@ class _AttendancePageState extends State<AttendancePage> {
             _RuleTile(
               text: 'Capture wajah dan lokasi menjadi audit mock absensi.',
             ),
+            SizedBox(height: 10),
+            _RuleTile(
+              text: 'Area Manager juga bisa memakai absensi luar kantor untuk kunjungan client atau lokasi visit.',
+            ),
           ],
         ),
           ],
@@ -357,8 +402,11 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   VoidCallback? get _primaryAction {
-    if (_isVerifyingFace) {
+    if (_isVerifyingFace || _isOutsideOfficeSubmitting) {
       return null;
+    }
+    if (_hasActiveOutsideOffice) {
+      return _finishOutsideOfficeAttendance;
     }
     if (_isCheckedIn) {
       return _startFaceCheckOut;
@@ -367,8 +415,11 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   String get _primaryActionLabel {
-    if (_isVerifyingFace) {
+    if (_isVerifyingFace || _isOutsideOfficeSubmitting) {
       return 'Memproses...';
+    }
+    if (_hasActiveOutsideOffice) {
+      return 'Check-out luar kantor';
     }
     if (_isCheckedIn) {
       return 'Face Check-out';
@@ -379,13 +430,13 @@ class _AttendancePageState extends State<AttendancePage> {
   String get _durationText {
     final checkInAt = _checkInRecord?.recordedAt;
     final checkOutAt = _checkOutRecord?.recordedAt;
+    if (_hasActiveOutsideOffice && checkInAt != null) {
+      return _formatDuration(DateTime.now().difference(checkInAt));
+    }
     if (checkInAt == null || checkOutAt == null) {
       return '-';
     }
-    final duration = checkOutAt.difference(checkInAt);
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    return '${hours}j ${minutes}m';
+    return _formatDuration(checkOutAt.difference(checkInAt));
   }
 
   String get _locationMetricValue {
@@ -415,6 +466,9 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   String? get _sessionSummary {
+    if (_hasActiveOutsideOffice) {
+      return 'Absensi luar kantor aktif. Lanjutkan dengan check-out luar kantor saat aktivitas selesai.';
+    }
     if (_isFinished) {
       return 'Check-out berhasil. Anda bisa memulai sesi check-in baru kapan saja.';
     }
@@ -425,6 +479,14 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   String get _sessionSubSummary {
+    if (_hasActiveOutsideOffice) {
+      final metadata = _sessionState.activeOutsideOfficeStart?.metadata;
+      final placeDescription = metadata?.placeDescription;
+      if (placeDescription != null && placeDescription.isNotEmpty) {
+        return 'Aktivitas luar kantor aktif untuk $placeDescription. Lokasi audit terakhir: $_locationMetricValue.';
+      }
+      return 'Absensi luar kantor sedang aktif. Lengkapi check-out luar kantor saat aktivitas selesai.';
+    }
     if (_isFinished) {
       return 'Durasi sesi terakhir tersimpan $_durationText dengan lokasi audit $_locationMetricValue.';
     }
@@ -432,6 +494,18 @@ class _AttendancePageState extends State<AttendancePage> {
       return 'Lokasi audit terakhir: $_locationMetricValue. Rekomendasi masuk esok hari ${_attendanceInsight.nextStartRecommendation}.';
     }
     return 'Lokasi audit terakhir: $_locationMetricValue.';
+  }
+
+  String get _outsideOfficeSummaryNote {
+    final metadata = _sessionState.activeOutsideOfficeStart?.metadata ??
+        _sessionState.latestCompletedOutsideOfficeFinish?.metadata ??
+        _sessionState.latestCompletedOutsideOfficeStart?.metadata;
+    if (metadata == null) {
+      return 'Lokasi, foto, dan ringkasan kunjungan disimpan sebagai audit lapangan.';
+    }
+
+    final subject = metadata.placeDescription ?? metadata.ukmName ?? 'aktivitas lapangan';
+    return 'Audit luar kantor untuk $subject.';
   }
 
   void _toggleGps() {
@@ -628,6 +702,8 @@ class _AttendancePageState extends State<AttendancePage> {
           longitude: location.longitude,
           recordedAt: now,
           addressLabel: location.label,
+          radiusMeters: location.radiusMeters,
+          withinRadius: location.withinRadius,
         ),
         verification: FaceVerificationRecord(
           verifiedAt: now,
@@ -668,6 +744,8 @@ class _AttendancePageState extends State<AttendancePage> {
           longitude: location.longitude,
           recordedAt: now,
           addressLabel: location.label,
+          radiusMeters: location.radiusMeters,
+          withinRadius: location.withinRadius,
         ),
         verification: FaceVerificationRecord(
           verifiedAt: now,
@@ -686,6 +764,385 @@ class _AttendancePageState extends State<AttendancePage> {
     }
     _showAttendanceSnackBar(
       'Check-out berhasil disimpan. ${_verificationSummary(verificationResult)}',
+    );
+  }
+
+  Future<void> _startOutsideOfficeAttendance() async {
+    final enrollmentBlock = _faceEnrollmentBlockReason(
+      'memulai absensi luar kantor',
+    );
+    if (enrollmentBlock != null) {
+      _showAttendanceSnackBar(enrollmentBlock);
+      return;
+    }
+
+    bool shouldOpenFinishSheet = false;
+
+    setState(() {
+      _isOutsideOfficeSubmitting = true;
+      _locationError = null;
+    });
+
+    try {
+      final faceScanResult = await _runFaceVerification(
+        mode: _FaceVerificationMode.checkIn,
+      );
+      if (faceScanResult == null || !mounted) {
+        return;
+      }
+
+      final primaryCapturePath = faceScanResult.primaryCapturePath;
+      if (primaryCapturePath == null || primaryCapturePath.isEmpty) {
+        _showAttendanceSnackBar(
+          'Capture wajah belum berhasil dibuat. Coba scan sekali lagi.',
+        );
+        return;
+      }
+
+      final verificationResult = await widget.controller.verifyFaceForSession(
+        widget.session,
+        action: 'checkIn',
+        capturePath: primaryCapturePath,
+        livenessScore: faceScanResult.livenessScore,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      if (!verificationResult.verified) {
+        _showAttendanceSnackBar(
+          _verificationRejectedMessage(verificationResult),
+        );
+        return;
+      }
+
+      final location = await _recordCurrentLocation(
+        mode: _FaceVerificationMode.checkIn,
+      );
+      if (location == null || !mounted) {
+        return;
+      }
+
+      final result = await _showOutsideOfficeFormSheet(
+        title: 'Check-in luar kantor',
+        submitLabel: 'Simpan check-in',
+      );
+      if (!mounted || result == null) {
+        return;
+      }
+
+      final attachment = await widget.controller.uploadAttachment(
+        filePath: result.evidencePath,
+        label: 'Outside office start ${result.placeDescription}',
+      );
+
+      final now = DateTime.now();
+      await widget.controller.createAttendanceRecord(
+        widget.session,
+        AttendanceRecord(
+          id: 'attendance-outside-start-${widget.session.ownerKey}-${now.microsecondsSinceEpoch}',
+          userId: widget.session.ownerKey,
+          workDate: DateTime(now.year, now.month, now.day),
+          action: AttendanceAction.outsideOfficeStart,
+          status: AttendanceRecordStatus.success,
+          recordedAt: now,
+          location: AttendanceLocationRecord(
+            latitude: location.latitude,
+            longitude: location.longitude,
+            recordedAt: now,
+            addressLabel: location.label,
+          ),
+          verification: FaceVerificationRecord(
+            verifiedAt: now,
+            decision: verificationResult.decision,
+            matchScore: verificationResult.matchScore,
+            livenessScore: verificationResult.livenessScore,
+            capture: verificationResult.capture,
+            note: verificationResult.note,
+          ),
+          metadata: AttendanceMetadata(
+            attendanceMode: 'outside_office',
+            placeDescription: result.placeDescription,
+            evidenceAttachment: attachment,
+            startedAt: now,
+          ),
+          note:
+              'Absensi luar kantor dimulai untuk ${result.placeDescription} setelah wajah terverifikasi dan lokasi ${location.label} tercatat.',
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+      _showAttendanceSnackBar(
+        'Check-in luar kantor berhasil disimpan. ${_verificationSummary(verificationResult)}',
+      );
+      shouldOpenFinishSheet = false;
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showAttendanceSnackBar('Absensi luar kantor gagal: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _isOutsideOfficeSubmitting = false);
+      }
+    }
+
+    if (mounted && shouldOpenFinishSheet) {
+      await _finishOutsideOfficeAttendance();
+    }
+  }
+
+  Future<void> _finishOutsideOfficeAttendance() async {
+    final enrollmentBlock = _faceEnrollmentBlockReason(
+      'menyelesaikan absensi luar kantor',
+    );
+    if (enrollmentBlock != null) {
+      _showAttendanceSnackBar(enrollmentBlock);
+      return;
+    }
+
+    setState(() {
+      _isOutsideOfficeSubmitting = true;
+      _locationError = null;
+    });
+
+    try {
+      final faceScanResult = await _runFaceVerification(
+        mode: _FaceVerificationMode.checkOut,
+      );
+      if (faceScanResult == null || !mounted) {
+        return;
+      }
+
+      final primaryCapturePath = faceScanResult.primaryCapturePath;
+      if (primaryCapturePath == null || primaryCapturePath.isEmpty) {
+        _showAttendanceSnackBar(
+          'Capture wajah belum berhasil dibuat. Coba scan sekali lagi.',
+        );
+        return;
+      }
+
+      final verificationResult = await widget.controller.verifyFaceForSession(
+        widget.session,
+        action: 'checkOut',
+        capturePath: primaryCapturePath,
+        livenessScore: faceScanResult.livenessScore,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      if (!verificationResult.verified) {
+        _showAttendanceSnackBar(
+          _verificationRejectedMessage(verificationResult),
+        );
+        return;
+      }
+
+      final result = await _showOutsideOfficeFormSheet(
+        title: 'Check-out luar kantor',
+        submitLabel: 'Simpan check-out',
+      );
+      if (!mounted || result == null) {
+        return;
+      }
+
+      final location = await _recordCurrentLocation(
+        mode: _FaceVerificationMode.checkOut,
+      );
+      if (location == null || !mounted) {
+        return;
+      }
+
+      final attachment = await widget.controller.uploadAttachment(
+        filePath: result.evidencePath,
+        label: 'Outside office finish ${result.placeDescription}',
+      );
+
+      final now = DateTime.now();
+      await widget.controller.createAttendanceRecord(
+        widget.session,
+        AttendanceRecord(
+          id: 'attendance-outside-finish-${widget.session.ownerKey}-${now.microsecondsSinceEpoch}',
+          userId: widget.session.ownerKey,
+          workDate: DateTime(now.year, now.month, now.day),
+          action: AttendanceAction.outsideOfficeFinish,
+          status: AttendanceRecordStatus.success,
+          recordedAt: now,
+          location: AttendanceLocationRecord(
+            latitude: location.latitude,
+            longitude: location.longitude,
+            recordedAt: now,
+            addressLabel: location.label,
+          ),
+          verification: FaceVerificationRecord(
+            verifiedAt: now,
+            decision: verificationResult.decision,
+            matchScore: verificationResult.matchScore,
+            livenessScore: verificationResult.livenessScore,
+            capture: verificationResult.capture,
+            note: verificationResult.note,
+          ),
+          metadata: AttendanceMetadata(
+            attendanceMode: 'outside_office',
+            placeDescription: result.placeDescription,
+            evidenceAttachment: attachment,
+            finishedAt: now,
+          ),
+          note:
+              'Absensi luar kantor selesai untuk ${result.placeDescription}.',
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+      _showAttendanceSnackBar(
+        'Check-out luar kantor berhasil disimpan. ${_verificationSummary(verificationResult)}',
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showAttendanceSnackBar('Gagal menyimpan check-out luar kantor: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _isOutsideOfficeSubmitting = false);
+      }
+    }
+  }
+
+  Future<_OutsideOfficeDraft?> _showOutsideOfficeFormSheet({
+    required String title,
+    required String submitLabel,
+  }) async {
+    final placeController = TextEditingController();
+    String? evidencePath;
+
+    return showModalBottomSheet<_OutsideOfficeDraft>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> pickEvidence(ImageSource source) async {
+              final file = await _picker.pickImage(
+                source: source,
+                imageQuality: 58,
+                maxWidth: 1280,
+                maxHeight: 1280,
+              );
+              if (file == null) {
+                return;
+              }
+              setModalState(() => evidencePath = file.path);
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  0,
+                  20,
+                  20 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: placeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Absen dimana hari ini?',
+                          hintText: 'Contoh: Kunjungan ke client di Tomang',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => pickEvidence(ImageSource.camera),
+                            icon: const Icon(Icons.photo_camera_rounded),
+                            label: const Text('Kamera'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => pickEvidence(ImageSource.gallery),
+                            icon: const Icon(Icons.photo_library_rounded),
+                            label: const Text('Galeri'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (evidencePath == null)
+                        Text(
+                          'Dokumentasi foto kamera atau galeri wajib diisi.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        )
+                      else
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.file(
+                            File(evidencePath!),
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Batal'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () {
+                                if (placeController.text.trim().isEmpty ||
+                                    evidencePath == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Lengkapi lokasi/keperluan dan foto dokumentasi.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                Navigator.of(context).pop(
+                                  _OutsideOfficeDraft(
+                                    placeDescription: placeController.text.trim(),
+                                    evidencePath: evidencePath!,
+                                  ),
+                                );
+                              },
+                              child: Text(submitLabel),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -741,8 +1198,12 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   _AttendanceEvent _mapEventFromRecord(AttendanceRecord record) {
-    final actionLabel =
-        record.action == AttendanceAction.checkIn ? 'Check-in' : 'Check-out';
+    final actionLabel = switch (record.action) {
+      AttendanceAction.checkIn => 'Check-in',
+      AttendanceAction.checkOut => 'Check-out',
+      AttendanceAction.outsideOfficeStart => 'Mulai kunjungan',
+      AttendanceAction.outsideOfficeFinish => 'Selesai kunjungan',
+    };
     final subtitle =
         '${actionLabel.toLowerCase()} tersimpan dengan lokasi ${_locationLabel(record.location)}.';
 
@@ -758,6 +1219,15 @@ class _AttendancePageState extends State<AttendancePage> {
       return location.addressLabel!;
     }
     return '${location.latitude.toStringAsFixed(5)}, ${location.longitude.toStringAsFixed(5)}';
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    if (hours <= 0) {
+      return '${minutes}m';
+    }
+    return '${hours}j ${minutes}m';
   }
 
   bool _isSameDate(DateTime left, DateTime right) {
@@ -779,18 +1249,29 @@ class _AttendancePageState extends State<AttendancePage> {
 
 class _AttendanceSessionState {
   const _AttendanceSessionState({
-    this.activeCheckIn,
+    this.activeRegularCheckIn,
     this.latestCompletedCheckIn,
     this.latestCompletedCheckOut,
+    this.activeOutsideOfficeStart,
+    this.latestCompletedOutsideOfficeStart,
+    this.latestCompletedOutsideOfficeFinish,
   });
 
-  final AttendanceRecord? activeCheckIn;
+  final AttendanceRecord? activeRegularCheckIn;
   final AttendanceRecord? latestCompletedCheckIn;
   final AttendanceRecord? latestCompletedCheckOut;
+  final AttendanceRecord? activeOutsideOfficeStart;
+  final AttendanceRecord? latestCompletedOutsideOfficeStart;
+  final AttendanceRecord? latestCompletedOutsideOfficeFinish;
 
-  AttendanceRecord? get displayCheckIn => activeCheckIn ?? latestCompletedCheckIn;
+  AttendanceRecord? get displayCheckIn =>
+      activeRegularCheckIn ?? latestCompletedCheckIn;
   AttendanceRecord? get displayCheckOut =>
-      activeCheckIn == null ? latestCompletedCheckOut : null;
+      activeRegularCheckIn == null ? latestCompletedCheckOut : null;
+  AttendanceRecord? get displayOutsideOfficeStart =>
+      activeOutsideOfficeStart ?? latestCompletedOutsideOfficeStart;
+  AttendanceRecord? get displayOutsideOfficeFinish =>
+      activeOutsideOfficeStart == null ? latestCompletedOutsideOfficeFinish : null;
 
   static _AttendanceSessionState fromRecords(List<AttendanceRecord> records) {
     final sorted = [...records]
@@ -799,28 +1280,46 @@ class _AttendanceSessionState {
     AttendanceRecord? openCheckIn;
     AttendanceRecord? latestCompletedCheckIn;
     AttendanceRecord? latestCompletedCheckOut;
+    AttendanceRecord? activeOutsideOfficeStart;
+    AttendanceRecord? latestCompletedOutsideOfficeStart;
+    AttendanceRecord? latestCompletedOutsideOfficeFinish;
 
     for (final record in sorted) {
       if (record.status != AttendanceRecordStatus.success) {
         continue;
       }
 
-      if (record.action == AttendanceAction.checkIn) {
-        openCheckIn = record;
-        continue;
-      }
-
-      if (record.action == AttendanceAction.checkOut && openCheckIn != null) {
-        latestCompletedCheckIn = openCheckIn;
-        latestCompletedCheckOut = record;
-        openCheckIn = null;
+      switch (record.action) {
+        case AttendanceAction.checkIn:
+          openCheckIn = record;
+          break;
+        case AttendanceAction.checkOut:
+          if (openCheckIn != null) {
+            latestCompletedCheckIn = openCheckIn;
+            latestCompletedCheckOut = record;
+            openCheckIn = null;
+          }
+          break;
+        case AttendanceAction.outsideOfficeStart:
+          activeOutsideOfficeStart = record;
+          break;
+        case AttendanceAction.outsideOfficeFinish:
+          if (activeOutsideOfficeStart != null) {
+            latestCompletedOutsideOfficeStart = activeOutsideOfficeStart;
+            latestCompletedOutsideOfficeFinish = record;
+            activeOutsideOfficeStart = null;
+          }
+          break;
       }
     }
 
     return _AttendanceSessionState(
-      activeCheckIn: openCheckIn,
+      activeRegularCheckIn: openCheckIn,
       latestCompletedCheckIn: latestCompletedCheckIn,
       latestCompletedCheckOut: latestCompletedCheckOut,
+      activeOutsideOfficeStart: activeOutsideOfficeStart,
+      latestCompletedOutsideOfficeStart: latestCompletedOutsideOfficeStart,
+      latestCompletedOutsideOfficeFinish: latestCompletedOutsideOfficeFinish,
     );
   }
 }
@@ -1057,11 +1556,39 @@ class _AttendanceLocation {
   const _AttendanceLocation({
     required this.latitude,
     required this.longitude,
+    this.radiusMeters,
+    this.withinRadius,
   });
 
   final double latitude;
   final double longitude;
+  final double? radiusMeters;
+  final bool? withinRadius;
 
   String get label =>
       '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
+
+  _AttendanceLocation copyWith({
+    double? latitude,
+    double? longitude,
+    double? radiusMeters,
+    bool? withinRadius,
+  }) {
+    return _AttendanceLocation(
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      radiusMeters: radiusMeters ?? this.radiusMeters,
+      withinRadius: withinRadius ?? this.withinRadius,
+    );
+  }
+}
+
+class _OutsideOfficeDraft {
+  const _OutsideOfficeDraft({
+    required this.placeDescription,
+    required this.evidencePath,
+  });
+
+  final String placeDescription;
+  final String evidencePath;
 }

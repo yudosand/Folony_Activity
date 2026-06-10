@@ -27,6 +27,7 @@ Route::middleware([EnsureHrAdmin::class])->prefix('admin')->name('admin.')->grou
     Route::post('/employees/{employee}/performance-targets', [EmployeeController::class, 'updatePerformanceTargets'])
         ->name('employees.targets.update');
     Route::get('/attendance', [AttendanceMonitoringController::class, 'index'])->name('attendance.index');
+    Route::post('/attendance/office-setting', [AttendanceMonitoringController::class, 'updateOfficeSetting'])->name('attendance.office-setting.update');
     Route::get('/leaves', [LeaveMonitoringController::class, 'index'])->name('leaves.index');
     Route::get('/wfa', [WfaMonitoringController::class, 'index'])->name('wfa.index');
     Route::get('/wfa/{requestRecord}', [WfaMonitoringController::class, 'show'])->name('wfa.show');

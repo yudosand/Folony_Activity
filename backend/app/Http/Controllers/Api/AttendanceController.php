@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\StoreAttendanceCheckInRequest;
 use App\Http\Requests\Attendance\StoreAttendanceCheckOutRequest;
+use App\Http\Requests\Attendance\StoreOutsideOfficeAttendanceFinishRequest;
+use App\Http\Requests\Attendance\StoreOutsideOfficeAttendanceStartRequest;
 use App\Models\AttendanceRecord;
 use App\Services\AttendanceService;
 use App\Services\AttendanceSummaryService;
@@ -88,5 +90,33 @@ class AttendanceController extends Controller
         return response()->json([
             'data' => ['cleared' => true],
         ]);
+    }
+
+    public function outsideOfficeStart(
+        StoreOutsideOfficeAttendanceStartRequest $request,
+        AttendanceService $attendanceService,
+    ): JsonResponse {
+        $record = $attendanceService->createOutsideOfficeStart(
+            $request->user(),
+            $request->validated(),
+        );
+
+        return response()->json([
+            'data' => FieldApiData::attendanceRecord($record),
+        ], 201);
+    }
+
+    public function outsideOfficeFinish(
+        StoreOutsideOfficeAttendanceFinishRequest $request,
+        AttendanceService $attendanceService,
+    ): JsonResponse {
+        $record = $attendanceService->createOutsideOfficeFinish(
+            $request->user(),
+            $request->validated(),
+        );
+
+        return response()->json([
+            'data' => FieldApiData::attendanceRecord($record),
+        ], 201);
     }
 }

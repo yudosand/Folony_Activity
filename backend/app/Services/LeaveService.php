@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ApprovalStep;
+use App\Models\Attachment;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Support\Workflow\ApprovalChainFactory;
@@ -16,12 +17,13 @@ class LeaveService
 {
     public function __construct(
         private readonly ApprovalChainFactory $approvalChainFactory,
+        private readonly PushNotificationService $pushNotificationService,
     ) {
     }
 
     public function create(array $payload, User $requester): LeaveRequest
     {
-        return DB::transaction(function () use ($payload, $requester) {
+        $leaveRequest = DB::transaction(function () use ($payload, $requester) {
             $leaveRequest = LeaveRequest::create([
                 'id' => $payload['id'] ?? (string) Str::uuid(),
                 'requester_id' => $requester->id,
@@ -38,6 +40,19 @@ class LeaveService
                 'note' => $payload['note'] ?? 'Pengajuan dibuat dari mobile.',
                 'submitted_at' => now(),
             ]);
+
+            foreach ($payload['attachments'] ?? [] as $attachmentPayload) {
+                Attachment::create([
+                    'id' => $attachmentPayload['id'],
+                    'module' => WorkflowModule::LEAVE,
+                    'reference_id' => $leaveRequest->id,
+                    'file_name' => $attachmentPayload['file_name'],
+                    'mime_type' => $attachmentPayload['mime_type'],
+                    'url' => $attachmentPayload['url'] ?? null,
+                    'thumbnail_url' => $attachmentPayload['thumbnail_url'] ?? null,
+                    'size_in_bytes' => $attachmentPayload['size_in_bytes'] ?? null,
+                ]);
+            }
 
             foreach ($this->approvalChainFactory->buildFor($requester) as $step) {
                 ApprovalStep::create([
@@ -58,6 +73,10 @@ class LeaveService
 
             return $this->findById($leaveRequest->id);
         });
+
+        $this->pushNotificationService->notifyPendingApproversForLeave($leaveRequest);
+
+        return $leaveRequest;
     }
 
     public function updateStatus(LeaveRequest $leaveRequest, array $payload): LeaveRequest
@@ -73,7 +92,7 @@ class LeaveService
     public function findById(string $id): LeaveRequest
     {
         return LeaveRequest::query()
-            ->with('approvalSteps')
+            ->with(['approvalSteps', 'attachments'])
             ->findOrFail($id);
     }
 }

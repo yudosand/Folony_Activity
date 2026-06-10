@@ -10,6 +10,7 @@
     @php
         $performanceMetrics = collect($performanceTargetSummary['metrics'] ?? [])->keyBy('key');
         $hasPerformanceTargets = !empty($performanceTargetDefinitions);
+        $officeAttendanceSetting = app(\App\Services\OfficeAttendanceSettingService::class)->current();
     @endphp
 
     <div class="grid cols-4">
@@ -95,6 +96,8 @@
                 <div class="detail-item"><strong>Role</strong><span>{{ strtoupper($employee->role) }}</span></div>
                 <div class="detail-item"><strong>Jabatan</strong><span>{{ $employee->job_title ?: '-' }}</span></div>
                 <div class="detail-item"><strong>Lokasi Kerja</strong><span>{{ $employee->work_location ?: '-' }}</span></div>
+                <div class="detail-item"><strong>Titik Kantor Global</strong><span>{{ number_format((float) $officeAttendanceSetting['latitude'], 6, '.', '') . ', ' . number_format((float) $officeAttendanceSetting['longitude'], 6, '.', '') }}</span></div>
+                <div class="detail-item"><strong>Radius Absensi Global</strong><span>{{ $officeAttendanceSetting['radius_meters'] . ' meter' }}</span></div>
                 <div class="detail-item"><strong>Area</strong><span>{{ $employee->area_name ?: '-' }}</span></div>
                 <div class="detail-item"><strong>SPV</strong><span>{{ $employee->spv?->full_name ?: '-' }}</span></div>
                 <div class="detail-item"><strong>Management</strong><span>{{ $employee->management?->full_name ?: '-' }}</span></div>
@@ -172,12 +175,27 @@
                                 : null;
                             $recordSummaryKey = $record->user_id . '|' . $record->work_date?->toDateString();
                             $recordSummary = $recentAttendanceSummaries[$recordSummaryKey] ?? null;
-                            $businessLabel = $record->action === 'checkIn'
-                                ? ($recordSummary['arrival_label'] ?? null)
-                                : ($recordSummary['departure_label'] ?? null);
-                            $businessNote = $record->action === 'checkIn'
-                                ? ($recordSummary['arrival_note'] ?? null)
-                                : ($recordSummary['departure_note'] ?? null);
+                            $outsideOfficeMode = ($record->metadata['attendance_mode'] ?? null) === 'outside_office';
+                            $businessLabel = $outsideOfficeMode
+                                ? ($record->action === 'outsideOfficeStart' ? 'Absensi luar kantor dimulai' : 'Absensi luar kantor selesai')
+                                : ($record->action === 'checkIn'
+                                    ? ($recordSummary['arrival_label'] ?? null)
+                                    : ($recordSummary['departure_label'] ?? null));
+                            $businessNote = $outsideOfficeMode
+                                ? collect([
+                                    $record->metadata['ukm_name'] ?? null,
+                                    isset($record->metadata['report_type'])
+                                        ? match ($record->metadata['report_type']) {
+                                            'survey' => 'Survey',
+                                            'follow_up' => 'Follow up',
+                                            default => 'Kunjungan',
+                                        }
+                                        : null,
+                                    $record->metadata['report_text'] ?? null,
+                                ])->filter()->implode(' · ')
+                                : ($record->action === 'checkIn'
+                                    ? ($recordSummary['arrival_note'] ?? null)
+                                    : ($recordSummary['departure_note'] ?? null));
                         @endphp
                         <tr>
                             <td>{{ $record->action }}</td>
@@ -198,6 +216,9 @@
                                     @endif
                                     @if($businessNote)
                                         <span class="muted">{{ $businessNote }}</span>
+                                    @endif
+                                    @if($outsideOfficeMode && !empty($record->metadata['evidence_attachment']['url'] ?? null))
+                                        <a class="attachment-link" href="{{ $record->metadata['evidence_attachment']['url'] }}" target="_blank" rel="noreferrer">Buka foto kunjungan</a>
                                     @endif
                                     @if($record->verification['note'] ?? null)
                                         <span class="muted">Audit wajah: {{ $record->verification['note'] }}</span>

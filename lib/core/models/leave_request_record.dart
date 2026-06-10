@@ -1,5 +1,6 @@
 import '../enums/app_role.dart';
 import 'approval_step.dart';
+import 'remote_attachment.dart';
 
 enum LeaveCategory {
   cuti,
@@ -39,6 +40,7 @@ class LeaveRequestRecord {
     required this.status,
     required this.approvalSteps,
     required this.submittedAt,
+    this.attachments = const [],
     this.note,
   });
 
@@ -56,6 +58,7 @@ class LeaveRequestRecord {
   final WorkflowStatus status;
   final List<ApprovalStep> approvalSteps;
   final DateTime submittedAt;
+  final List<RemoteAttachment> attachments;
   final String? note;
 
   factory LeaveRequestRecord.fromJson(Map<String, dynamic> json) {
@@ -86,6 +89,7 @@ class LeaveRequestRecord {
       ),
       approvalSteps: _approvalStepsFromJson(json['approval_steps']),
       submittedAt: _dateTimeFromJson(json['submitted_at']),
+      attachments: _attachmentsFromJson(json['attachments']),
       note: json['note'] as String?,
     );
   }
@@ -106,6 +110,7 @@ class LeaveRequestRecord {
       'status': status.name,
       'approval_steps': approvalSteps.map((item) => item.toJson()).toList(),
       'submitted_at': submittedAt.toIso8601String(),
+      'attachments': attachments.map((item) => item.toJson()).toList(),
       'note': note,
     };
   }
@@ -125,6 +130,7 @@ class LeaveRequestRecord {
     WorkflowStatus? status,
     List<ApprovalStep>? approvalSteps,
     DateTime? submittedAt,
+    List<RemoteAttachment>? attachments,
     String? note,
   }) {
     return LeaveRequestRecord(
@@ -142,6 +148,7 @@ class LeaveRequestRecord {
       status: status ?? this.status,
       approvalSteps: approvalSteps ?? this.approvalSteps,
       submittedAt: submittedAt ?? this.submittedAt,
+      attachments: attachments ?? this.attachments,
       note: note ?? this.note,
     );
   }
@@ -160,6 +167,16 @@ List<ApprovalStep> _approvalStepsFromJson(Object? value) {
         .whereType<Map<String, dynamic>>()
         .map(ApprovalStep.fromJson)
         .toList();
+  }
+  return const [];
+}
+
+List<RemoteAttachment> _attachmentsFromJson(Object? value) {
+  if (value is List) {
+    return value
+        .whereType<Map>()
+        .map((item) => RemoteAttachment.fromJson(Map<String, dynamic>.from(item)))
+        .toList(growable: false);
   }
   return const [];
 }

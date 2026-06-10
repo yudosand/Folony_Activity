@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "176125568153",
+    "project_id": "folonyactivity",
+    "storage_bucket": "folonyactivity.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:176125568153:android:f39b80e88827c21d994408",
+        "android_client_info": {
+          "package_name": "com.folony.activity.folony_activity"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADpNb5p96-xJt-NhQk7mRvajdwqjtX6o4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

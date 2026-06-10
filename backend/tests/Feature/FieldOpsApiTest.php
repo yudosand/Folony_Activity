@@ -212,8 +212,8 @@ class FieldOpsApiTest extends TestCase
             'recorded_at' => now()->setTime(8, 35)->toIso8601String(),
             'status' => 'success',
             'location' => [
-                'latitude' => -6.2,
-                'longitude' => 106.8166,
+                'latitude' => -6.1596929,
+                'longitude' => 106.8180445,
                 'recorded_at' => now()->setTime(8, 35)->toIso8601String(),
                 'address_label' => 'Client Site',
             ],
@@ -255,8 +255,8 @@ class FieldOpsApiTest extends TestCase
             'recorded_at' => $targetDate->copy()->setTime(8, 35)->toIso8601String(),
             'status' => 'success',
             'location' => [
-                'latitude' => -6.2,
-                'longitude' => 106.8166,
+                'latitude' => -6.1596929,
+                'longitude' => 106.8180445,
                 'recorded_at' => $targetDate->copy()->setTime(8, 35)->toIso8601String(),
                 'address_label' => 'Client Site',
             ],
@@ -269,6 +269,146 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonPath('data.summary_label', 'Sesi aktif')
             ->assertJsonPath('data.work_duration_minutes', 0)
             ->assertJsonPath('data.summary_note', 'Durasi kerja akan dihitung setelah check-out.');
+    }
+
+    public function test_staff_can_submit_normal_attendance_outside_previous_office_radius(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        Sanctum::actingAs(User::query()->findOrFail('usr_001'));
+        $targetDate = now()->addDays(15);
+
+        $this->postJson('/api/attendance/check-in', [
+            'id' => 'att_checkin_far_001',
+            'work_date' => $targetDate->toIso8601String(),
+            'recorded_at' => $targetDate->copy()->setTime(9, 15)->toIso8601String(),
+            'status' => 'success',
+            'location' => [
+                'latitude' => -7.250445,
+                'longitude' => 112.768845,
+                'recorded_at' => $targetDate->copy()->setTime(9, 15)->toIso8601String(),
+                'address_label' => 'Lokasi jauh dari kantor',
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.location.address_label', 'Lokasi jauh dari kantor');
+    }
+
+    public function test_area_manager_outside_office_starts_on_click_and_finishes_on_save(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        Sanctum::actingAs(User::query()->findOrFail('usr_area_001'));
+        $targetDate = now()->addDays(3);
+
+        $this->postJson('/api/attendance/outside-office/start', [
+            'id' => 'att_outside_start_001',
+            'work_date' => $targetDate->toIso8601String(),
+            'recorded_at' => $targetDate->copy()->setTime(9, 0)->toIso8601String(),
+            'status' => 'success',
+            'location' => [
+                'latitude' => -6.2001,
+                'longitude' => 106.8167,
+                'recorded_at' => $targetDate->copy()->setTime(9, 0)->toIso8601String(),
+                'address_label' => 'Lokasi visit pagi',
+            ],
+            'verification' => [
+                'verified_at' => $targetDate->copy()->setTime(8, 59)->toIso8601String(),
+                'decision' => 'verified',
+                'match_score' => 0.98,
+                'liveness_score' => 0.96,
+                'note' => 'Face verification passed.',
+                'capture' => [
+                    'id' => 'upload_face_001',
+                    'file_name' => 'face-capture.jpg',
+                    'mime_type' => 'image/jpeg',
+                    'url' => 'https://example.test/face-capture.jpg',
+                ],
+            ],
+            'metadata' => [
+                'place_description' => 'Kunjungan client pagi di Tomang',
+                'evidence_attachment' => [
+                    'id' => 'upload_outside_start_001',
+                    'file_name' => 'visit-start.jpg',
+                    'mime_type' => 'image/jpeg',
+                    'url' => 'https://example.test/visit-start.jpg',
+                ],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.action', 'outsideOfficeStart')
+            ->assertJsonPath('data.metadata.attendance_mode', 'outside_office')
+            ->assertJsonPath('data.metadata.place_description', 'Kunjungan client pagi di Tomang')
+            ->assertJsonPath('data.verification.decision', 'verified')
+            ->assertJsonPath('data.verification.capture.id', 'upload_face_001');
+
+        $this->postJson('/api/attendance/outside-office/finish', [
+            'id' => 'att_outside_finish_001',
+            'work_date' => $targetDate->toIso8601String(),
+            'recorded_at' => $targetDate->copy()->setTime(11, 30)->toIso8601String(),
+            'status' => 'success',
+            'location' => [
+                'latitude' => -6.2002,
+                'longitude' => 106.8168,
+                'recorded_at' => $targetDate->copy()->setTime(11, 30)->toIso8601String(),
+                'address_label' => 'Lokasi visit siang',
+            ],
+            'verification' => [
+                'verified_at' => $targetDate->copy()->setTime(11, 29)->toIso8601String(),
+                'decision' => 'verified',
+                'match_score' => 0.97,
+                'liveness_score' => 0.95,
+                'note' => 'Face verification passed.',
+                'capture' => [
+                    'id' => 'upload_face_002',
+                    'file_name' => 'face-capture-finish.jpg',
+                    'mime_type' => 'image/jpeg',
+                    'url' => 'https://example.test/face-capture-finish.jpg',
+                ],
+            ],
+            'metadata' => [
+                'place_description' => 'Follow up client siang di Tomang',
+                'evidence_attachment' => [
+                    'id' => 'upload_outside_office_001',
+                    'file_name' => 'visit-proof.jpg',
+                    'mime_type' => 'image/jpeg',
+                    'url' => 'https://example.test/visit-proof.jpg',
+                ],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.action', 'outsideOfficeFinish')
+            ->assertJsonPath('data.metadata.place_description', 'Follow up client siang di Tomang')
+            ->assertJsonPath('data.verification.capture.id', 'upload_face_002')
+            ->assertJsonPath('data.metadata.duration_minutes', 150);
+    }
+
+    public function test_staff_can_use_outside_office_attendance(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        Sanctum::actingAs(User::query()->findOrFail('usr_001'));
+        $targetDate = now()->addDays(4);
+
+        $this->postJson('/api/attendance/outside-office/start', [
+            'id' => 'att_outside_staff_start_001',
+            'work_date' => $targetDate->toIso8601String(),
+            'recorded_at' => $targetDate->copy()->setTime(10, 0)->toIso8601String(),
+            'status' => 'success',
+            'location' => [
+                'latitude' => -6.1801,
+                'longitude' => 106.8011,
+                'recorded_at' => $targetDate->copy()->setTime(10, 0)->toIso8601String(),
+                'address_label' => 'Kunjungan vendor',
+            ],
+            'metadata' => [
+                'place_description' => 'Kunjungan vendor luar kantor',
+                'evidence_attachment' => [
+                    'id' => 'upload_staff_start_001',
+                    'file_name' => 'staff-start.jpg',
+                    'mime_type' => 'image/jpeg',
+                    'url' => 'https://example.test/staff-start.jpg',
+                ],
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.action', 'outsideOfficeStart')
+            ->assertJsonPath('data.metadata.place_description', 'Kunjungan vendor luar kantor');
     }
 
     public function test_heat_map_returns_points_in_radius(): void

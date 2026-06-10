@@ -76,4 +76,60 @@ class SecurityApiTest extends TestCase
         $this->getJson('/api/me?user_id=usr_001')
             ->assertUnauthorized();
     }
+
+    public function test_authenticated_user_can_change_password(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        $user = User::query()->findOrFail('usr_001');
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/auth/change-password', [
+            'current_password' => '123456',
+            'new_password' => '654321',
+            'new_password_confirmation' => '654321',
+        ])->assertOk()
+            ->assertJsonPath('data.password_changed', true);
+
+        $this->postJson('/api/auth/logout')->assertOk();
+
+        $this->postJson('/api/auth/login', [
+            'identifier' => 'EMP-STF-001',
+            'password' => '654321',
+        ])->assertOk()
+            ->assertJsonPath('data.user.id', 'usr_001');
+    }
+
+    public function test_change_password_rejects_wrong_current_password(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        $user = User::query()->findOrFail('usr_001');
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/auth/change-password', [
+            'current_password' => 'salah-total',
+            'new_password' => '654321',
+            'new_password_confirmation' => '654321',
+        ])->assertStatus(422);
+    }
+
+    public function test_authenticated_user_can_register_push_token(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        $user = User::query()->findOrFail('usr_001');
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/devices/push-token', [
+            'token' => 'fcm-token-001',
+            'platform' => 'android',
+            'device_name' => 'pixel-test',
+            'app_version' => '0.1.0+1',
+        ])->assertOk()
+            ->assertJsonPath('data.registered', true);
+
+        $this->assertDatabaseHas('push_device_tokens', [
+            'user_id' => 'usr_001',
+            'platform' => 'android',
+            'token' => 'fcm-token-001',
+        ]);
+    }
 }

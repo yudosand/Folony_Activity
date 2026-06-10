@@ -30,6 +30,8 @@ class RemoteAttendanceRepository implements AttendanceRepository {
     final endpoint = switch (record.action) {
       AttendanceAction.checkIn => '/attendance/check-in',
       AttendanceAction.checkOut => '/attendance/check-out',
+      AttendanceAction.outsideOfficeStart => '/attendance/outside-office/start',
+      AttendanceAction.outsideOfficeFinish => '/attendance/outside-office/finish',
     };
     final response = await _client.post(endpoint, body: record.toJson());
     return _decodeOne(response);

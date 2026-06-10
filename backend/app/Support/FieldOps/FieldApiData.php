@@ -65,6 +65,7 @@ class FieldApiData
             'recorded_at' => self::dateTime($record->recorded_at),
             'location' => $record->location ?? [],
             'verification' => $record->verification,
+            'metadata' => $record->metadata ?? [],
             'note' => $record->note,
         ];
     }

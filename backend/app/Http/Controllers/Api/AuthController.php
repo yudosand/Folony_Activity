@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Models\User;
 use App\Support\Workflow\WorkflowApiData;
 use Illuminate\Http\JsonResponse;
@@ -47,6 +48,29 @@ class AuthController extends Controller
         return response()->json([
             'data' => [
                 'logged_out' => true,
+            ],
+        ]);
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if(! $user instanceof User, 401, 'User belum terautentikasi.');
+
+        $validated = $request->validated();
+        abort_if(
+            ! Hash::check($validated['current_password'], $user->password),
+            422,
+            'Password saat ini tidak sesuai.'
+        );
+
+        $user->forceFill([
+            'password' => $validated['new_password'],
+        ])->save();
+
+        return response()->json([
+            'data' => [
+                'password_changed' => true,
             ],
         ]);
     }

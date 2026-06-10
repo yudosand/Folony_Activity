@@ -34,6 +34,7 @@ import '../core/repositories/remote/remote_territory_repository.dart';
 import '../core/repositories/remote/remote_upload_repository.dart';
 import '../core/repositories/remote/remote_wfa_repository.dart';
 import '../core/repositories/hybrid/fallback_upload_repository.dart';
+import '../core/services/push_notification_service.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/shell/presentation/main_shell.dart';
@@ -116,6 +117,7 @@ class _HexActivityAppState extends State<HexActivityApp> {
       territoryRepository: backendConfig.workflowRemoteEnabled
           ? RemoteTerritoryRepository(client: apiClient)
           : const MockTerritoryRepository(),
+      pushNotificationService: PushNotificationService.instance,
       seedWorkflowDemoData: !backendConfig.workflowRemoteEnabled,
     );
   }

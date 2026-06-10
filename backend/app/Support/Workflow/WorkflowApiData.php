@@ -9,6 +9,7 @@ use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Models\WfaRequest;
 use App\Models\WfaTaskUpdate;
+use App\Services\OfficeAttendanceSettingService;
 use App\Support\Territory\TerritoryData;
 use Illuminate\Support\Carbon;
 
@@ -17,12 +18,17 @@ class WorkflowApiData
     public static function user(User $user): array
     {
         $user->loadMissing('faceProfile');
+        $globalOffice = app(OfficeAttendanceSettingService::class)->current();
 
         return [
             'id' => $user->id,
             'full_name' => $user->full_name,
             'phone_number' => $user->phone_number,
             'area_name' => $user->area_name,
+            'work_location' => $user->work_location,
+            'office_latitude' => $globalOffice['latitude'] ?? ($user->office_latitude === null ? null : (float) $user->office_latitude),
+            'office_longitude' => $globalOffice['longitude'] ?? ($user->office_longitude === null ? null : (float) $user->office_longitude),
+            'attendance_radius_meters' => $globalOffice['radius_meters'] ?? $user->attendance_radius_meters,
             'territory_scope' => $user->territory_scope,
             'territory_province' => $user->territory_province,
             'territory_city' => $user->territory_city,
@@ -103,6 +109,14 @@ class WorkflowApiData
             'delegate_to' => $leaveRequest->delegate_to,
             'status' => $leaveRequest->status,
             'approval_steps' => $leaveRequest->approvalSteps->map(fn (ApprovalStep $step) => self::approvalStep($step))->values()->all(),
+            'attachments' => $leaveRequest->attachments->map(fn ($attachment) => [
+                'id' => $attachment->id,
+                'file_name' => $attachment->file_name,
+                'mime_type' => $attachment->mime_type,
+                'url' => $attachment->url,
+                'thumbnail_url' => $attachment->thumbnail_url,
+                'size_in_bytes' => $attachment->size_in_bytes,
+            ])->values()->all(),
             'submitted_at' => self::dateTime($leaveRequest->submitted_at),
             'note' => $leaveRequest->note,
         ];

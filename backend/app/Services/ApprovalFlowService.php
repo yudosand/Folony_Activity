@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\DB;
 
 class ApprovalFlowService
 {
+    public function __construct(
+        private readonly PushNotificationService $pushNotificationService,
+    ) {
+    }
+
     /**
      * @return Collection<int, ApprovalStep>
      */
@@ -57,6 +62,9 @@ class ApprovalFlowService
 
             if ($remainingPending === 0) {
                 $this->updateSourceStatus($step, WorkflowStatus::APPROVED, $note);
+                $this->notifyRequester($step, WorkflowStatus::APPROVED);
+            } else {
+                $this->pushNotificationService->notifyNextApprovers($step);
             }
 
             return $this->refreshStep($step);
@@ -75,6 +83,7 @@ class ApprovalFlowService
             ]);
 
             $this->updateSourceStatus($step, WorkflowStatus::REJECTED, $note);
+            $this->notifyRequester($step, WorkflowStatus::REJECTED);
 
             return $this->refreshStep($step);
         });
@@ -130,5 +139,30 @@ class ApprovalFlowService
         return ApprovalStep::query()
             ->with(['leaveRequest.approvalSteps', 'wfaRequest.approvalSteps'])
             ->findOrFail($approvalIdentifier);
+    }
+
+    private function notifyRequester(ApprovalStep $step, string $status): void
+    {
+        if ($step->module === WorkflowModule::LEAVE && $step->leaveRequest) {
+            $this->pushNotificationService->notifyRequesterStatusChanged(
+                $step->leaveRequest->requester_id,
+                WorkflowModule::LEAVE,
+                $status,
+                $step->leaveRequest->requester_name,
+                $step->leaveRequest->category
+            );
+
+            return;
+        }
+
+        if ($step->module === WorkflowModule::WFA && $step->wfaRequest) {
+            $this->pushNotificationService->notifyRequesterStatusChanged(
+                $step->wfaRequest->requester_id,
+                WorkflowModule::WFA,
+                $status,
+                $step->wfaRequest->requester_name,
+                $step->wfaRequest->mode
+            );
+        }
     }
 }

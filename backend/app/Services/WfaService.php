@@ -18,12 +18,13 @@ class WfaService
 {
     public function __construct(
         private readonly ApprovalChainFactory $approvalChainFactory,
+        private readonly PushNotificationService $pushNotificationService,
     ) {
     }
 
     public function create(array $payload, User $requester): WfaRequest
     {
-        return DB::transaction(function () use ($payload, $requester) {
+        $wfaRequest = DB::transaction(function () use ($payload, $requester) {
             $wfaRequest = WfaRequest::create([
                 'id' => $payload['id'] ?? (string) Str::uuid(),
                 'requester_id' => $requester->id,
@@ -61,6 +62,10 @@ class WfaService
 
             return $this->findById($wfaRequest->id);
         });
+
+        $this->pushNotificationService->notifyPendingApproversForWfa($wfaRequest);
+
+        return $wfaRequest;
     }
 
     public function updateStatus(WfaRequest $wfaRequest, array $payload): WfaRequest

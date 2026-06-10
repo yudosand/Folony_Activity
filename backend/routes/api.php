@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\FaceProfileController;
 use App\Http\Controllers\Api\FaceVerificationController;
 use App\Http\Controllers\Api\HeatMapController;
@@ -24,6 +25,9 @@ Route::get('/territories/subdistricts', [TerritoryController::class, 'subdistric
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+    Route::post('/devices/push-token', [DeviceTokenController::class, 'store']);
+    Route::delete('/devices/push-token', [DeviceTokenController::class, 'destroy']);
     Route::get('/me', MeController::class);
 
     Route::get('/leave', [LeaveController::class, 'index']);
@@ -49,6 +53,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance', [AttendanceController::class, 'index']);
     Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn']);
     Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut']);
+    Route::post('/attendance/outside-office/start', [AttendanceController::class, 'outsideOfficeStart']);
+    Route::post('/attendance/outside-office/finish', [AttendanceController::class, 'outsideOfficeFinish']);
     Route::get('/attendance/daily-summary', [AttendanceController::class, 'dailySummary']);
     Route::delete('/attendance', [AttendanceController::class, 'destroy']);
 
