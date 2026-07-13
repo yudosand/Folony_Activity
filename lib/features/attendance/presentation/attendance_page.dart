@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -55,7 +56,8 @@ class _AttendancePageState extends State<AttendancePage> {
       return _todayRecords;
     }
 
-    final allRecords = widget.controller.attendanceRecordsForSession(widget.session);
+    final allRecords =
+        widget.controller.attendanceRecordsForSession(widget.session);
     final now = DateTime.now();
     AttendanceRecord? latestCheckIn;
     for (final item in allRecords) {
@@ -90,13 +92,15 @@ class _AttendancePageState extends State<AttendancePage> {
       _AttendanceSessionState.fromRecords(_statusRecords);
 
   AttendanceRecord? get _checkInRecord {
-    return _hasActiveOutsideOffice || _sessionState.latestCompletedOutsideOfficeFinish != null
+    return _hasActiveOutsideOffice ||
+            _sessionState.latestCompletedOutsideOfficeFinish != null
         ? _sessionState.displayOutsideOfficeStart
         : _sessionState.displayCheckIn;
   }
 
   AttendanceRecord? get _checkOutRecord {
-    return _hasActiveOutsideOffice || _sessionState.latestCompletedOutsideOfficeFinish != null
+    return _hasActiveOutsideOffice ||
+            _sessionState.latestCompletedOutsideOfficeFinish != null
         ? _sessionState.displayOutsideOfficeFinish
         : _sessionState.displayCheckOut;
   }
@@ -195,272 +199,287 @@ class _AttendancePageState extends State<AttendancePage> {
                     label: 'Kunjungan Aktif',
                     color: Colors.deepOrange,
                   )
-            : _isCheckedIn
-                ? const StatusBadge(label: 'Aktif', color: Colors.orange)
-                : const StatusBadge(label: 'Belum check-in', color: Colors.blue);
+                : _isCheckedIn
+                    ? const StatusBadge(label: 'Aktif', color: Colors.orange)
+                    : const StatusBadge(
+                        label: 'Belum check-in', color: Colors.blue);
 
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Absensi Face Verification',
-                style: theme.textTheme.titleMedium,
-              ),
-            ),
-            status,
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Scan wajah berjalan langsung dari aplikasi. Jam kerja standar adalah ${AttendancePolicy.officeStart} sampai ${AttendancePolicy.officeEnd}. Check-in/check-out normal hanya aktif saat lokasi live berada di radius area kerja.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _LiveLocationRadiusCard(
-          areaName: _attendanceAreaName,
-          hasAttendanceArea: _hasAttendanceArea,
-          gpsActive: _gpsActive,
-          isInsideRadius: _isInsideAttendanceRadius,
-          currentLatitude: _livePosition?.latitude,
-          currentLongitude: _livePosition?.longitude,
-          distanceMeters: _liveDistanceMeters,
-          radiusMeters: widget.session.attendanceRadiusMeters,
-          errorText: _locationError,
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE7E5E4)),
-          ),
-          child: Column(
-            children: [
-              if (_sessionSummary != null) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      _isFinished
-                          ? Icons.task_alt_rounded
-                          : Icons.verified_user_rounded,
-                      size: 18,
-                      color: _isFinished ? Colors.teal : theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _sessionSummary!,
-                            style: theme.textTheme.titleSmall,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _sessionSubSummary,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 24),
-              ],
-              _MetricLine(
-                label: _hasActiveOutsideOffice ||
-                        _sessionState.latestCompletedOutsideOfficeFinish != null
-                    ? 'Mulai Kunjungan'
-                    : 'Check-in',
-                value: _formatTime(_checkInRecord?.recordedAt),
-                note: insight.arrivalNote,
-              ),
-              const Divider(height: 24),
-              _MetricLine(
-                label: 'Lokasi',
-                value: _locationMetricValue,
-                note: _locationMetricNote,
-              ),
-              const Divider(height: 24),
-              _MetricLine(
-                label: 'Rule Hari Ini',
-                value: _hasActiveOutsideOffice ||
-                        _sessionState.latestCompletedOutsideOfficeFinish != null
-                    ? 'Absensi luar kantor'
-                    : insight.summaryLabel,
-                note: _hasActiveOutsideOffice ||
-                        _sessionState.latestCompletedOutsideOfficeFinish != null
-                    ? _outsideOfficeSummaryNote
-                    : insight.departureNote,
-              ),
-              const Divider(height: 24),
-              _MetricLine(
-                label: 'Verifikasi Wajah',
-                value: _latestFaceCapturePath == null ? 'Belum ada' : 'Lolos',
-                note: _latestFaceCapturePath == null
-                    ? 'Scan wajah dibutuhkan saat aksi absensi'
-                    : 'Capture audit sudah siap',
-              ),
-              const Divider(height: 24),
-              _MetricLine(
-                label: 'Durasi',
-                value: _durationText,
-                note: insight.summaryNote,
-              ),
-            ],
-          ),
-        ),
-        if (insight.contextNotes.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.28,
-              ),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
               children: [
-                Text('Sinkronisasi WFA', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 8),
-                for (var i = 0; i < insight.contextNotes.length; i++) ...[
-                  _RuleTile(text: insight.contextNotes[i]),
-                  if (i != insight.contextNotes.length - 1)
-                    const SizedBox(height: 10),
-                ],
-              ],
-            ),
-          ),
-        ],
-        const SizedBox(height: 16),
-        _FacePreviewLine(
-          faceCapturePath: _latestFaceCapturePath,
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: (_isCheckedIn || _hasActiveOutsideOffice)
-                    ? null
-                    : _toggleGps,
-                child: Text(_gpsActive ? 'GPS Aktif' : 'GPS Nonaktif'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                onPressed: _primaryAction,
-                child: Text(_primaryActionLabel),
-              ),
-            ),
-          ],
-        ),
-        if (!_isCheckedIn && !_hasActiveOutsideOffice) ...[
-          const SizedBox(height: 12),
-          FilledButton.tonalIcon(
-            onPressed:
-                _isOutsideOfficeSubmitting ? null : _startOutsideOfficeAttendance,
-            icon: const Icon(Icons.storefront_rounded),
-            label: Text(
-              _isOutsideOfficeSubmitting
-                  ? 'Memproses...'
-                  : 'Absensi diluar kantor',
-            ),
-          ),
-        ],
-        if (_isVerifyingFace) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2.2),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Memverifikasi wajah, mengunggah capture, dan menyimpan absensi...',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                Expanded(
+                  child: Text(
+                    'Absensi Face Verification',
+                    style: theme.textTheme.titleMedium,
                   ),
                 ),
+                status,
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Scan wajah berjalan langsung dari aplikasi. Jam kerja standar adalah ${AttendancePolicy.officeStart} sampai ${AttendancePolicy.officeEnd}. Check-in/check-out normal hanya aktif saat lokasi live berada di radius area kerja.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _LiveLocationRadiusCard(
+              areaName: _attendanceAreaName,
+              hasAttendanceArea: _hasAttendanceArea,
+              gpsActive: _gpsActive,
+              isInsideRadius: _isInsideAttendanceRadius,
+              currentLatitude: _livePosition?.latitude,
+              currentLongitude: _livePosition?.longitude,
+              officeLatitude: widget.session.officeLatitude,
+              officeLongitude: widget.session.officeLongitude,
+              distanceMeters: _liveDistanceMeters,
+              radiusMeters: widget.session.attendanceRadiusMeters,
+              errorText: _locationError,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE7E5E4)),
+              ),
+              child: Column(
+                children: [
+                  if (_sessionSummary != null) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          _isFinished
+                              ? Icons.task_alt_rounded
+                              : Icons.verified_user_rounded,
+                          size: 18,
+                          color: _isFinished
+                              ? Colors.teal
+                              : theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _sessionSummary!,
+                                style: theme.textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _sessionSubSummary,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                  ],
+                  _MetricLine(
+                    label: _hasActiveOutsideOffice ||
+                            _sessionState.latestCompletedOutsideOfficeFinish !=
+                                null
+                        ? 'Mulai Kunjungan'
+                        : 'Check-in',
+                    value: _formatTime(_checkInRecord?.recordedAt),
+                    note: insight.arrivalNote,
+                  ),
+                  const Divider(height: 24),
+                  _MetricLine(
+                    label: 'Lokasi',
+                    value: _locationMetricValue,
+                    note: _locationMetricNote,
+                  ),
+                  const Divider(height: 24),
+                  _MetricLine(
+                    label: 'Rule Hari Ini',
+                    value: _hasActiveOutsideOffice ||
+                            _sessionState.latestCompletedOutsideOfficeFinish !=
+                                null
+                        ? 'Absensi luar kantor'
+                        : insight.summaryLabel,
+                    note: _hasActiveOutsideOffice ||
+                            _sessionState.latestCompletedOutsideOfficeFinish !=
+                                null
+                        ? _outsideOfficeSummaryNote
+                        : insight.departureNote,
+                  ),
+                  const Divider(height: 24),
+                  _MetricLine(
+                    label: 'Verifikasi Wajah',
+                    value:
+                        _latestFaceCapturePath == null ? 'Belum ada' : 'Lolos',
+                    note: _latestFaceCapturePath == null
+                        ? 'Scan wajah dibutuhkan saat aksi absensi'
+                        : 'Capture audit sudah siap',
+                  ),
+                  const Divider(height: 24),
+                  _MetricLine(
+                    label: 'Durasi',
+                    value: _durationText,
+                    note: insight.summaryNote,
+                  ),
+                ],
+              ),
+            ),
+            if (insight.contextNotes.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.28,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Sinkronisasi WFA',
+                        style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    for (var i = 0; i < insight.contextNotes.length; i++) ...[
+                      _RuleTile(text: insight.contextNotes[i]),
+                      if (i != insight.contextNotes.length - 1)
+                        const SizedBox(height: 10),
+                    ],
+                  ],
+                ),
               ),
             ],
-          ),
-        ],
-        const SizedBox(height: 20),
-        Text('Riwayat Singkat', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 6),
-        Text(
-          'Urutan aktivitas terbaru dari verifikasi wajah, pencatatan lokasi, sampai check-in atau check-out.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_events.isEmpty)
-          const EmptyState(
-            icon: Icons.history_rounded,
-            title: 'Belum ada riwayat',
-            message:
-                'Aktivitas verifikasi wajah, check-in, dan check-out akan muncul di sini.',
-          )
-        else
-          for (final event in _events) ...[
-            _TimelineItem(event: event),
-            if (event != _events.last) const SizedBox(height: 14),
-          ],
-        const SizedBox(height: 20),
-        Text('Business Rules', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 6),
-        Text(
-          'Aturan mock saat ini untuk menjaga alur absensi wajah tetap konsisten.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        const Column(
-          children: [
-            _RuleTile(
-              text: 'Face check-in hanya aktif jika GPS menyala dan verifikasi wajah lolos.',
+            const SizedBox(height: 16),
+            _FacePreviewLine(
+              faceCapturePath: _latestFaceCapturePath,
             ),
-            SizedBox(height: 10),
-            _RuleTile(
-              text: 'Setelah wajah lolos verifikasi, lokasi user wajib tercatat sebelum check-in atau check-out dieksekusi.',
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: (_isCheckedIn || _hasActiveOutsideOffice)
+                        ? null
+                        : _toggleGps,
+                    child: Text(_gpsActive ? 'GPS Aktif' : 'GPS Nonaktif'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _primaryAction,
+                    child: Text(_primaryActionLabel),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 10),
-            _RuleTile(
-              text:
-                  'Jam kerja standar mock adalah masuk ${AttendancePolicy.officeStart} dan pulang ${AttendancePolicy.officeEnd}.',
+            if (!_isCheckedIn && !_hasActiveOutsideOffice) ...[
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: _isOutsideOfficeSubmitting
+                    ? null
+                    : _startOutsideOfficeAttendance,
+                icon: const Icon(Icons.storefront_rounded),
+                label: Text(
+                  _isOutsideOfficeSubmitting
+                      ? 'Memproses...'
+                      : 'Absensi diluar kantor',
+                ),
+              ),
+            ],
+            if (_isVerifyingFace) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Memverifikasi wajah, mengunggah capture, dan menyimpan absensi...',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 20),
+            Text('Riwayat Singkat', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              'Urutan aktivitas terbaru dari verifikasi wajah, pencatatan lokasi, sampai check-in atau check-out.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-            SizedBox(height: 10),
-            _RuleTile(
-              text: 'Satu user hanya boleh punya satu sesi aktif dalam satu waktu.',
+            const SizedBox(height: 12),
+            if (_events.isEmpty)
+              const EmptyState(
+                icon: Icons.history_rounded,
+                title: 'Belum ada riwayat',
+                message:
+                    'Aktivitas verifikasi wajah, check-in, dan check-out akan muncul di sini.',
+              )
+            else
+              for (final event in _events) ...[
+                _TimelineItem(event: event),
+                if (event != _events.last) const SizedBox(height: 14),
+              ],
+            const SizedBox(height: 20),
+            Text('Business Rules', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              'Aturan mock saat ini untuk menjaga alur absensi wajah tetap konsisten.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-            SizedBox(height: 10),
-            _RuleTile(
-              text: 'Capture wajah dan lokasi menjadi audit mock absensi.',
+            const SizedBox(height: 12),
+            const Column(
+              children: [
+                _RuleTile(
+                  text:
+                      'Face check-in hanya aktif jika GPS menyala dan verifikasi wajah lolos.',
+                ),
+                SizedBox(height: 10),
+                _RuleTile(
+                  text:
+                      'Setelah wajah lolos verifikasi, lokasi user wajib tercatat sebelum check-in atau check-out dieksekusi.',
+                ),
+                SizedBox(height: 10),
+                _RuleTile(
+                  text:
+                      'Jam kerja standar mock adalah masuk ${AttendancePolicy.officeStart} dan pulang ${AttendancePolicy.officeEnd}.',
+                ),
+                SizedBox(height: 10),
+                _RuleTile(
+                  text:
+                      'Satu user hanya boleh punya satu sesi aktif dalam satu waktu.',
+                ),
+                SizedBox(height: 10),
+                _RuleTile(
+                  text: 'Capture wajah dan lokasi menjadi audit mock absensi.',
+                ),
+                SizedBox(height: 10),
+                _RuleTile(
+                  text:
+                      'Area Manager juga bisa memakai absensi luar kantor untuk kunjungan client atau lokasi visit.',
+                ),
+              ],
             ),
-            SizedBox(height: 10),
-            _RuleTile(
-              text: 'Area Manager juga bisa memakai absensi luar kantor untuk kunjungan client atau lokasi visit.',
-            ),
-          ],
-        ),
           ],
         );
       },
@@ -590,7 +609,8 @@ class _AttendancePageState extends State<AttendancePage> {
       return 'Lokasi, foto, dan ringkasan kunjungan disimpan sebagai audit lapangan.';
     }
 
-    final subject = metadata.placeDescription ?? metadata.ukmName ?? 'aktivitas lapangan';
+    final subject =
+        metadata.placeDescription ?? metadata.ukmName ?? 'aktivitas lapangan';
     return 'Audit luar kantor untuk $subject.';
   }
 
@@ -696,8 +716,7 @@ class _AttendancePageState extends State<AttendancePage> {
     required Future<void> Function(
       _AttendanceLocation location,
       FaceVerificationResult verificationResult,
-    )
-    onVerified,
+    ) onVerified,
   }) async {
     final enrollmentBlock = _faceEnrollmentBlockReason(actionLabel);
     if (enrollmentBlock != null) {
@@ -863,7 +882,9 @@ class _AttendancePageState extends State<AttendancePage> {
     final officeLongitude = widget.session.officeLongitude;
     final radiusMeters = widget.session.attendanceRadiusMeters;
 
-    if (officeLatitude == null || officeLongitude == null || radiusMeters == null) {
+    if (officeLatitude == null ||
+        officeLongitude == null ||
+        radiusMeters == null) {
       return _AttendanceLocation(
         latitude: latitude,
         longitude: longitude,
@@ -1205,8 +1226,7 @@ class _AttendancePageState extends State<AttendancePage> {
             evidenceAttachment: attachment,
             finishedAt: now,
           ),
-          note:
-              'Absensi luar kantor selesai untuk ${result.placeDescription}.',
+          note: 'Absensi luar kantor selesai untuk ${result.placeDescription}.',
         ),
       );
 
@@ -1339,7 +1359,8 @@ class _AttendancePageState extends State<AttendancePage> {
                                 }
                                 Navigator.of(context).pop(
                                   _OutsideOfficeDraft(
-                                    placeDescription: placeController.text.trim(),
+                                    placeDescription:
+                                        placeController.text.trim(),
                                     evidencePath: evidencePath!,
                                   ),
                                 );
@@ -1485,7 +1506,9 @@ class _AttendanceSessionState {
   AttendanceRecord? get displayOutsideOfficeStart =>
       activeOutsideOfficeStart ?? latestCompletedOutsideOfficeStart;
   AttendanceRecord? get displayOutsideOfficeFinish =>
-      activeOutsideOfficeStart == null ? latestCompletedOutsideOfficeFinish : null;
+      activeOutsideOfficeStart == null
+          ? latestCompletedOutsideOfficeFinish
+          : null;
 
   static _AttendanceSessionState fromRecords(List<AttendanceRecord> records) {
     final sorted = [...records]
@@ -1594,6 +1617,8 @@ class _LiveLocationRadiusCard extends StatelessWidget {
     required this.isInsideRadius,
     required this.currentLatitude,
     required this.currentLongitude,
+    required this.officeLatitude,
+    required this.officeLongitude,
     required this.distanceMeters,
     required this.radiusMeters,
     required this.errorText,
@@ -1605,6 +1630,8 @@ class _LiveLocationRadiusCard extends StatelessWidget {
   final bool isInsideRadius;
   final double? currentLatitude;
   final double? currentLongitude;
+  final double? officeLatitude;
+  final double? officeLongitude;
   final double? distanceMeters;
   final int? radiusMeters;
   final String? errorText;
@@ -1624,10 +1651,9 @@ class _LiveLocationRadiusCard extends StatelessWidget {
             : isInsideRadius
                 ? 'Di dalam radius'
                 : 'Di luar radius';
-    final coordinateLabel =
-        currentLatitude == null || currentLongitude == null
-            ? 'Mencari lokasi live...'
-            : '${currentLatitude!.toStringAsFixed(6)}, ${currentLongitude!.toStringAsFixed(6)}';
+    final coordinateLabel = currentLatitude == null || currentLongitude == null
+        ? 'Mencari lokasi live...'
+        : '${currentLatitude!.toStringAsFixed(6)}, ${currentLongitude!.toStringAsFixed(6)}';
     final distanceLabel = distanceMeters == null
         ? '-'
         : distanceMeters! >= 1000
@@ -1663,6 +1689,17 @@ class _LiveLocationRadiusCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          _RadiusRadar(
+            areaName: areaName,
+            currentLatitude: currentLatitude,
+            currentLongitude: currentLongitude,
+            officeLatitude: officeLatitude,
+            officeLongitude: officeLongitude,
+            radiusMeters: radiusMeters,
+            isInsideRadius: isInsideRadius,
+            statusColor: statusColor,
+          ),
+          const SizedBox(height: 12),
           Text(
             coordinateLabel,
             style: theme.textTheme.bodyMedium,
@@ -1684,6 +1721,275 @@ class _LiveLocationRadiusCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _RadiusRadar extends StatelessWidget {
+  const _RadiusRadar({
+    required this.areaName,
+    required this.currentLatitude,
+    required this.currentLongitude,
+    required this.officeLatitude,
+    required this.officeLongitude,
+    required this.radiusMeters,
+    required this.isInsideRadius,
+    required this.statusColor,
+  });
+
+  final String areaName;
+  final double? currentLatitude;
+  final double? currentLongitude;
+  final double? officeLatitude;
+  final double? officeLongitude;
+  final int? radiusMeters;
+  final bool isInsideRadius;
+  final Color statusColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasUserPosition = currentLatitude != null && currentLongitude != null;
+    final hasOfficePosition = officeLatitude != null && officeLongitude != null;
+
+    return Container(
+      height: 230,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE7E5E4)),
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _RadiusRadarPainter(
+                currentLatitude: currentLatitude,
+                currentLongitude: currentLongitude,
+                officeLatitude: officeLatitude,
+                officeLongitude: officeLongitude,
+                radiusMeters: radiusMeters,
+                isInsideRadius: isInsideRadius,
+                statusColor: statusColor,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 14,
+            top: 12,
+            right: 14,
+            child: Row(
+              children: [
+                const Icon(Icons.business_rounded, size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Titik area: $areaName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!hasOfficePosition || radiusMeters == null)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Text(
+                  'Area absensi belum lengkap. HR perlu mengisi titik lokasi dan radius.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+            )
+          else if (!hasUserPosition)
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Mencari titik lokasi kamu...',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 12,
+            child: Row(
+              children: [
+                _RadarLegendDot(
+                  color: const Color(0xFF1F2937),
+                  label: 'Titik area',
+                ),
+                const SizedBox(width: 12),
+                _RadarLegendDot(
+                  color: statusColor,
+                  label: 'Posisi kamu',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RadarLegendDot extends StatelessWidget {
+  const _RadarLegendDot({
+    required this.color,
+    required this.label,
+  });
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _RadiusRadarPainter extends CustomPainter {
+  const _RadiusRadarPainter({
+    required this.currentLatitude,
+    required this.currentLongitude,
+    required this.officeLatitude,
+    required this.officeLongitude,
+    required this.radiusMeters,
+    required this.isInsideRadius,
+    required this.statusColor,
+  });
+
+  final double? currentLatitude;
+  final double? currentLongitude;
+  final double? officeLatitude;
+  final double? officeLongitude;
+  final int? radiusMeters;
+  final bool isInsideRadius;
+  final Color statusColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2 + 8);
+    final radiusPx = math.min(size.width, size.height) * 0.31;
+    final boundaryPaint = Paint()
+      ..color = const Color(0xFF0F4F3C).withValues(alpha: 0.13)
+      ..style = PaintingStyle.fill;
+    final boundaryStroke = Paint()
+      ..color = const Color(0xFF0F4F3C).withValues(alpha: 0.62)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final outerStroke = Paint()
+      ..color = const Color(0xFFE7E5E4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    canvas.drawCircle(center, radiusPx * 1.22, outerStroke);
+    canvas.drawCircle(center, radiusPx, boundaryPaint);
+    canvas.drawCircle(center, radiusPx, boundaryStroke);
+
+    final crossPaint = Paint()
+      ..color = const Color(0xFF0F4F3C).withValues(alpha: 0.20)
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(center.dx - radiusPx, center.dy),
+      Offset(center.dx + radiusPx, center.dy),
+      crossPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx, center.dy - radiusPx),
+      Offset(center.dx, center.dy + radiusPx),
+      crossPaint,
+    );
+
+    final officePaint = Paint()..color = const Color(0xFF1F2937);
+    canvas.drawCircle(center, 7, officePaint);
+
+    if (currentLatitude == null ||
+        currentLongitude == null ||
+        officeLatitude == null ||
+        officeLongitude == null ||
+        radiusMeters == null ||
+        radiusMeters! <= 0) {
+      return;
+    }
+
+    final metersPerLatitudeDegree = 111320.0;
+    final metersPerLongitudeDegree =
+        111320.0 * math.cos((officeLatitude! * math.pi) / 180);
+    final northMeters =
+        (currentLatitude! - officeLatitude!) * metersPerLatitudeDegree;
+    final eastMeters =
+        (currentLongitude! - officeLongitude!) * metersPerLongitudeDegree;
+    final scale = radiusPx / radiusMeters!;
+    final rawOffset = Offset(eastMeters * scale, -northMeters * scale);
+    final maxPlotRadius = radiusPx * 1.18;
+    final distanceFromCenter = rawOffset.distance;
+    final plottedOffset =
+        distanceFromCenter > maxPlotRadius && distanceFromCenter > 0
+            ? rawOffset * (maxPlotRadius / distanceFromCenter)
+            : rawOffset;
+    final userPoint = center + plottedOffset;
+
+    final linePaint = Paint()
+      ..color = statusColor.withValues(alpha: 0.45)
+      ..strokeWidth = 2;
+    canvas.drawLine(center, userPoint, linePaint);
+
+    final userGlow = Paint()
+      ..color = statusColor.withValues(alpha: isInsideRadius ? 0.18 : 0.24);
+    canvas.drawCircle(userPoint, 18, userGlow);
+
+    final userPaint = Paint()..color = statusColor;
+    canvas.drawCircle(userPoint, 8, userPaint);
+
+    final ringPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawCircle(userPoint, 8, ringPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadiusRadarPainter oldDelegate) {
+    return oldDelegate.currentLatitude != currentLatitude ||
+        oldDelegate.currentLongitude != currentLongitude ||
+        oldDelegate.officeLatitude != officeLatitude ||
+        oldDelegate.officeLongitude != officeLongitude ||
+        oldDelegate.radiusMeters != radiusMeters ||
+        oldDelegate.isInsideRadius != isInsideRadius ||
+        oldDelegate.statusColor != statusColor;
   }
 }
 
