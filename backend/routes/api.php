@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\FaceProfileController;
 use App\Http\Controllers\Api\FaceVerificationController;
@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PerformanceController;
 use App\Http\Controllers\Api\TerritoryController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\WfaController;
+use App\Http\Middleware\EnsureActiveApiUser;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login']);
@@ -23,7 +24,7 @@ Route::get('/territories/cities', [TerritoryController::class, 'cities']);
 Route::get('/territories/districts', [TerritoryController::class, 'districts']);
 Route::get('/territories/subdistricts', [TerritoryController::class, 'subdistricts']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', EnsureActiveApiUser::class])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
     Route::post('/devices/push-token', [DeviceTokenController::class, 'store']);

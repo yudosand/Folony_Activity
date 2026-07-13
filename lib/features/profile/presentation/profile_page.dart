@@ -32,13 +32,46 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 16),
             Text('Informasi Akun', style: theme.textTheme.titleMedium),
             const SizedBox(height: 12),
-            const _InfoRow(label: 'Status User', value: 'Aktif'),
+            _InfoRow(
+              label: 'Status User',
+              value: session.isActive ? 'Aktif' : 'Nonaktif',
+            ),
             const Divider(height: 24),
             _InfoRow(label: 'Role', value: session.role.label),
+            const Divider(height: 24),
+            _InfoRow(label: 'Jabatan', value: session.jobTitle ?? '-'),
+            const Divider(height: 24),
+            _InfoRow(label: 'Email', value: session.email ?? '-'),
             const Divider(height: 24),
             _InfoRow(label: 'Nomor HP', value: session.phoneNumber),
             const Divider(height: 24),
             _InfoRow(label: 'Area Kerja', value: session.areaName),
+            const Divider(height: 24),
+            _InfoRow(label: 'Lokasi Kerja', value: session.workLocation ?? '-'),
+            const Divider(height: 24),
+            _InfoRow(
+              label: 'Saldo Cuti',
+              value: _formatBalanceDays(
+                controller.leaveBalanceDaysForSession(session),
+              ),
+            ),
+            const Divider(height: 24),
+            _InfoRow(
+              label: 'Tgl Bergabung',
+              value: _formatDate(session.joinedAt),
+            ),
+            const Divider(height: 24),
+            _InfoRow(label: 'Alamat', value: session.address ?? '-'),
+            const Divider(height: 24),
+            _InfoRow(
+              label: 'Kontak Darurat',
+              value: session.emergencyContactName ?? '-',
+            ),
+            const Divider(height: 24),
+            _InfoRow(
+              label: 'No. Darurat',
+              value: session.emergencyContactPhone ?? '-',
+            ),
             const SizedBox(height: 20),
             _FaceEnrollmentCard(
               session: session,
@@ -67,6 +100,27 @@ class ProfilePage extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _formatDate(DateTime? value) {
+    if (value == null) {
+      return '-';
+    }
+
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year.toString();
+    return '$day/$month/$year';
+  }
+
+  String _formatBalanceDays(double value) {
+    final rounded = value.roundToDouble();
+    if (rounded == value) {
+      return '${value.toInt()} hari';
+    }
+
+    return '${value.toStringAsFixed(1)} hari';
   }
 }
 
@@ -110,9 +164,9 @@ class _ProfileHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              const StatusBadge(
-                label: 'Profil aktif',
-                color: Colors.teal,
+              StatusBadge(
+                label: session.isActive ? 'Profil aktif' : 'Profil nonaktif',
+                color: session.isActive ? Colors.teal : Colors.redAccent,
               ),
             ],
           ),
@@ -425,7 +479,8 @@ class _ChangePasswordTileState extends State<_ChangePasswordTile> {
                           if (value == null || value.trim().isEmpty) {
                             return 'Konfirmasi password wajib diisi';
                           }
-                          if (value.trim() != newPasswordController.text.trim()) {
+                          if (value.trim() !=
+                              newPasswordController.text.trim()) {
                             return 'Konfirmasi password belum sama';
                           }
                           return null;

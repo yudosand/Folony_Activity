@@ -17,13 +17,17 @@ class LeaveService
 {
     public function __construct(
         private readonly ApprovalChainFactory $approvalChainFactory,
+        private readonly LeaveBalanceService $leaveBalanceService,
         private readonly PushNotificationService $pushNotificationService,
-    ) {
-    }
+    ) {}
 
     public function create(array $payload, User $requester): LeaveRequest
     {
         $leaveRequest = DB::transaction(function () use ($payload, $requester) {
+            if ($this->leaveBalanceService->usesBalance($payload['category'], $payload['compensation_option'])) {
+                $this->leaveBalanceService->reserve($requester, (float) $payload['duration_value']);
+            }
+
             $leaveRequest = LeaveRequest::create([
                 'id' => $payload['id'] ?? (string) Str::uuid(),
                 'requester_id' => $requester->id,
@@ -81,10 +85,26 @@ class LeaveService
 
     public function updateStatus(LeaveRequest $leaveRequest, array $payload): LeaveRequest
     {
-        $leaveRequest->update([
-            'status' => $payload['status'],
-            'note' => $payload['note'] ?? $leaveRequest->note,
-        ]);
+        DB::transaction(function () use ($leaveRequest, $payload) {
+            $originalStatus = (string) $leaveRequest->status;
+            $nextStatus = (string) $payload['status'];
+
+            if (
+                $nextStatus === WorkflowStatus::REJECTED
+                && $originalStatus !== WorkflowStatus::REJECTED
+                && $this->leaveBalanceService->usesBalanceForRequest($leaveRequest)
+            ) {
+                $requester = User::query()->find($leaveRequest->requester_id);
+                if ($requester instanceof User) {
+                    $this->leaveBalanceService->restore($requester, (float) $leaveRequest->duration_value);
+                }
+            }
+
+            $leaveRequest->update([
+                'status' => $nextStatus,
+                'note' => $payload['note'] ?? $leaveRequest->note,
+            ]);
+        });
 
         return $this->findById($leaveRequest->id);
     }

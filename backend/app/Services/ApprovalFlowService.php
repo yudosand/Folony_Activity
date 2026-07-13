@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\DB;
 class ApprovalFlowService
 {
     public function __construct(
+        private readonly LeaveBalanceService $leaveBalanceService,
         private readonly PushNotificationService $pushNotificationService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return Collection<int, ApprovalStep>
@@ -81,6 +81,16 @@ class ApprovalFlowService
                 'note' => $note,
                 'acted_at' => now(),
             ]);
+
+            if ($step->module === WorkflowModule::LEAVE && $step->leaveRequest) {
+                $requester = User::query()->find($step->leaveRequest->requester_id);
+                if (
+                    $requester instanceof User
+                    && $this->leaveBalanceService->usesBalanceForRequest($step->leaveRequest)
+                ) {
+                    $this->leaveBalanceService->restore($requester, (float) $step->leaveRequest->duration_value);
+                }
+            }
 
             $this->updateSourceStatus($step, WorkflowStatus::REJECTED, $note);
             $this->notifyRequester($step, WorkflowStatus::REJECTED);

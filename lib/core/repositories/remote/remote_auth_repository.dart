@@ -25,14 +25,20 @@ class RemoteAuthRepository implements AuthRepository {
     }
 
     _client.setAuthToken(token);
+    final cachedUser = _readCachedUser(preferences);
     try {
       final response = await _client.get('/me');
       final user = AppUser.fromJson(_unwrapMap(response));
       await preferences.setString(_userKey, jsonEncode(user.toJson()));
       return user;
+    } on ApiException catch (error) {
+      if (error.statusCode == 401 || error.statusCode == 403) {
+        await _clearLocalAuth(preferences);
+        return null;
+      }
+      return cachedUser;
     } catch (_) {
-      await _clearLocalAuth(preferences);
-      return null;
+      return cachedUser;
     }
   }
 
@@ -127,6 +133,27 @@ class RemoteAuthRepository implements AuthRepository {
     _client.setAuthToken(null);
     await preferences.remove(_tokenKey);
     await preferences.remove(_userKey);
+  }
+
+  AppUser? _readCachedUser(SharedPreferences preferences) {
+    final rawUser = preferences.getString(_userKey);
+    if (rawUser == null || rawUser.isEmpty) {
+      return null;
+    }
+
+    try {
+      final decoded = jsonDecode(rawUser);
+      if (decoded is Map<String, dynamic>) {
+        return AppUser.fromJson(decoded);
+      }
+      if (decoded is Map) {
+        return AppUser.fromJson(Map<String, dynamic>.from(decoded));
+      }
+    } catch (_) {
+      // Ignore malformed cache and fall back to network.
+    }
+
+    return null;
   }
 
   Map<String, dynamic> _unwrapMap(dynamic response) {

@@ -66,7 +66,8 @@ class AppController extends ChangeNotifier {
     bool seedWorkflowDemoData = true,
   })  : _authRepository = authRepository,
         _networkRepository = networkRepository ?? MockNetworkRepository(),
-        _attendanceRepository = attendanceRepository ?? MockAttendanceRepository(),
+        _attendanceRepository =
+            attendanceRepository ?? MockAttendanceRepository(),
         _leaveRepository = leaveRepository ?? MockLeaveRepository(),
         _wfaRepository = wfaRepository ?? MockWfaRepository(),
         _approvalRepository = approvalRepository ?? MockApprovalRepository(),
@@ -121,12 +122,13 @@ class AppController extends ChangeNotifier {
   final Map<String, List<NetworkEntry>> _teamUkmEntriesByAreaManager = {};
   final Map<String, List<AttendanceRecord>> _attendanceRecordsByOwner = {};
   final Map<String, PerformanceSummary?> _performanceSummaryByOwner = {};
-  final Map<String, List<leave_model.LeaveRequestRecord>> _leaveRequestsByOwner = {};
+  final Map<String, List<leave_model.LeaveRequestRecord>>
+      _leaveRequestsByOwner = {};
   final Map<String, List<wfa_model.WfaRequestRecord>> _wfaRequestsByOwner = {};
-  final Map<String, List<leave_model.LeaveRequestRecord>> _leaveApprovalRequestsByApprover =
-      {};
-  final Map<String, List<wfa_model.WfaRequestRecord>> _wfaApprovalRequestsByApprover =
-      {};
+  final Map<String, List<leave_model.LeaveRequestRecord>>
+      _leaveApprovalRequestsByApprover = {};
+  final Map<String, List<wfa_model.WfaRequestRecord>>
+      _wfaApprovalRequestsByApprover = {};
   final Map<String, double> _leaveBalanceByUserId = {};
   final Map<String, FaceProfile> _faceProfilesByOwner = {};
   List<TerritoryOption>? _territoryProvinceCache;
@@ -208,7 +210,8 @@ class AppController extends ChangeNotifier {
   }) async {
     final authRepository = _authRepository;
     if (!_useRemoteAuth || authRepository == null) {
-      throw StateError('Ubah password hanya tersedia pada mode staging/backend.');
+      throw StateError(
+          'Ubah password hanya tersedia pada mode staging/backend.');
     }
 
     await authRepository.changePassword(
@@ -233,18 +236,25 @@ class AppController extends ChangeNotifier {
       role: role,
       userName: role.mockUserName,
       areaName: role.defaultArea,
+      email: null,
+      jobTitle: role.label,
       spvId: role == AppRole.staff ? AppRole.spv.workflowDemoUserId : null,
       spvName: role == AppRole.staff ? AppRole.spv.mockUserName : null,
       managementId: switch (role) {
-        AppRole.staff || AppRole.spv || AppRole.areaManager =>
+        AppRole.staff ||
+        AppRole.spv ||
+        AppRole.areaManager =>
           AppRole.management.workflowDemoUserId,
         _ => null,
       },
       managementName: switch (role) {
-        AppRole.staff || AppRole.spv || AppRole.areaManager =>
+        AppRole.staff ||
+        AppRole.spv ||
+        AppRole.areaManager =>
           AppRole.management.mockUserName,
         _ => null,
       },
+      leaveBalanceDays: role.defaultLeaveBalanceDays,
     )));
   }
 
@@ -257,7 +267,8 @@ class AppController extends ChangeNotifier {
       return const [];
     }
 
-    return List.unmodifiable(_networkEntriesByOwner[session.ownerKey] ?? const []);
+    return List.unmodifiable(
+        _networkEntriesByOwner[session.ownerKey] ?? const []);
   }
 
   List<NetworkEntry> teamUkmEntriesForAreaManager(AppSession session) {
@@ -271,7 +282,8 @@ class AppController extends ChangeNotifier {
   }
 
   List<AttendanceRecord> attendanceRecordsForSession(AppSession session) {
-    return List.unmodifiable(_attendanceRecordsByOwner[session.ownerKey] ?? const []);
+    return List.unmodifiable(
+        _attendanceRecordsByOwner[session.ownerKey] ?? const []);
   }
 
   PerformanceSummary? performanceSummaryForSession(AppSession session) {
@@ -333,7 +345,8 @@ class AppController extends ChangeNotifier {
     return districts;
   }
 
-  Future<List<TerritoryOption>> territorySubdistricts(String districtCode) async {
+  Future<List<TerritoryOption>> territorySubdistricts(
+      String districtCode) async {
     final cached = _territorySubdistrictCache[districtCode];
     if (cached != null) {
       return cached;
@@ -377,8 +390,8 @@ class AppController extends ChangeNotifier {
     AppSession session, {
     required List<String> samplePaths,
   }) async {
-    final biometricTemplate = await _faceBiometricAnalyzer
-        .buildEnrollmentTemplate(samplePaths);
+    final biometricTemplate =
+        await _faceBiometricAnalyzer.buildEnrollmentTemplate(samplePaths);
     final uploadedSamples = <RemoteAttachment>[];
     for (var index = 0; index < samplePaths.length; index++) {
       final samplePath = samplePaths[index];
@@ -498,8 +511,10 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<leave_model.LeaveRequestRecord> leaveRequestsForSession(AppSession session) {
-    return List.unmodifiable(_leaveRequestsByOwner[session.ownerKey] ?? const []);
+  List<leave_model.LeaveRequestRecord> leaveRequestsForSession(
+      AppSession session) {
+    return List.unmodifiable(
+        _leaveRequestsByOwner[session.ownerKey] ?? const []);
   }
 
   List<wfa_model.WfaRequestRecord> wfaRequestsForSession(AppSession session) {
@@ -508,10 +523,11 @@ class AppController extends ChangeNotifier {
 
   double leaveBalanceDaysForSession(AppSession session) {
     return _leaveBalanceByUserId[_workflowUserIdForSession(session)] ??
-        session.role.defaultLeaveBalanceDays;
+        session.leaveBalanceDays;
   }
 
-  List<leave_model.LeaveRequestRecord> leaveApprovalsForSession(AppSession session) {
+  List<leave_model.LeaveRequestRecord> leaveApprovalsForSession(
+      AppSession session) {
     if (session.role != AppRole.spv && session.role != AppRole.management) {
       return const [];
     }
@@ -532,18 +548,19 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> submitLeaveRequest(
-    AppSession session,
-    leave_model.LeaveRequestRecord request,
-    {String? evidencePath}
-  ) async {
+      AppSession session, leave_model.LeaveRequestRecord request,
+      {String? evidencePath}) async {
     final uploadedAttachment = await _uploadAttachmentIfNeeded(
       filePath: evidencePath,
-      label: 'Leave ${request.category.name} ${DateTime.now().toIso8601String()}',
+      label:
+          'Leave ${request.category.name} ${DateTime.now().toIso8601String()}',
     );
     final resolvedRequest = request.copyWith(
       requesterId: _workflowUserIdForSession(session),
       requesterName: _workflowUserNameForSession(session),
-      attachments: uploadedAttachment == null ? request.attachments : [uploadedAttachment],
+      attachments: uploadedAttachment == null
+          ? request.attachments
+          : [uploadedAttachment],
     );
     if (_usesLeaveBalance(resolvedRequest) &&
         resolvedRequest.durationValue > leaveBalanceDaysForSession(session)) {
@@ -552,13 +569,16 @@ class AppController extends ChangeNotifier {
     await _leaveRepository.submit(
       resolvedRequest,
     );
-    _consumeLeaveBalanceIfNeeded(
-      userId: _workflowUserIdForSession(session),
-      role: session.role,
-      request: resolvedRequest,
-    );
+    if (!_useRemoteAuth) {
+      _consumeLeaveBalanceIfNeeded(
+        userId: _workflowUserIdForSession(session),
+        role: session.role,
+        request: resolvedRequest,
+      );
+    }
     await _loadWorkflowData(session);
     await _refreshWorkflowForLeaveParticipants(resolvedRequest);
+    await refreshCurrentUserProfile();
   }
 
   Future<void> submitWfaRequest(
@@ -607,10 +627,13 @@ class AppController extends ChangeNotifier {
       note: note,
     );
     if (request != null) {
-      _restoreLeaveBalanceIfNeeded(request);
+      if (!_useRemoteAuth) {
+        _restoreLeaveBalanceIfNeeded(request);
+      }
       await _refreshWorkflowForLeaveParticipants(request);
     }
     await _loadWorkflowData(session);
+    await refreshCurrentUserProfile();
   }
 
   Future<void> approveWfaRequest(
@@ -764,7 +787,8 @@ class AppController extends ChangeNotifier {
       profileId: entry.id,
       nextStatus: _profileStatusFromLabel(status ?? entry.status),
       followUp: NetworkFollowUpRecord(
-        id: followUp.id ?? '${entry.id}-${followUp.createdAt.microsecondsSinceEpoch}',
+        id: followUp.id ??
+            '${entry.id}-${followUp.createdAt.microsecondsSinceEpoch}',
         title: followUp.title,
         note: followUp.note,
         actorId: activeSession == null
@@ -789,7 +813,7 @@ class AppController extends ChangeNotifier {
     await _ensureWorkflowSeedForSession(session);
     _leaveBalanceByUserId.putIfAbsent(
       _workflowUserIdForSession(session),
-      () => session.role.defaultLeaveBalanceDays,
+      () => session.leaveBalanceDays,
     );
 
     _leaveRequestsByOwner[session.ownerKey] = await _leaveRepository.listByUser(
@@ -877,7 +901,8 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    final summary = await _performanceRepository.currentSummary(session: session);
+    final summary =
+        await _performanceRepository.currentSummary(session: session);
     _performanceSummaryByOwner[session.ownerKey] = summary;
     notifyListeners();
   }
@@ -1028,7 +1053,8 @@ class AppController extends ChangeNotifier {
   Future<void> _seedDemoWorkflowRequestsAsync({
     bool force = false,
   }) async {
-    final nadiaSession = AppSession.mock(AppRole.staff, userName: 'Nadia Staff');
+    final nadiaSession =
+        AppSession.mock(AppRole.staff, userName: 'Nadia Staff');
     final bagasSession = AppSession.mock(AppRole.spv, userName: 'Bagas SPV');
     final rakaSession = AppSession.mock(
       AppRole.areaManager,
@@ -1100,7 +1126,8 @@ class AppController extends ChangeNotifier {
         startTime: '08:30',
         endTime: '17:00',
         location: 'Rumah - Jakarta Selatan',
-        reason: 'Fokus koordinasi laporan dan follow-up vendor dari luar kantor.',
+        reason:
+            'Fokus koordinasi laporan dan follow-up vendor dari luar kantor.',
         initialTask: 'Review pipeline area, follow-up vendor, dan daily sync.',
         status: wfa_model.WorkflowStatus.approved,
         note:
@@ -1147,7 +1174,8 @@ class AppController extends ChangeNotifier {
         reason: 'Meeting evaluasi performa malam hari dengan pihak eksternal.',
         initialTask: 'Paparan hasil evaluasi dan tindak lanjut meeting.',
         status: wfa_model.WorkflowStatus.pending,
-        note: 'Overtime SPV menunggu approval management untuk kompensasi akhir.',
+        note:
+            'Overtime SPV menunggu approval management untuk kompensasi akhir.',
       ),
       _buildWfaRecord(
         session: rakaSession,
@@ -1224,7 +1252,8 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  List<leave_model.LeaveRequestRecord> _seedOwnLeaveRecords(AppSession session) {
+  List<leave_model.LeaveRequestRecord> _seedOwnLeaveRecords(
+      AppSession session) {
     switch (session.role) {
       case AppRole.staff:
         return [
@@ -1298,7 +1327,8 @@ class AppController extends ChangeNotifier {
             location: 'Rumah - ${session.areaName}',
             reason:
                 'Fokus koordinasi laporan dan follow-up vendor dari luar kantor.',
-            initialTask: 'Review pipeline area, follow-up vendor, dan daily sync.',
+            initialTask:
+                'Review pipeline area, follow-up vendor, dan daily sync.',
             status: wfa_model.WorkflowStatus.approved,
             note:
                 'WFA reguler disetujui untuk jam kerja utama dengan output harian wajib ter-update.',
@@ -1312,7 +1342,8 @@ class AppController extends ChangeNotifier {
             startTime: '19:30',
             endTime: '21:00',
             location: 'Online meeting dari rumah',
-            reason: 'Meeting malam dengan mitra dan tim lintas area di luar jam kerja.',
+            reason:
+                'Meeting malam dengan mitra dan tim lintas area di luar jam kerja.',
             initialTask:
                 'Presentasi progres area dan tindak lanjut hasil meeting malam.',
             status: session.role == AppRole.management
@@ -1342,7 +1373,8 @@ class AppController extends ChangeNotifier {
     required String note,
   }) {
     final steps = _buildApprovalSteps(session);
-    final effectiveStatus = steps.isEmpty ? leave_model.WorkflowStatus.approved : status;
+    final effectiveStatus =
+        steps.isEmpty ? leave_model.WorkflowStatus.approved : status;
 
     return leave_model.LeaveRequestRecord(
       id: id,
@@ -1378,7 +1410,8 @@ class AppController extends ChangeNotifier {
     required String note,
   }) {
     final steps = _buildApprovalSteps(session);
-    final effectiveStatus = steps.isEmpty ? wfa_model.WorkflowStatus.approved : status;
+    final effectiveStatus =
+        steps.isEmpty ? wfa_model.WorkflowStatus.approved : status;
 
     return wfa_model.WfaRequestRecord(
       id: id,
@@ -1415,7 +1448,8 @@ class AppController extends ChangeNotifier {
           ApprovalStep(
             sequence: 2,
             approverRole: AppRole.management,
-            approverId: _ownerKeyFor(AppRole.management, session.defaultManagement!),
+            approverId:
+                _ownerKeyFor(AppRole.management, session.defaultManagement!),
             approverName: session.defaultManagement,
             status: ApprovalStepStatus.pending,
           ),
@@ -1426,7 +1460,8 @@ class AppController extends ChangeNotifier {
           ApprovalStep(
             sequence: 1,
             approverRole: AppRole.management,
-            approverId: _ownerKeyFor(AppRole.management, session.defaultManagement!),
+            approverId:
+                _ownerKeyFor(AppRole.management, session.defaultManagement!),
             approverName: session.defaultManagement,
             status: ApprovalStepStatus.pending,
           ),
@@ -1460,20 +1495,18 @@ class AppController extends ChangeNotifier {
     if (status == leave_model.WorkflowStatus.rejected ||
         status == wfa_model.WorkflowStatus.rejected) {
       var acted = false;
-      return steps
-          .map(
-            (step) {
-              if (!acted) {
-                acted = true;
-                return step.copyWith(
-                  status: ApprovalStepStatus.rejected,
-                  actedAt: DateTime(2026, 4, 24, 9),
-                );
-              }
-              return step;
-            },
-          )
-          .toList();
+      return steps.map(
+        (step) {
+          if (!acted) {
+            acted = true;
+            return step.copyWith(
+              status: ApprovalStepStatus.rejected,
+              actedAt: DateTime(2026, 4, 24, 9),
+            );
+          }
+          return step;
+        },
+      ).toList();
     }
 
     return steps;
@@ -1653,8 +1686,10 @@ class AppController extends ChangeNotifier {
       return;
     }
 
-    final currentBalance = _leaveBalanceByUserId[userId] ?? role.defaultLeaveBalanceDays;
-    _leaveBalanceByUserId[userId] = (currentBalance - request.durationValue).clamp(
+    final currentBalance =
+        _leaveBalanceByUserId[userId] ?? role.defaultLeaveBalanceDays;
+    _leaveBalanceByUserId[userId] =
+        (currentBalance - request.durationValue).clamp(
       0,
       double.infinity,
     );
@@ -1695,8 +1730,37 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _applySignedInUser(AppUser user) async {
+    _applyUserSnapshot(user);
     await _activateSession(AppSession.fromUser(user));
     await _syncPushTokenRegistration();
+  }
+
+  Future<void> refreshCurrentUserProfile() async {
+    final authRepository = _authRepository;
+    final currentSession = _session;
+    if (!_useRemoteAuth || authRepository == null || currentSession == null) {
+      return;
+    }
+
+    try {
+      final user = await authRepository.currentUser();
+      if (user == null) {
+        _session = null;
+        notifyListeners();
+        return;
+      }
+
+      _applyUserSnapshot(user);
+      _session = AppSession.fromUser(user);
+      notifyListeners();
+    } catch (_) {
+      // Keep the current session if profile refresh fails temporarily.
+    }
+  }
+
+  void _applyUserSnapshot(AppUser user) {
+    _leaveBalanceByUserId[user.id] =
+        user.leaveBalanceDays ?? user.role.defaultLeaveBalanceDays;
   }
 
   Future<void> _logoutAsync() async {
@@ -1719,7 +1783,9 @@ class AppController extends ChangeNotifier {
   Future<void> _syncPushTokenRegistration() async {
     final authRepository = _authRepository;
     final pushNotificationService = _pushNotificationService;
-    if (!_useRemoteAuth || authRepository == null || pushNotificationService == null) {
+    if (!_useRemoteAuth ||
+        authRepository == null ||
+        pushNotificationService == null) {
       return;
     }
 

@@ -7,11 +7,13 @@ import 'package:folony_activity/core/enums/app_role.dart';
 import 'package:folony_activity/core/models/attendance_record.dart';
 import 'package:folony_activity/core/models/approval_step.dart';
 import 'package:folony_activity/core/models/app_session.dart';
+import 'package:folony_activity/core/models/app_user.dart';
 import 'package:folony_activity/core/models/face_profile.dart';
 import 'package:folony_activity/core/models/face_verification_result.dart';
 import 'package:folony_activity/core/models/network_entry.dart';
 import 'package:folony_activity/core/models/remote_attachment.dart';
 import 'package:folony_activity/core/repositories/attendance_repository.dart';
+import 'package:folony_activity/core/repositories/auth_repository.dart';
 import 'package:folony_activity/core/repositories/face_profile_repository.dart';
 import 'package:folony_activity/core/repositories/hybrid/fallback_attendance_repository.dart';
 import 'package:folony_activity/core/repositories/hybrid/workflow_repository_mode.dart';
@@ -23,11 +25,13 @@ import 'package:folony_activity/core/models/wfa_request_record.dart'
     as wfa_model;
 import 'package:folony_activity/features/leave/presentation/leave_page.dart';
 import 'package:folony_activity/features/leave/presentation/leave_approval_page.dart';
+import 'package:folony_activity/features/profile/presentation/profile_page.dart';
 import 'package:folony_activity/features/wfh/presentation/wfh_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
-  test('multi-role tester can sign in and switch roles in local mode', () async {
+  test('multi-role tester can sign in and switch roles in local mode',
+      () async {
     final controller = AppController(
       useRemoteAuth: false,
       allowDemoMode: true,
@@ -95,7 +99,8 @@ void main() {
     );
   });
 
-  test('leave balance is deducted on submit and restored on rejection', () async {
+  test('leave balance is deducted on submit and restored on rejection',
+      () async {
     final controller = AppController(seedWorkflowDemoData: false);
     final staffSession = AppSession.mock(AppRole.staff);
     final spvSession = AppSession.mock(AppRole.spv);
@@ -110,8 +115,7 @@ void main() {
         requesterName: staffSession.userName,
         requesterRole: staffSession.role,
         category: leave_model.LeaveCategory.cuti,
-        compensationOption:
-            leave_model.LeaveCompensationOption.potongSaldoCuti,
+        compensationOption: leave_model.LeaveCompensationOption.potongSaldoCuti,
         startAt: DateTime(2026, 5, 1),
         endAt: DateTime(2026, 5, 2),
         durationValue: 2,
@@ -123,7 +127,8 @@ void main() {
       ),
     );
 
-    expect(controller.leaveBalanceDaysForSession(staffSession), initialBalance - 2);
+    expect(controller.leaveBalanceDaysForSession(staffSession),
+        initialBalance - 2);
 
     await controller.rejectLeaveRequest(
       spvSession,
@@ -134,7 +139,8 @@ void main() {
     expect(controller.leaveBalanceDaysForSession(staffSession), initialBalance);
   });
 
-  test('leave and wfa submissions appear in spv and management approval lists', () async {
+  test('leave and wfa submissions appear in spv and management approval lists',
+      () async {
     final controller = AppController(seedWorkflowDemoData: false);
     final staffSession = AppSession.mock(AppRole.staff);
     final spvSession = AppSession.mock(AppRole.spv);
@@ -148,8 +154,7 @@ void main() {
         requesterName: staffSession.userName,
         requesterRole: staffSession.role,
         category: leave_model.LeaveCategory.izinPerHari,
-        compensationOption:
-            leave_model.LeaveCompensationOption.tidakPotongGaji,
+        compensationOption: leave_model.LeaveCompensationOption.tidakPotongGaji,
         startAt: DateTime(2026, 5, 3),
         endAt: DateTime(2026, 5, 3),
         durationValue: 1,
@@ -292,7 +297,8 @@ void main() {
     },
   );
 
-  test('face enrollment updates session state without heavy processing', () async {
+  test('face enrollment updates session state without heavy processing',
+      () async {
     final controller = AppController(
       faceProfileRepository: _FakeFaceProfileRepository(),
       uploadRepository: const _FakeUploadRepository(),
@@ -309,6 +315,126 @@ void main() {
 
     expect(enrolled.isEnrolled, isTrue);
     expect(controller.hasFaceEnrollmentForSession(controller.session!), isTrue);
+  });
+
+  test('app session keeps synced profile fields from remote user payload', () {
+    final session = AppSession.fromUser(
+      AppUser(
+        id: 'usr_sync_001',
+        fullName: 'Maria Claret',
+        email: 'maria@test.local',
+        phoneNumber: '081234567890',
+        areaName: 'Head Office',
+        workLocation: 'Palmerah',
+        jobTitle: 'Staff Finance',
+        officeLatitude: -6.2,
+        officeLongitude: 106.8,
+        attendanceRadiusMeters: 1000,
+        territoryScope: null,
+        territoryProvince: null,
+        territoryCity: null,
+        territoryDistrict: null,
+        territorySubdistrict: null,
+        territoryAssignments: [],
+        territoryLabel: null,
+        role: AppRole.staff,
+        isActive: false,
+        leaveBalanceDays: 12,
+        joinedAt: DateTime(2026, 5, 1),
+        address: 'Jl. Palmerah No. 9',
+        emergencyContactName: 'Ibu Maria',
+        emergencyContactPhone: '081200001234',
+        faceEnrollmentStatus: 'active',
+        faceSamplesCount: 3,
+      ),
+    );
+
+    expect(session.email, 'maria@test.local');
+    expect(session.jobTitle, 'Staff Finance');
+    expect(session.isActive, isFalse);
+    expect(session.leaveBalanceDays, 12);
+    expect(session.joinedAt, DateTime(2026, 5, 1));
+    expect(session.address, 'Jl. Palmerah No. 9');
+    expect(session.emergencyContactName, 'Ibu Maria');
+    expect(session.emergencyContactPhone, '081200001234');
+  });
+
+  test('refreshing current user profile syncs session fields from backend',
+      () async {
+    final authRepository = _FakeAuthRepository(
+      currentUserValue: AppUser(
+        id: 'usr_001',
+        fullName: 'Nadia Staff',
+        email: 'nadia@test.local',
+        phoneNumber: '081234567890',
+        areaName: 'Head Office',
+        workLocation: 'Palmerah',
+        jobTitle: 'Staff Operasional',
+        officeLatitude: -6.2,
+        officeLongitude: 106.8,
+        attendanceRadiusMeters: 1000,
+        territoryScope: null,
+        territoryProvince: null,
+        territoryCity: null,
+        territoryDistrict: null,
+        territorySubdistrict: null,
+        territoryAssignments: [],
+        territoryLabel: null,
+        role: AppRole.staff,
+        isActive: true,
+        leaveBalanceDays: 12,
+        joinedAt: DateTime(2026, 5, 1),
+        address: 'Jl. Palmerah No. 9',
+        emergencyContactName: 'Ibu Nadia',
+        emergencyContactPhone: '081200001234',
+      ),
+    );
+    final controller = AppController(
+      authRepository: authRepository,
+      useRemoteAuth: true,
+      seedWorkflowDemoData: false,
+    );
+
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    authRepository.currentUserValue = AppUser(
+      id: 'usr_001',
+      fullName: 'Nadia Staff Updated',
+      email: 'nadia.updated@test.local',
+      phoneNumber: '081234567890',
+      areaName: 'Regional Barat',
+      workLocation: 'Tomang',
+      jobTitle: 'Senior Staff Operasional',
+      officeLatitude: -6.21,
+      officeLongitude: 106.81,
+      attendanceRadiusMeters: 1500,
+      territoryScope: null,
+      territoryProvince: null,
+      territoryCity: null,
+      territoryDistrict: null,
+      territorySubdistrict: null,
+      territoryAssignments: [],
+      territoryLabel: null,
+      role: AppRole.staff,
+      isActive: false,
+      leaveBalanceDays: 9,
+      joinedAt: DateTime(2026, 6, 1),
+      address: 'Jl. Tomang No. 1',
+      emergencyContactName: 'Bapak Nadia',
+      emergencyContactPhone: '081200009999',
+    );
+
+    await controller.refreshCurrentUserProfile();
+
+    expect(controller.session, isNotNull);
+    expect(controller.session!.userName, 'Nadia Staff Updated');
+    expect(controller.session!.email, 'nadia.updated@test.local');
+    expect(controller.session!.jobTitle, 'Senior Staff Operasional');
+    expect(controller.session!.areaName, 'Regional Barat');
+    expect(controller.session!.workLocation, 'Tomang');
+    expect(controller.session!.isActive, isFalse);
+    expect(controller.leaveBalanceDaysForSession(controller.session!), 9);
   });
 
   testWidgets('login form is shown on first launch', (tester) async {
@@ -399,6 +525,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('profile page shows synced HR fields from current session', (
+    tester,
+  ) async {
+    final controller = AppController(seedWorkflowDemoData: false);
+    final session =
+        AppSession.mock(AppRole.staff, userName: 'Maria Claret').copyWith(
+      email: 'maria@test.local',
+      jobTitle: 'Staff Finance',
+      isActive: false,
+      leaveBalanceDays: 12,
+      joinedAt: DateTime(2026, 5, 1),
+      address: 'Jl. Palmerah No. 9',
+      emergencyContactName: 'Ibu Maria',
+      emergencyContactPhone: '081200001234',
+    );
+
+    await tester.pumpWidget(
+      _TestApp(
+        child: ProfilePage(
+          session: session,
+          controller: controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nonaktif'), findsOneWidget);
+    expect(find.text('maria@test.local'), findsOneWidget);
+    expect(find.text('Staff Finance'), findsOneWidget);
+    expect(find.text('12 hari'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('01/05/2026'), findsOneWidget);
+    expect(find.text('Jl. Palmerah No. 9'), findsOneWidget);
+    expect(find.text('Ibu Maria'), findsOneWidget);
+    expect(find.text('081200001234'), findsOneWidget);
+  });
+
   testWidgets(
     'date picker stays safe when app controller notifies while dialog is open',
     (tester) async {
@@ -417,7 +583,8 @@ void main() {
 
       expect(find.byType(LeavePage), findsOneWidget);
 
-      final startDateField = find.byKey(const ValueKey('leave-start-date-input'));
+      final startDateField =
+          find.byKey(const ValueKey('leave-start-date-input'));
       await tester.ensureVisible(startDateField);
       await tester.tap(startDateField);
       await tester.pumpAndSettle();
@@ -651,7 +818,8 @@ class _RecordingAttendanceRepository implements AttendanceRepository {
   }
 
   @override
-  Future<AttendanceRecord> latestRecordForToday({required String userId}) async {
+  Future<AttendanceRecord> latestRecordForToday(
+      {required String userId}) async {
     return createdRecords.lastWhere((record) => record.userId == userId);
   }
 }
@@ -739,4 +907,49 @@ class _FakeUploadRepository implements UploadRepository {
       sizeInBytes: 1024,
     );
   }
+}
+
+class _FakeAuthRepository implements AuthRepository {
+  _FakeAuthRepository({
+    this.currentUserValue,
+  });
+
+  AppUser? currentUserValue;
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String newPasswordConfirmation,
+  }) async {}
+
+  @override
+  Future<AppUser?> currentUser() async => currentUserValue;
+
+  @override
+  Future<void> registerPushToken({
+    required String token,
+    required String platform,
+    String? deviceName,
+    String? appVersion,
+  }) async {}
+
+  @override
+  Future<AppUser> signIn({
+    required String identifier,
+    required String password,
+  }) async {
+    if (currentUserValue == null) {
+      throw StateError('Missing fake auth user');
+    }
+    return currentUserValue!;
+  }
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<void> unregisterPushToken({
+    required String token,
+  }) async {}
 }

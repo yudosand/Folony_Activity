@@ -57,12 +57,20 @@ class HexActivityApp extends StatefulWidget {
 
 class _HexActivityAppState extends State<HexActivityApp> {
   late final bool _ownsController = widget._controller == null;
-  late final AppController _controller = widget._controller ?? _buildController();
+  late final AppController _controller =
+      widget._controller ?? _buildController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(_lifecycleObserver);
+  }
 
   AppController _buildController() {
     final backendConfig = BackendConfig.fromEnvironment();
     final apiClient = SimpleApiClient(baseUrl: backendConfig.baseUrl);
-    final AuthRepository authRepository = RemoteAuthRepository(client: apiClient);
+    final AuthRepository authRepository =
+        RemoteAuthRepository(client: apiClient);
     final workflowMode = backendConfig.workflowRemoteEnabled
         ? WorkflowRepositoryMode.remotePreferred
         : WorkflowRepositoryMode.mockOnly;
@@ -124,11 +132,15 @@ class _HexActivityAppState extends State<HexActivityApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(_lifecycleObserver);
     if (_ownsController) {
       _controller.dispose();
     }
     super.dispose();
   }
+
+  late final WidgetsBindingObserver _lifecycleObserver =
+      _AppLifecycleObserver(controller: _controller);
 
   @override
   Widget build(BuildContext context) {
@@ -184,5 +196,20 @@ class _AppLoadingView extends StatelessWidget {
         child: CircularProgressIndicator(),
       ),
     );
+  }
+}
+
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  _AppLifecycleObserver({
+    required AppController controller,
+  }) : _controller = controller;
+
+  final AppController _controller;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _controller.refreshCurrentUserProfile();
+    }
   }
 }

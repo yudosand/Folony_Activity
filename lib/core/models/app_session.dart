@@ -6,9 +6,11 @@ class AppSession {
   const AppSession({
     required this.userId,
     required this.userName,
+    required this.email,
     required this.phoneNumber,
     required this.areaName,
     required this.workLocation,
+    required this.jobTitle,
     required this.officeLatitude,
     required this.officeLongitude,
     required this.attendanceRadiusMeters,
@@ -26,15 +28,23 @@ class AppSession {
     this.spvName,
     this.managementId,
     this.managementName,
+    this.isActive = true,
+    required this.leaveBalanceDays,
+    this.joinedAt,
+    this.address,
+    this.emergencyContactName,
+    this.emergencyContactPhone,
     this.faceEnrollmentStatus = 'pending',
     this.faceSamplesCount = 0,
   });
 
   final String userId;
   final String userName;
+  final String? email;
   final String phoneNumber;
   final String areaName;
   final String? workLocation;
+  final String? jobTitle;
   final double? officeLatitude;
   final double? officeLongitude;
   final int? attendanceRadiusMeters;
@@ -52,6 +62,12 @@ class AppSession {
   final String? spvName;
   final String? managementId;
   final String? managementName;
+  final bool isActive;
+  final double leaveBalanceDays;
+  final DateTime? joinedAt;
+  final String? address;
+  final String? emergencyContactName;
+  final String? emergencyContactPhone;
   final String faceEnrollmentStatus;
   final int faceSamplesCount;
 
@@ -67,9 +83,11 @@ class AppSession {
       userName: userName?.trim().isNotEmpty == true
           ? userName!.trim()
           : role.mockUserName,
+      email: null,
       phoneNumber: '081234567890',
       areaName: role.defaultArea,
       workLocation: role.defaultArea,
+      jobTitle: role.label,
       officeLatitude: null,
       officeLongitude: null,
       attendanceRadiusMeters: null,
@@ -84,15 +102,25 @@ class AppSession {
       spvId: role == AppRole.staff ? AppRole.spv.workflowDemoUserId : null,
       spvName: role == AppRole.staff ? AppRole.spv.mockUserName : null,
       managementId: switch (role) {
-        AppRole.staff || AppRole.spv || AppRole.areaManager =>
+        AppRole.staff ||
+        AppRole.spv ||
+        AppRole.areaManager =>
           AppRole.management.workflowDemoUserId,
         _ => null,
       },
       managementName: switch (role) {
-        AppRole.staff || AppRole.spv || AppRole.areaManager =>
+        AppRole.staff ||
+        AppRole.spv ||
+        AppRole.areaManager =>
           AppRole.management.mockUserName,
         _ => null,
       },
+      isActive: true,
+      leaveBalanceDays: role.defaultLeaveBalanceDays,
+      joinedAt: null,
+      address: null,
+      emergencyContactName: null,
+      emergencyContactPhone: null,
       faceEnrollmentStatus: 'active',
       faceSamplesCount: 3,
     );
@@ -115,9 +143,11 @@ class AppSession {
     return AppSession(
       userId: user.id,
       userName: user.fullName,
+      email: user.email,
       phoneNumber: user.phoneNumber,
       areaName: user.areaName,
       workLocation: user.workLocation,
+      jobTitle: user.jobTitle,
       officeLatitude: user.officeLatitude,
       officeLongitude: user.officeLongitude,
       attendanceRadiusMeters: user.attendanceRadiusMeters,
@@ -135,6 +165,13 @@ class AppSession {
       spvName: user.spvName,
       managementId: user.managementId,
       managementName: user.managementName,
+      isActive: user.isActive,
+      leaveBalanceDays:
+          user.leaveBalanceDays ?? user.role.defaultLeaveBalanceDays,
+      joinedAt: user.joinedAt,
+      address: user.address,
+      emergencyContactName: user.emergencyContactName,
+      emergencyContactPhone: user.emergencyContactPhone,
       faceEnrollmentStatus: user.faceEnrollmentStatus,
       faceSamplesCount: user.faceSamplesCount,
     );
@@ -164,9 +201,11 @@ class AppSession {
   AppSession copyWith({
     String? userId,
     String? userName,
+    String? email,
     String? phoneNumber,
     String? areaName,
     String? workLocation,
+    String? jobTitle,
     double? officeLatitude,
     double? officeLongitude,
     int? attendanceRadiusMeters,
@@ -184,15 +223,23 @@ class AppSession {
     String? spvName,
     String? managementId,
     String? managementName,
+    bool? isActive,
+    double? leaveBalanceDays,
+    DateTime? joinedAt,
+    String? address,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
     String? faceEnrollmentStatus,
     int? faceSamplesCount,
   }) {
     return AppSession(
       userId: userId ?? this.userId,
       userName: userName ?? this.userName,
+      email: email ?? this.email,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       areaName: areaName ?? this.areaName,
       workLocation: workLocation ?? this.workLocation,
+      jobTitle: jobTitle ?? this.jobTitle,
       officeLatitude: officeLatitude ?? this.officeLatitude,
       officeLongitude: officeLongitude ?? this.officeLongitude,
       attendanceRadiusMeters:
@@ -211,6 +258,13 @@ class AppSession {
       spvName: spvName ?? this.spvName,
       managementId: managementId ?? this.managementId,
       managementName: managementName ?? this.managementName,
+      isActive: isActive ?? this.isActive,
+      leaveBalanceDays: leaveBalanceDays ?? this.leaveBalanceDays,
+      joinedAt: joinedAt ?? this.joinedAt,
+      address: address ?? this.address,
+      emergencyContactName: emergencyContactName ?? this.emergencyContactName,
+      emergencyContactPhone:
+          emergencyContactPhone ?? this.emergencyContactPhone,
       faceEnrollmentStatus: faceEnrollmentStatus ?? this.faceEnrollmentStatus,
       faceSamplesCount: faceSamplesCount ?? this.faceSamplesCount,
     );
