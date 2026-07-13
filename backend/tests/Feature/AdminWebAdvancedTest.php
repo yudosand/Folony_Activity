@@ -355,6 +355,7 @@ class AdminWebAdvancedTest extends TestCase
                 'role' => 'areaManager',
                 'job_title' => $employee->job_title,
                 'work_location' => $employee->work_location,
+                'attendance_work_area_id' => 'work_area_ho',
                 'territory_rules_payload' => json_encode($rules, JSON_UNESCAPED_UNICODE),
                 'leave_balance_days' => 10,
                 'joined_at' => optional($employee->joined_at)->format('Y-m-d'),
@@ -510,35 +511,31 @@ class AdminWebAdvancedTest extends TestCase
             ->assertSee('Tidak ada absensi');
     }
 
-    public function test_hr_can_view_and_update_global_office_attendance_setting(): void
+    public function test_hr_can_view_and_update_attendance_work_area(): void
     {
         $this->actingAs($this->hr)
             ->get(route('admin.attendance.index'))
             ->assertOk()
-            ->assertSee('Pengaturan Kantor Absensi')
-            ->assertSee('-6.1596928900889')
-            ->assertSee('106.81804453791')
+            ->assertSee('Area Kerja Absensi')
+            ->assertSee('Kantor Pusat')
+            ->assertSee('-6.1596929')
+            ->assertSee('106.8180445')
             ->assertSee('1000');
 
         $this->actingAs($this->hr)
-            ->post(route('admin.attendance.office-setting.update'), [
-                'office_latitude' => '-6.1700000',
-                'office_longitude' => '106.8200000',
-                'attendance_radius_meters' => '1500',
+            ->put(route('admin.attendance.work-areas.update', 'work_area_ho'), [
+                'name' => 'Kantor Pusat Demo',
+                'latitude' => '-6.1700000',
+                'longitude' => '106.8200000',
+                'radius_meters' => '1500',
+                'is_active' => '1',
             ])
             ->assertRedirect(route('admin.attendance.index'));
 
-        $this->assertDatabaseHas('app_settings', [
-            'key' => 'attendance.office_latitude',
-            'value' => '-6.17',
-        ]);
-        $this->assertDatabaseHas('app_settings', [
-            'key' => 'attendance.office_longitude',
-            'value' => '106.82',
-        ]);
-        $this->assertDatabaseHas('app_settings', [
-            'key' => 'attendance.office_radius_meters',
-            'value' => '1500',
+        $this->assertDatabaseHas('attendance_work_areas', [
+            'id' => 'work_area_ho',
+            'name' => 'Kantor Pusat Demo',
+            'radius_meters' => 1500,
         ]);
     }
 

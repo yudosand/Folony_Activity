@@ -173,6 +173,8 @@
                             $googleMapsUrl = $hasCoordinates
                                 ? 'https://www.google.com/maps?q=' . $locationLatitude . ',' . $locationLongitude
                                 : null;
+                            $faceCaptureUrl = data_get($record->verification, 'capture.thumbnail_url')
+                                ?: data_get($record->verification, 'capture.url');
                             $recordSummaryKey = $record->user_id . '|' . $record->work_date?->toDateString();
                             $recordSummary = $recentAttendanceSummaries[$recordSummaryKey] ?? null;
                             $outsideOfficeMode = ($record->metadata['attendance_mode'] ?? null) === 'outside_office';
@@ -205,6 +207,14 @@
                                     <span>{{ $record->location['address_label'] ?? '-' }}</span>
                                     @if($hasCoordinates)
                                         <span class="muted">{{ number_format((float) $locationLatitude, 6, '.', '') }}, {{ number_format((float) $locationLongitude, 6, '.', '') }}</span>
+                                        @if(!empty($record->location['work_area_name'] ?? null))
+                                            <span class="muted">
+                                                Area {{ $record->location['work_area_name'] }}
+                                                @if(isset($record->location['distance_meters']))
+                                                    &middot; {{ number_format((float) $record->location['distance_meters'], 0, ',', '.') }}m
+                                                @endif
+                                            </span>
+                                        @endif
                                         <a class="attachment-link" href="{{ $googleMapsUrl }}" target="_blank" rel="noreferrer">Buka di Google Maps</a>
                                     @endif
                                 </div>
@@ -222,6 +232,9 @@
                                     @endif
                                     @if($record->verification['note'] ?? null)
                                         <span class="muted">Audit wajah: {{ $record->verification['note'] }}</span>
+                                    @endif
+                                    @if($faceCaptureUrl)
+                                        <a class="attachment-link" href="{{ $faceCaptureUrl }}" target="_blank" rel="noreferrer">Lihat foto Face ID</a>
                                     @endif
                                 </div>
                             </td>

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -30,6 +31,8 @@ class AttendancePage extends StatefulWidget {
 
 class _AttendancePageState extends State<AttendancePage> {
   final ImagePicker _picker = ImagePicker();
+  StreamSubscription<Position>? _positionSubscription;
+  Position? _livePosition;
   String? _locationError;
   bool _gpsActive = true;
   bool _isVerifyingFace = false;
@@ -127,6 +130,57 @@ class _AttendancePageState extends State<AttendancePage> {
       (_sessionState.latestCompletedCheckOut != null ||
           _sessionState.latestCompletedOutsideOfficeFinish != null);
 
+  bool get _hasAttendanceArea =>
+      widget.session.officeLatitude != null &&
+      widget.session.officeLongitude != null &&
+      widget.session.attendanceRadiusMeters != null;
+
+  double? get _liveDistanceMeters {
+    final position = _livePosition;
+    final officeLatitude = widget.session.officeLatitude;
+    final officeLongitude = widget.session.officeLongitude;
+    if (position == null || officeLatitude == null || officeLongitude == null) {
+      return null;
+    }
+
+    return Geolocator.distanceBetween(
+      officeLatitude,
+      officeLongitude,
+      position.latitude,
+      position.longitude,
+    );
+  }
+
+  bool get _isInsideAttendanceRadius {
+    final distance = _liveDistanceMeters;
+    final radius = widget.session.attendanceRadiusMeters;
+    if (distance == null || radius == null) {
+      return false;
+    }
+
+    return distance <= radius;
+  }
+
+  bool get _canUseNormalAttendance =>
+      _gpsActive && _hasAttendanceArea && _isInsideAttendanceRadius;
+
+  String get _attendanceAreaName =>
+      widget.session.workLocation?.trim().isNotEmpty == true
+          ? widget.session.workLocation!.trim()
+          : 'Area kerja';
+
+  @override
+  void initState() {
+    super.initState();
+    _startLiveLocationTracking();
+  }
+
+  @override
+  void dispose() {
+    _positionSubscription?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -161,10 +215,22 @@ class _AttendancePageState extends State<AttendancePage> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Scan wajah berjalan langsung dari aplikasi. Jam kerja standar adalah ${AttendancePolicy.officeStart} sampai ${AttendancePolicy.officeEnd}, dan lokasi user wajib terekam sebelum absensi disimpan.',
+          'Scan wajah berjalan langsung dari aplikasi. Jam kerja standar adalah ${AttendancePolicy.officeStart} sampai ${AttendancePolicy.officeEnd}. Check-in/check-out normal hanya aktif saat lokasi live berada di radius area kerja.',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
+        ),
+        const SizedBox(height: 16),
+        _LiveLocationRadiusCard(
+          areaName: _attendanceAreaName,
+          hasAttendanceArea: _hasAttendanceArea,
+          gpsActive: _gpsActive,
+          isInsideRadius: _isInsideAttendanceRadius,
+          currentLatitude: _livePosition?.latitude,
+          currentLongitude: _livePosition?.longitude,
+          distanceMeters: _liveDistanceMeters,
+          radiusMeters: widget.session.attendanceRadiusMeters,
+          errorText: _locationError,
         ),
         const SizedBox(height: 16),
         Container(
@@ -409,9 +475,9 @@ class _AttendancePageState extends State<AttendancePage> {
       return _finishOutsideOfficeAttendance;
     }
     if (_isCheckedIn) {
-      return _startFaceCheckOut;
+      return _canUseNormalAttendance ? _startFaceCheckOut : null;
     }
-    return _gpsActive ? _startFaceCheckIn : null;
+    return _canUseNormalAttendance ? _startFaceCheckIn : null;
   }
 
   String get _primaryActionLabel {
@@ -420,6 +486,15 @@ class _AttendancePageState extends State<AttendancePage> {
     }
     if (_hasActiveOutsideOffice) {
       return 'Check-out luar kantor';
+    }
+    if (!_hasAttendanceArea) {
+      return 'Area belum diset';
+    }
+    if (!_gpsActive) {
+      return 'GPS belum aktif';
+    }
+    if (!_isInsideAttendanceRadius) {
+      return 'Di luar radius kantor';
     }
     if (_isCheckedIn) {
       return 'Face Check-out';
@@ -447,12 +522,23 @@ class _AttendancePageState extends State<AttendancePage> {
     if (!_gpsActive) {
       return 'Nonaktif';
     }
+    if (_hasAttendanceArea && _liveDistanceMeters != null) {
+      return _isInsideAttendanceRadius ? 'Dalam radius' : 'Di luar radius';
+    }
     return 'Belum tercatat';
   }
 
   String get _locationMetricNote {
     if (_latestRecord?.location != null) {
       return 'Lokasi terakhir tersimpan sebagai audit absensi';
+    }
+    if (_hasAttendanceArea && _liveDistanceMeters != null) {
+      return _isInsideAttendanceRadius
+          ? 'Anda berada di dalam radius $_attendanceAreaName.'
+          : 'Masuk ke radius $_attendanceAreaName untuk absensi normal.';
+    }
+    if (!_hasAttendanceArea) {
+      return 'Area absensi belum diset oleh HR.';
     }
     if (_locationError != null) {
       return _locationError!;
@@ -510,6 +596,79 @@ class _AttendancePageState extends State<AttendancePage> {
 
   void _toggleGps() {
     setState(() => _gpsActive = !_gpsActive);
+    if (_gpsActive) {
+      _startLiveLocationTracking();
+    } else {
+      _positionSubscription?.cancel();
+      _positionSubscription = null;
+    }
+  }
+
+  Future<void> _startLiveLocationTracking() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _gpsActive = false;
+          _locationError = 'Layanan lokasi device sedang nonaktif.';
+        });
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _locationError =
+              'Izin lokasi dibutuhkan agar absensi bisa mencatat koordinat user.';
+        });
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      _syncLivePosition(position);
+
+      await _positionSubscription?.cancel();
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5,
+        ),
+      ).listen(_syncLivePosition);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _locationError =
+            'Lokasi live belum berhasil didapatkan. Pastikan GPS aktif dan sinyal stabil.';
+      });
+    }
+  }
+
+  void _syncLivePosition(Position position) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _livePosition = position;
+      _gpsActive = true;
+      _locationError = null;
+    });
   }
 
   Future<void> _startFaceCheckIn() async {
@@ -619,6 +778,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
   Future<_AttendanceLocation?> _recordCurrentLocation({
     required _FaceVerificationMode mode,
+    bool requireOfficeRadius = true,
   }) async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -660,14 +820,25 @@ class _AttendancePageState extends State<AttendancePage> {
         return null;
       }
 
-      final location = _AttendanceLocation(
+      final location = _buildAttendanceLocation(
         latitude: position.latitude,
         longitude: position.longitude,
+        requireOfficeRadius: requireOfficeRadius,
       );
+
+      if (requireOfficeRadius && location.withinRadius != true) {
+        setState(() {
+          _gpsActive = true;
+          _locationError = 'Anda tidak berada di area kantor.';
+        });
+        _showAttendanceSnackBar('Anda tidak berada di area kantor.');
+        return null;
+      }
 
       setState(() {
         _gpsActive = true;
         _locationError = null;
+        _livePosition = position;
       });
 
       return location;
@@ -681,6 +852,39 @@ class _AttendancePageState extends State<AttendancePage> {
       });
       return null;
     }
+  }
+
+  _AttendanceLocation _buildAttendanceLocation({
+    required double latitude,
+    required double longitude,
+    required bool requireOfficeRadius,
+  }) {
+    final officeLatitude = widget.session.officeLatitude;
+    final officeLongitude = widget.session.officeLongitude;
+    final radiusMeters = widget.session.attendanceRadiusMeters;
+
+    if (officeLatitude == null || officeLongitude == null || radiusMeters == null) {
+      return _AttendanceLocation(
+        latitude: latitude,
+        longitude: longitude,
+      );
+    }
+
+    final distanceMeters = Geolocator.distanceBetween(
+      officeLatitude,
+      officeLongitude,
+      latitude,
+      longitude,
+    );
+
+    return _AttendanceLocation(
+      latitude: latitude,
+      longitude: longitude,
+      radiusMeters: radiusMeters.toDouble(),
+      distanceMeters: distanceMeters,
+      withinRadius: distanceMeters <= radiusMeters,
+      areaName: requireOfficeRadius ? _attendanceAreaName : null,
+    );
   }
 
   Future<void> _checkIn(
@@ -704,6 +908,10 @@ class _AttendancePageState extends State<AttendancePage> {
           addressLabel: location.label,
           radiusMeters: location.radiusMeters,
           withinRadius: location.withinRadius,
+          distanceMeters: location.distanceMeters,
+          workAreaName: location.areaName,
+          workAreaLatitude: widget.session.officeLatitude,
+          workAreaLongitude: widget.session.officeLongitude,
         ),
         verification: FaceVerificationRecord(
           verifiedAt: now,
@@ -746,6 +954,10 @@ class _AttendancePageState extends State<AttendancePage> {
           addressLabel: location.label,
           radiusMeters: location.radiusMeters,
           withinRadius: location.withinRadius,
+          distanceMeters: location.distanceMeters,
+          workAreaName: location.areaName,
+          workAreaLatitude: widget.session.officeLatitude,
+          workAreaLongitude: widget.session.officeLongitude,
         ),
         verification: FaceVerificationRecord(
           verifiedAt: now,
@@ -818,6 +1030,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
       final location = await _recordCurrentLocation(
         mode: _FaceVerificationMode.checkIn,
+        requireOfficeRadius: false,
       );
       if (location == null || !mounted) {
         return;
@@ -951,6 +1164,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
       final location = await _recordCurrentLocation(
         mode: _FaceVerificationMode.checkOut,
+        requireOfficeRadius: false,
       );
       if (location == null || !mounted) {
         return;
@@ -1372,6 +1586,107 @@ class _MetricLine extends StatelessWidget {
   }
 }
 
+class _LiveLocationRadiusCard extends StatelessWidget {
+  const _LiveLocationRadiusCard({
+    required this.areaName,
+    required this.hasAttendanceArea,
+    required this.gpsActive,
+    required this.isInsideRadius,
+    required this.currentLatitude,
+    required this.currentLongitude,
+    required this.distanceMeters,
+    required this.radiusMeters,
+    required this.errorText,
+  });
+
+  final String areaName;
+  final bool hasAttendanceArea;
+  final bool gpsActive;
+  final bool isInsideRadius;
+  final double? currentLatitude;
+  final double? currentLongitude;
+  final double? distanceMeters;
+  final int? radiusMeters;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final statusColor = !hasAttendanceArea || !gpsActive
+        ? Colors.orange
+        : isInsideRadius
+            ? Colors.green
+            : Colors.red;
+    final statusLabel = !hasAttendanceArea
+        ? 'Area belum diset HR'
+        : !gpsActive
+            ? 'GPS belum aktif'
+            : isInsideRadius
+                ? 'Di dalam radius'
+                : 'Di luar radius';
+    final coordinateLabel =
+        currentLatitude == null || currentLongitude == null
+            ? 'Mencari lokasi live...'
+            : '${currentLatitude!.toStringAsFixed(6)}, ${currentLongitude!.toStringAsFixed(6)}';
+    final distanceLabel = distanceMeters == null
+        ? '-'
+        : distanceMeters! >= 1000
+            ? '${(distanceMeters! / 1000).toStringAsFixed(2)} km'
+            : '${distanceMeters!.round()} m';
+    final radiusLabel = radiusMeters == null
+        ? '-'
+        : radiusMeters! >= 1000
+            ? '${(radiusMeters! / 1000).toStringAsFixed(1)} km'
+            : '$radiusMeters m';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: statusColor.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.my_location_rounded, color: statusColor),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  areaName,
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              StatusBadge(label: statusLabel, color: statusColor),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            coordinateLabel,
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Jarak dari titik area: $distanceLabel dari radius $radiusLabel.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (errorText != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              errorText!,
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.red),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _FacePreviewLine extends StatelessWidget {
   const _FacePreviewLine({
     required this.faceCapturePath,
@@ -1558,27 +1873,39 @@ class _AttendanceLocation {
     required this.longitude,
     this.radiusMeters,
     this.withinRadius,
+    this.distanceMeters,
+    this.areaName,
   });
 
   final double latitude;
   final double longitude;
   final double? radiusMeters;
   final bool? withinRadius;
+  final double? distanceMeters;
+  final String? areaName;
 
-  String get label =>
-      '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
+  String get label {
+    if (areaName != null && areaName!.isNotEmpty) {
+      return areaName!;
+    }
+    return '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
+  }
 
   _AttendanceLocation copyWith({
     double? latitude,
     double? longitude,
     double? radiusMeters,
     bool? withinRadius,
+    double? distanceMeters,
+    String? areaName,
   }) {
     return _AttendanceLocation(
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       radiusMeters: radiusMeters ?? this.radiusMeters,
       withinRadius: withinRadius ?? this.withinRadius,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
+      areaName: areaName ?? this.areaName,
     );
   }
 }

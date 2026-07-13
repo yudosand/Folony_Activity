@@ -21,6 +21,11 @@ class AttendanceLocationRecord {
     this.addressLabel,
     this.radiusMeters,
     this.withinRadius,
+    this.distanceMeters,
+    this.workAreaId,
+    this.workAreaName,
+    this.workAreaLatitude,
+    this.workAreaLongitude,
   });
 
   final double latitude;
@@ -29,6 +34,11 @@ class AttendanceLocationRecord {
   final String? addressLabel;
   final double? radiusMeters;
   final bool? withinRadius;
+  final double? distanceMeters;
+  final String? workAreaId;
+  final String? workAreaName;
+  final double? workAreaLatitude;
+  final double? workAreaLongitude;
 
   factory AttendanceLocationRecord.fromJson(Map<String, dynamic> json) {
     return AttendanceLocationRecord(
@@ -38,6 +48,11 @@ class AttendanceLocationRecord {
       addressLabel: json['address_label'] as String?,
       radiusMeters: (json['radius_meters'] as num?)?.toDouble(),
       withinRadius: json['within_radius'] as bool?,
+      distanceMeters: (json['distance_meters'] as num?)?.toDouble(),
+      workAreaId: json['work_area_id'] as String?,
+      workAreaName: json['work_area_name'] as String?,
+      workAreaLatitude: (json['work_area_latitude'] as num?)?.toDouble(),
+      workAreaLongitude: (json['work_area_longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -49,6 +64,11 @@ class AttendanceLocationRecord {
       'address_label': addressLabel,
       'radius_meters': radiusMeters,
       'within_radius': withinRadius,
+      'distance_meters': distanceMeters,
+      'work_area_id': workAreaId,
+      'work_area_name': workAreaName,
+      'work_area_latitude': workAreaLatitude,
+      'work_area_longitude': workAreaLongitude,
     };
   }
 }

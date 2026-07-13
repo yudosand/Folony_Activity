@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
+use App\Models\AttendanceWorkArea;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Models\WfaRequest;
 use App\Services\Admin\AdminExportService;
 use App\Services\AttendanceSummaryService;
-use App\Services\OfficeAttendanceSettingService;
 use App\Support\Workflow\UserRole;
 use App\Support\Workflow\WorkflowStatus;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +17,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -26,7 +28,6 @@ class AttendanceMonitoringController extends Controller
         Request $request,
         AdminExportService $exportService,
         AttendanceSummaryService $attendanceSummaryService,
-        OfficeAttendanceSettingService $officeAttendanceSettingService,
     ): View|StreamedResponse {
         $filters = $request->validate([
             'search' => ['nullable', 'string'],
@@ -98,7 +99,7 @@ class AttendanceMonitoringController extends Controller
             'records' => $records,
             'recordSummaries' => $recordSummaries,
             'attendanceRecap' => $attendanceRecap,
-            'officeAttendanceSetting' => $officeAttendanceSettingService->current(),
+            'attendanceWorkAreas' => AttendanceWorkArea::query()->orderBy('name')->get(),
             'summary' => $summary,
             'roles' => array_values(array_filter(UserRole::ALL, fn (string $role) => $role !== UserRole::HR)),
             'decisions' => ['verified', 'retry', 'rejected'],
@@ -106,25 +107,55 @@ class AttendanceMonitoringController extends Controller
         ]);
     }
 
-    public function updateOfficeSetting(
-        Request $request,
-        OfficeAttendanceSettingService $officeAttendanceSettingService,
-    ): RedirectResponse {
+    public function storeWorkArea(Request $request): RedirectResponse
+    {
         $validated = $request->validate([
-            'office_latitude' => ['required', 'numeric', 'between:-90,90'],
-            'office_longitude' => ['required', 'numeric', 'between:-180,180'],
-            'attendance_radius_meters' => ['required', 'integer', 'min:1', 'max:100000'],
+            'name' => ['required', 'string', 'max:255', 'unique:attendance_work_areas,name'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'radius_meters' => ['required', 'integer', 'min:1', 'max:100000'],
+            'is_active' => ['nullable', 'boolean'],
         ]);
 
-        $officeAttendanceSettingService->update(
-            (float) $validated['office_latitude'],
-            (float) $validated['office_longitude'],
-            (int) $validated['attendance_radius_meters'],
-        );
+        AttendanceWorkArea::query()->create([
+            'id' => 'work_area_' . Str::uuid(),
+            'name' => $validated['name'],
+            'latitude' => (float) $validated['latitude'],
+            'longitude' => (float) $validated['longitude'],
+            'radius_meters' => (int) $validated['radius_meters'],
+            'is_active' => (bool) ($validated['is_active'] ?? true),
+        ]);
 
         return redirect()
             ->route('admin.attendance.index')
-            ->with('status', 'Pengaturan kantor absensi berhasil diperbarui.');
+            ->with('status', 'Area absensi baru berhasil ditambahkan.');
+    }
+
+    public function updateWorkArea(Request $request, AttendanceWorkArea $workArea): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255', Rule::unique('attendance_work_areas', 'name')->ignore($workArea->id, 'id')],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'radius_meters' => ['required', 'integer', 'min:1', 'max:100000'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $workArea->update([
+            'name' => $validated['name'],
+            'latitude' => (float) $validated['latitude'],
+            'longitude' => (float) $validated['longitude'],
+            'radius_meters' => (int) $validated['radius_meters'],
+            'is_active' => (bool) ($validated['is_active'] ?? false),
+        ]);
+
+        User::query()
+            ->where('attendance_work_area_id', $workArea->id)
+            ->update(['work_location' => $workArea->name]);
+
+        return redirect()
+            ->route('admin.attendance.index')
+            ->with('status', 'Area absensi berhasil diperbarui.');
     }
 
     /**

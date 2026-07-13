@@ -33,6 +33,7 @@ class User extends Authenticatable
         'phone_number',
         'area_name',
         'work_location',
+        'attendance_work_area_id',
         'office_latitude',
         'office_longitude',
         'attendance_radius_meters',
@@ -99,6 +100,11 @@ class User extends Authenticatable
     public function management(): BelongsTo
     {
         return $this->belongsTo(self::class, 'management_id');
+    }
+
+    public function attendanceWorkArea(): BelongsTo
+    {
+        return $this->belongsTo(AttendanceWorkArea::class, 'attendance_work_area_id');
     }
 
     public function leaveRequests(): HasMany

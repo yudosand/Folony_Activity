@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ApprovalStep;
 use App\Models\LeaveRequest;
 use App\Models\AttendanceRecord;
+use App\Models\AttendanceWorkArea;
 use App\Models\User;
 use App\Models\WfaRequest;
 use App\Services\Admin\AdminMetricsService;
@@ -103,6 +104,7 @@ class EmployeeController extends Controller
                 'leave_balance_days' => 12,
             ]),
             'roles' => array_values(array_filter(UserRole::ALL, fn (string $role) => $role !== UserRole::HR)),
+            'attendanceWorkAreas' => AttendanceWorkArea::query()->where('is_active', true)->orderBy('name')->get(),
             'spvs' => User::query()->where('role', UserRole::SPV)->orderBy('full_name')->get(),
             'managements' => User::query()->where('role', UserRole::MANAGEMENT)->orderBy('full_name')->get(),
             'action' => route('admin.employees.store'),
@@ -184,6 +186,7 @@ class EmployeeController extends Controller
         return view('admin.employees.edit', [
             'employee' => $employee,
             'roles' => array_values(array_filter(UserRole::ALL, fn (string $role) => $role !== UserRole::HR)),
+            'attendanceWorkAreas' => AttendanceWorkArea::query()->where('is_active', true)->orderBy('name')->get(),
             'spvs' => User::query()->where('role', UserRole::SPV)->orderBy('full_name')->get(),
             'managements' => User::query()->where('role', UserRole::MANAGEMENT)->orderBy('full_name')->get(),
             'action' => route('admin.employees.update', $employee),
@@ -289,6 +292,7 @@ class EmployeeController extends Controller
             'job_title' => ['nullable', 'string', 'max:255'],
             'area_name' => ['nullable', 'string', 'max:255'],
             'work_location' => ['nullable', 'string', 'max:255'],
+            'attendance_work_area_id' => ['required', 'string', 'exists:attendance_work_areas,id'],
             'office_latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'office_longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'attendance_radius_meters' => ['nullable', 'integer', 'min:1', 'max:100000'],
@@ -312,6 +316,11 @@ class EmployeeController extends Controller
             'is_active' => ['nullable', 'boolean'],
             'password' => [$employee ? 'nullable' : 'required', 'string', 'min:6'],
         ]);
+
+        $attendanceWorkArea = AttendanceWorkArea::query()->find($payload['attendance_work_area_id']);
+        if ($attendanceWorkArea) {
+            $payload['work_location'] = $attendanceWorkArea->name;
+        }
 
         $requiresTerritory = in_array($payload['role'], [UserRole::FGG, UserRole::AREA_MANAGER], true);
         if (! $requiresTerritory) {

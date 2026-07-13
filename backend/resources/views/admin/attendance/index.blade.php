@@ -10,27 +10,79 @@
     <div class="panel pad" style="margin-bottom:18px;">
         <div class="toolbar">
             <div>
-                <h3 style="margin:0;">Pengaturan Kantor Absensi</h3>
-                <div class="muted">Satu titik kantor dipakai untuk semua user kantor biasa. Radius default saat ini 1 km.</div>
+                <h3 style="margin:0;">Area Kerja Absensi</h3>
+                <div class="muted">HR bisa mengatur titik lokasi dan radius per kantor/cabang. User hanya bisa absensi normal saat berada di radius area yang dipilih pada data karyawan.</div>
             </div>
         </div>
 
-        <form method="POST" action="{{ route('admin.attendance.office-setting.update') }}" class="filters">
+        <form method="POST" action="{{ route('admin.attendance.work-areas.store') }}" class="filters" style="margin-bottom:16px;">
             @csrf
             <div>
-                <label for="office_latitude">Titik Lokasi Kantor (Latitude)</label>
-                <input id="office_latitude" name="office_latitude" type="number" step="0.000000000000001" value="{{ old('office_latitude', $officeAttendanceSetting['latitude']) }}" required>
+                <label for="work_area_name">Nama Area</label>
+                <input id="work_area_name" name="name" value="{{ old('name') }}" placeholder="Contoh: Kantor Pusat / Cabang Serpong" required>
             </div>
             <div>
-                <label for="office_longitude">Titik Lokasi Kantor (Longitude)</label>
-                <input id="office_longitude" name="office_longitude" type="number" step="0.000000000000001" value="{{ old('office_longitude', $officeAttendanceSetting['longitude']) }}" required>
+                <label for="work_area_latitude">Latitude</label>
+                <input id="work_area_latitude" name="latitude" type="number" step="0.000000000000001" value="{{ old('latitude', '-6.159692890088879') }}" required>
             </div>
             <div>
-                <label for="attendance_radius_meters">Radius Absensi Kantor (meter)</label>
-                <input id="attendance_radius_meters" name="attendance_radius_meters" type="number" min="1" step="1" value="{{ old('attendance_radius_meters', $officeAttendanceSetting['radius_meters']) }}" required>
+                <label for="work_area_longitude">Longitude</label>
+                <input id="work_area_longitude" name="longitude" type="number" step="0.000000000000001" value="{{ old('longitude', '106.81804453790896') }}" required>
             </div>
-            <button class="btn primary" type="submit">Simpan Pengaturan Kantor</button>
+            <div>
+                <label for="work_area_radius">Radius (meter)</label>
+                <input id="work_area_radius" name="radius_meters" type="number" min="1" step="1" value="{{ old('radius_meters', 1000) }}" required>
+            </div>
+            <button class="btn primary" type="submit">Tambah Area</button>
         </form>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Area</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Radius</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                </tr>
+                </thead>
+                <tbody>
+                @forelse($attendanceWorkAreas as $workArea)
+                    <tr>
+                        @php
+                            $workAreaFormId = 'work_area_form_' . $workArea->id;
+                        @endphp
+                        <td>
+                            <form id="{{ $workAreaFormId }}" method="POST" action="{{ route('admin.attendance.work-areas.update', $workArea) }}">
+                                @csrf
+                                @method('PUT')
+                            </form>
+                            <input form="{{ $workAreaFormId }}" name="name" value="{{ old('name', $workArea->name) }}" required>
+                        </td>
+                        <td><input form="{{ $workAreaFormId }}" name="latitude" type="number" step="0.000000000000001" value="{{ old('latitude', $workArea->latitude) }}" required></td>
+                        <td><input form="{{ $workAreaFormId }}" name="longitude" type="number" step="0.000000000000001" value="{{ old('longitude', $workArea->longitude) }}" required></td>
+                        <td><input form="{{ $workAreaFormId }}" name="radius_meters" type="number" min="1" step="1" value="{{ old('radius_meters', $workArea->radius_meters) }}" required></td>
+                        <td>
+                            <select form="{{ $workAreaFormId }}" name="is_active">
+                                <option value="1" @selected($workArea->is_active)>Aktif</option>
+                                <option value="0" @selected(! $workArea->is_active)>Nonaktif</option>
+                            </select>
+                        </td>
+                        <td>
+                            <div class="stack">
+                                <button form="{{ $workAreaFormId }}" class="btn secondary" type="submit">Simpan</button>
+                                <a class="muted" href="https://www.google.com/maps?q={{ $workArea->latitude }},{{ $workArea->longitude }}" target="_blank" rel="noreferrer">Buka di Google Maps</a>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="6" class="muted">Belum ada area absensi.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <div class="grid cols-4" style="margin-bottom:18px;">
@@ -194,6 +246,8 @@
                         $googleMapsUrl = $hasCoordinates
                             ? 'https://www.google.com/maps?q=' . $locationLatitude . ',' . $locationLongitude
                             : null;
+                        $faceCaptureUrl = data_get($record->verification, 'capture.thumbnail_url')
+                            ?: data_get($record->verification, 'capture.url');
                         $recordSummaryKey = $record->user_id . '|' . $record->work_date?->toDateString();
                         $recordSummary = $recordSummaries[$recordSummaryKey] ?? null;
                         $outsideOfficeMode = ($record->metadata['attendance_mode'] ?? null) === 'outside_office';
@@ -231,6 +285,14 @@
                                 @if($coordinateLabel)
                                     <span class="muted">{{ $coordinateLabel }}</span>
                                 @endif
+                                @if(!empty($record->location['work_area_name'] ?? null))
+                                    <span class="muted">
+                                        Area {{ $record->location['work_area_name'] }}
+                                        @if(isset($record->location['distance_meters']))
+                                            &middot; {{ number_format((float) $record->location['distance_meters'], 0, ',', '.') }}m dari titik area
+                                        @endif
+                                    </span>
+                                @endif
                                 @if($googleMapsUrl)
                                     <a class="muted" href="{{ $googleMapsUrl }}" target="_blank" rel="noreferrer">Buka di Google Maps</a>
                                 @endif
@@ -241,6 +303,11 @@
                                 <span class="pill {{ $decisionClass }}">{{ $decisionLabel }}</span>
                                 <div class="muted">Match {{ $record->verification['match_score'] ?? '-' }}</div>
                                 <div class="muted">Liveness {{ $record->verification['liveness_score'] ?? '-' }}</div>
+                                @if($faceCaptureUrl)
+                                    <div style="margin-top:6px;">
+                                        <a class="attachment-link" href="{{ $faceCaptureUrl }}" target="_blank" rel="noreferrer">Lihat foto Face ID</a>
+                                    </div>
+                                @endif
                             @else
                                 <span class="pill">Belum valid</span>
                             @endif

@@ -55,8 +55,23 @@
         <input id="area_name" name="area_name" value="{{ old('area_name', $employee->area_name) }}" readonly>
     </div>
     <div>
+        <label for="attendance_work_area_id">Area Absensi</label>
+        <select id="attendance_work_area_id" name="attendance_work_area_id" required>
+            <option value="">- Pilih Area Absensi -</option>
+            @foreach(($attendanceWorkAreas ?? collect()) as $workArea)
+                <option
+                    value="{{ $workArea->id }}"
+                    data-name="{{ $workArea->name }}"
+                    @selected(old('attendance_work_area_id', $employee->attendance_work_area_id) === $workArea->id)
+                >
+                    {{ $workArea->name }} ({{ $workArea->radius_meters }}m)
+                </option>
+            @endforeach
+        </select>
+    </div>
+    <div>
         <label for="work_location">Lokasi Kerja</label>
-        <input id="work_location" name="work_location" value="{{ old('work_location', $employee->work_location) }}">
+        <input id="work_location" name="work_location" value="{{ old('work_location', $employee->work_location) }}" readonly>
     </div>
     <input id="territory_scope" name="territory_scope" type="hidden" value="{{ old('territory_scope', $employee->territory_scope) }}">
     <input id="territory_rules_payload" name="territory_rules_payload" type="hidden" value="{{ old('territory_rules_payload', json_encode($territoryRules, JSON_UNESCAPED_UNICODE)) }}">
@@ -164,6 +179,8 @@
     (() => {
         const scopeInput = document.getElementById('territory_scope');
         const areaInput = document.getElementById('area_name');
+        const attendanceWorkAreaInput = document.getElementById('attendance_work_area_id');
+        const workLocationInput = document.getElementById('work_location');
         const payloadInput = document.getElementById('territory_rules_payload');
         const ruleTypeInput = document.getElementById('territory_rule_type');
         const provinceInput = document.getElementById('territory_province');
@@ -184,6 +201,15 @@
                 territory_district: item.territory_district || null,
                 territory_subdistrict: item.territory_subdistrict || null,
             }));
+
+        const syncWorkLocation = () => {
+            const selectedArea = attendanceWorkAreaInput?.selectedOptions[0]?.dataset.name;
+            if (workLocationInput && selectedArea) {
+                workLocationInput.value = selectedArea;
+            }
+        };
+
+        attendanceWorkAreaInput?.addEventListener('change', syncWorkLocation);
 
         const findCanonical = (values, preferred, pickName = (item) => item.name) => {
             if (!preferred) {
@@ -450,6 +476,7 @@
             await loadCities(rules[0]?.territory_city || null);
             await loadDistricts(rules[0]?.territory_district || null);
             await loadSubdistricts(rules[0]?.territory_subdistrict || null);
+            syncWorkLocation();
             renderRules();
         };
 

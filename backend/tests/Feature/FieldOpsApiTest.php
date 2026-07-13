@@ -226,7 +226,9 @@ class FieldOpsApiTest extends TestCase
 
         $checkIn
             ->assertCreated()
-            ->assertJsonPath('data.action', 'checkIn');
+            ->assertJsonPath('data.action', 'checkIn')
+            ->assertJsonPath('data.location.within_radius', true)
+            ->assertJsonPath('data.location.work_area_name', 'Kantor Pusat');
 
         $summary = $this->getJson('/api/attendance/daily-summary?date=' . now()->toDateString());
 
@@ -271,7 +273,7 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonPath('data.summary_note', 'Durasi kerja akan dihitung setelah check-out.');
     }
 
-    public function test_staff_can_submit_normal_attendance_outside_previous_office_radius(): void
+    public function test_staff_cannot_submit_normal_attendance_outside_assigned_work_area_radius(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
         Sanctum::actingAs(User::query()->findOrFail('usr_001'));
@@ -288,8 +290,11 @@ class FieldOpsApiTest extends TestCase
                 'recorded_at' => $targetDate->copy()->setTime(9, 15)->toIso8601String(),
                 'address_label' => 'Lokasi jauh dari kantor',
             ],
-        ])->assertCreated()
-            ->assertJsonPath('data.location.address_label', 'Lokasi jauh dari kantor');
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['location'])
+            ->assertJsonFragment([
+                'location' => ['Anda tidak berada di area kantor.'],
+            ]);
     }
 
     public function test_area_manager_outside_office_starts_on_click_and_finishes_on_save(): void

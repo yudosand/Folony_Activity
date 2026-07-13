@@ -70,6 +70,7 @@ class AdminWebTest extends TestCase
             'job_title' => 'Staff Operasional',
             'area_name' => 'Jakarta Barat',
             'work_location' => 'Kantor Cabang Barat',
+            'attendance_work_area_id' => 'work_area_ho',
             'spv_id' => 'usr_spv_001',
             'management_id' => 'usr_mgt_001',
             'leave_balance_days' => 11,

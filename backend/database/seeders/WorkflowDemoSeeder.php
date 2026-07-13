@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\ApprovalStep;
 use App\Models\AttendanceRecord;
+use App\Models\AttendanceWorkArea;
 use App\Models\User;
 use App\Models\NetworkProfile;
 use App\Models\NetworkFollowUp;
@@ -24,6 +25,17 @@ class WorkflowDemoSeeder extends Seeder
 {
     public function run(): void
     {
+        AttendanceWorkArea::query()->updateOrCreate(
+            ['id' => 'work_area_ho'],
+            [
+                'name' => 'Kantor Pusat',
+                'latitude' => -6.159692890088879,
+                'longitude' => 106.81804453790896,
+                'radius_meters' => 1000,
+                'is_active' => true,
+            ],
+        );
+
         User::query()->updateOrCreate(
             ['id' => 'usr_hr_001'],
             [
@@ -391,5 +403,9 @@ class WorkflowDemoSeeder extends Seeder
                 'note' => 'Seeder check-out.',
             ],
         );
+
+        User::query()
+            ->whereNull('attendance_work_area_id')
+            ->update(['attendance_work_area_id' => 'work_area_ho']);
     }
 }

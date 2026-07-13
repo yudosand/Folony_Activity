@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AttendanceService
 {
@@ -14,7 +15,7 @@ class AttendanceService
     private const OUTSIDE_OFFICE_FINISH = 'outsideOfficeFinish';
 
     public function __construct(
-        private readonly OfficeAttendanceSettingService $officeAttendanceSettingService,
+        private readonly AttendanceWorkAreaService $attendanceWorkAreaService,
     ) {
     }
 
@@ -44,6 +45,10 @@ class AttendanceService
             ? Carbon::parse(Arr::get($payload, 'work_date'))->startOfDay()
             : $recordedAt->copy()->startOfDay();
 
+        $location = $this->normalizeLocation(Arr::get($payload, 'location', []));
+        $areaAudit = $this->attendanceWorkAreaService->assertLocationWithinUserArea($user, $location);
+        $location = array_merge($location, $areaAudit);
+
         $record = AttendanceRecord::query()->create([
             'id' => Arr::get($payload, 'id', (string) Str::uuid()),
             'user_id' => $user->id,
@@ -51,7 +56,7 @@ class AttendanceService
             'action' => $action,
             'status' => Arr::get($payload, 'status', 'success'),
             'recorded_at' => $recordedAt,
-            'location' => $this->normalizeLocation(Arr::get($payload, 'location', [])),
+            'location' => $location,
             'verification' => Arr::get($payload, 'verification'),
             'metadata' => Arr::get($payload, 'metadata'),
             'note' => Arr::get($payload, 'note'),
@@ -179,6 +184,11 @@ class AttendanceService
             'address_label' => Arr::get($location, 'address_label'),
             'radius_meters' => Arr::get($location, 'radius_meters'),
             'within_radius' => Arr::get($location, 'within_radius'),
+            'distance_meters' => Arr::get($location, 'distance_meters'),
+            'work_area_id' => Arr::get($location, 'work_area_id'),
+            'work_area_name' => Arr::get($location, 'work_area_name'),
+            'work_area_latitude' => Arr::get($location, 'work_area_latitude'),
+            'work_area_longitude' => Arr::get($location, 'work_area_longitude'),
         ];
     }
 

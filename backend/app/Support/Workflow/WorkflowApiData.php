@@ -9,7 +9,7 @@ use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Models\WfaRequest;
 use App\Models\WfaTaskUpdate;
-use App\Services\OfficeAttendanceSettingService;
+use App\Services\AttendanceWorkAreaService;
 use App\Support\Territory\TerritoryData;
 use Illuminate\Support\Carbon;
 
@@ -17,8 +17,8 @@ class WorkflowApiData
 {
     public static function user(User $user): array
     {
-        $user->loadMissing('faceProfile');
-        $globalOffice = app(OfficeAttendanceSettingService::class)->current();
+        $user->loadMissing('faceProfile', 'attendanceWorkArea');
+        $attendanceWorkArea = app(AttendanceWorkAreaService::class)->apiPayloadForUser($user);
 
         return [
             'id' => $user->id,
@@ -26,11 +26,12 @@ class WorkflowApiData
             'email' => $user->email,
             'phone_number' => $user->phone_number,
             'area_name' => $user->area_name,
-            'work_location' => $user->work_location,
+            'work_location' => $attendanceWorkArea['name'] ?? $user->work_location,
             'job_title' => $user->job_title,
-            'office_latitude' => $globalOffice['latitude'] ?? ($user->office_latitude === null ? null : (float) $user->office_latitude),
-            'office_longitude' => $globalOffice['longitude'] ?? ($user->office_longitude === null ? null : (float) $user->office_longitude),
-            'attendance_radius_meters' => $globalOffice['radius_meters'] ?? $user->attendance_radius_meters,
+            'attendance_work_area' => $attendanceWorkArea,
+            'office_latitude' => $attendanceWorkArea['latitude'] ?? ($user->office_latitude === null ? null : (float) $user->office_latitude),
+            'office_longitude' => $attendanceWorkArea['longitude'] ?? ($user->office_longitude === null ? null : (float) $user->office_longitude),
+            'attendance_radius_meters' => $attendanceWorkArea['radius_meters'] ?? $user->attendance_radius_meters,
             'territory_scope' => $user->territory_scope,
             'territory_province' => $user->territory_province,
             'territory_city' => $user->territory_city,

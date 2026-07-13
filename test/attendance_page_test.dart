@@ -9,7 +9,7 @@ import 'package:folony_activity/core/repositories/mock/mock_attendance_repositor
 import 'package:folony_activity/features/attendance/presentation/attendance_page.dart';
 
 void main() {
-  testWidgets('face check-in button is enabled when GPS is active',
+  testWidgets('face check-in button is locked when attendance area is missing',
       (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -19,12 +19,14 @@ void main() {
         ),
       ),
     );
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pump();
 
     final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Face Check-in'),
+      find.widgetWithText(FilledButton, 'Area belum diset'),
     );
 
-    expect(button.onPressed, isNotNull);
+    expect(button.onPressed, isNull);
   });
 
   testWidgets(
