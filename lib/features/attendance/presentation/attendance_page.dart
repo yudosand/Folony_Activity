@@ -1689,7 +1689,7 @@ class _LiveLocationRadiusCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _RadiusRadar(
+          _LocationMapPreview(
             areaName: areaName,
             currentLatitude: currentLatitude,
             currentLongitude: currentLongitude,
@@ -1724,8 +1724,8 @@ class _LiveLocationRadiusCard extends StatelessWidget {
   }
 }
 
-class _RadiusRadar extends StatelessWidget {
-  const _RadiusRadar({
+class _LocationMapPreview extends StatelessWidget {
+  const _LocationMapPreview({
     required this.areaName,
     required this.currentLatitude,
     required this.currentLongitude,
@@ -1752,7 +1752,7 @@ class _RadiusRadar extends StatelessWidget {
     final hasOfficePosition = officeLatitude != null && officeLongitude != null;
 
     return Container(
-      height: 230,
+      height: 300,
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.72),
@@ -1761,19 +1761,18 @@ class _RadiusRadar extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _RadiusRadarPainter(
+          if (hasOfficePosition && radiusMeters != null)
+            Positioned.fill(
+              child: _SlippyMapLayer(
                 currentLatitude: currentLatitude,
                 currentLongitude: currentLongitude,
-                officeLatitude: officeLatitude,
-                officeLongitude: officeLongitude,
-                radiusMeters: radiusMeters,
+                officeLatitude: officeLatitude!,
+                officeLongitude: officeLongitude!,
+                radiusMeters: radiusMeters!,
                 isInsideRadius: isInsideRadius,
                 statusColor: statusColor,
               ),
             ),
-          ),
           Positioned(
             left: 14,
             top: 12,
@@ -1831,7 +1830,7 @@ class _RadiusRadar extends StatelessWidget {
             child: Row(
               children: [
                 _RadarLegendDot(
-                  color: const Color(0xFF1F2937),
+                  color: const Color(0xFF06B6D4),
                   label: 'Titik area',
                 ),
                 const SizedBox(width: 12),
@@ -1845,6 +1844,231 @@ class _RadiusRadar extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _SlippyMapLayer extends StatelessWidget {
+  const _SlippyMapLayer({
+    required this.currentLatitude,
+    required this.currentLongitude,
+    required this.officeLatitude,
+    required this.officeLongitude,
+    required this.radiusMeters,
+    required this.isInsideRadius,
+    required this.statusColor,
+  });
+
+  final double? currentLatitude;
+  final double? currentLongitude;
+  final double officeLatitude;
+  final double officeLongitude;
+  final int radiusMeters;
+  final bool isInsideRadius;
+  final Color statusColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        final hasUser = currentLatitude != null && currentLongitude != null;
+        final centerLatitude =
+            hasUser ? (officeLatitude + currentLatitude!) / 2 : officeLatitude;
+        final centerLongitude = hasUser
+            ? (officeLongitude + currentLongitude!) / 2
+            : officeLongitude;
+        final userDistance = hasUser
+            ? Geolocator.distanceBetween(
+                officeLatitude,
+                officeLongitude,
+                currentLatitude!,
+                currentLongitude!,
+              )
+            : 0.0;
+        final zoom = _MapMath.bestZoomFor(
+          latitude: centerLatitude,
+          radiusMeters: math.max(radiusMeters.toDouble(), userDistance),
+          shortestSide: math.max(180, math.min(size.width, size.height)),
+        );
+        final centerWorld = _MapMath.latLngToWorldPixel(
+          centerLatitude,
+          centerLongitude,
+          zoom,
+        );
+        final officeWorld = _MapMath.latLngToWorldPixel(
+          officeLatitude,
+          officeLongitude,
+          zoom,
+        );
+        final officeOffset = Offset(
+          size.width / 2 + officeWorld.dx - centerWorld.dx,
+          size.height / 2 + officeWorld.dy - centerWorld.dy,
+        );
+        final userOffset = hasUser
+            ? (() {
+                final userWorld = _MapMath.latLngToWorldPixel(
+                  currentLatitude!,
+                  currentLongitude!,
+                  zoom,
+                );
+                return Offset(
+                  size.width / 2 + userWorld.dx - centerWorld.dx,
+                  size.height / 2 + userWorld.dy - centerWorld.dy,
+                );
+              })()
+            : null;
+        final metersPerPixel = _MapMath.metersPerPixel(centerLatitude, zoom);
+        final radiusPx = radiusMeters / metersPerPixel;
+        final tiles = _visibleTiles(
+          centerWorld: centerWorld,
+          size: size,
+          zoom: zoom,
+        );
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: Container(color: const Color(0xFFF4F1EA)),
+            ),
+            for (final tile in tiles)
+              Positioned(
+                left: tile.screenOffset.dx,
+                top: tile.screenOffset.dy,
+                width: _MapMath.tileSize,
+                height: _MapMath.tileSize,
+                child: Image.network(
+                  'https://tile.openstreetmap.org/$zoom/${tile.x}/${tile.y}.png',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: const Color(0xFFE9E4DB),
+                      child: CustomPaint(
+                        painter: _FallbackMapTilePainter(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _MapOverlayPainter(
+                  officeOffset: officeOffset,
+                  userOffset: userOffset,
+                  radiusPx: radiusPx,
+                  isInsideRadius: isInsideRadius,
+                  statusColor: statusColor,
+                ),
+              ),
+            ),
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.86),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'OSM',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  List<_MapTile> _visibleTiles({
+    required Offset centerWorld,
+    required Size size,
+    required int zoom,
+  }) {
+    final leftWorld = centerWorld.dx - size.width / 2;
+    final topWorld = centerWorld.dy - size.height / 2;
+    final rightWorld = centerWorld.dx + size.width / 2;
+    final bottomWorld = centerWorld.dy + size.height / 2;
+    final minTileX = (leftWorld / _MapMath.tileSize).floor() - 1;
+    final maxTileX = (rightWorld / _MapMath.tileSize).floor() + 1;
+    final minTileY = (topWorld / _MapMath.tileSize).floor() - 1;
+    final maxTileY = (bottomWorld / _MapMath.tileSize).floor() + 1;
+    final maxTile = 1 << zoom;
+    final tiles = <_MapTile>[];
+
+    for (var x = minTileX; x <= maxTileX; x++) {
+      for (var y = minTileY; y <= maxTileY; y++) {
+        if (y < 0 || y >= maxTile) {
+          continue;
+        }
+        final wrappedX = ((x % maxTile) + maxTile) % maxTile;
+        tiles.add(
+          _MapTile(
+            x: wrappedX,
+            y: y,
+            screenOffset: Offset(
+              x * _MapMath.tileSize - leftWorld,
+              y * _MapMath.tileSize - topWorld,
+            ),
+          ),
+        );
+      }
+    }
+
+    return tiles;
+  }
+}
+
+class _MapTile {
+  const _MapTile({
+    required this.x,
+    required this.y,
+    required this.screenOffset,
+  });
+
+  final int x;
+  final int y;
+  final Offset screenOffset;
+}
+
+class _MapMath {
+  static const double tileSize = 256;
+
+  static int bestZoomFor({
+    required double latitude,
+    required double radiusMeters,
+    required double shortestSide,
+  }) {
+    final targetRadiusPx = shortestSide * 0.26;
+    for (var zoom = 19; zoom >= 12; zoom--) {
+      final radiusPx = radiusMeters / metersPerPixel(latitude, zoom);
+      if (radiusPx <= targetRadiusPx) {
+        return zoom;
+      }
+    }
+    return 12;
+  }
+
+  static double metersPerPixel(double latitude, int zoom) {
+    return 156543.03392 *
+        math.cos(latitude * math.pi / 180) /
+        math.pow(2, zoom);
+  }
+
+  static Offset latLngToWorldPixel(
+    double latitude,
+    double longitude,
+    int zoom,
+  ) {
+    final sinLatitude = math.sin(latitude * math.pi / 180);
+    final scale = tileSize * math.pow(2, zoom);
+    final x = (longitude + 180) / 360 * scale;
+    final y = (0.5 -
+            math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * math.pi)) *
+        scale;
+
+    return Offset(x.toDouble(), y.toDouble());
   }
 }
 
@@ -1880,117 +2104,177 @@ class _RadarLegendDot extends StatelessWidget {
   }
 }
 
-class _RadiusRadarPainter extends CustomPainter {
-  const _RadiusRadarPainter({
-    required this.currentLatitude,
-    required this.currentLongitude,
-    required this.officeLatitude,
-    required this.officeLongitude,
-    required this.radiusMeters,
+class _FallbackMapTilePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final roadPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.72)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 14;
+    final buildingPaint = Paint()
+      ..color = const Color(0xFFD6CFC5)
+      ..style = PaintingStyle.fill;
+
+    for (var i = 0; i < 6; i++) {
+      final left = (i * 46).toDouble();
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(left + 8, 16, 28, 36),
+          const Radius.circular(3),
+        ),
+        buildingPaint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(left + 18, 104, 34, 42),
+          const Radius.circular(3),
+        ),
+        buildingPaint,
+      );
+    }
+
+    canvas.drawLine(
+      Offset(size.width * 0.22, -20),
+      Offset(size.width * 0.42, size.height + 20),
+      roadPaint,
+    );
+    canvas.drawLine(
+      Offset(-20, size.height * 0.58),
+      Offset(size.width + 20, size.height * 0.34),
+      roadPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _FallbackMapTilePainter oldDelegate) => false;
+}
+
+class _MapOverlayPainter extends CustomPainter {
+  const _MapOverlayPainter({
+    required this.officeOffset,
+    required this.userOffset,
+    required this.radiusPx,
     required this.isInsideRadius,
     required this.statusColor,
   });
 
-  final double? currentLatitude;
-  final double? currentLongitude;
-  final double? officeLatitude;
-  final double? officeLongitude;
-  final int? radiusMeters;
+  final Offset officeOffset;
+  final Offset? userOffset;
+  final double radiusPx;
   final bool isInsideRadius;
   final Color statusColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2 + 8);
-    final radiusPx = math.min(size.width, size.height) * 0.31;
+    final clippedRadius = math.min(radiusPx, math.max(size.width, size.height));
     final boundaryPaint = Paint()
-      ..color = const Color(0xFF0F4F3C).withValues(alpha: 0.13)
+      ..color = const Color(0xFF10B981).withValues(alpha: 0.20)
       ..style = PaintingStyle.fill;
     final boundaryStroke = Paint()
-      ..color = const Color(0xFF0F4F3C).withValues(alpha: 0.62)
+      ..color = const Color(0xFF10B981)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final outerStroke = Paint()
-      ..color = const Color(0xFFE7E5E4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+      ..strokeWidth = 2.2;
 
-    canvas.drawCircle(center, radiusPx * 1.22, outerStroke);
-    canvas.drawCircle(center, radiusPx, boundaryPaint);
-    canvas.drawCircle(center, radiusPx, boundaryStroke);
+    canvas.drawCircle(officeOffset, clippedRadius, boundaryPaint);
+    canvas.drawCircle(officeOffset, clippedRadius, boundaryStroke);
 
-    final crossPaint = Paint()
-      ..color = const Color(0xFF0F4F3C).withValues(alpha: 0.20)
-      ..strokeWidth = 1;
-    canvas.drawLine(
-      Offset(center.dx - radiusPx, center.dy),
-      Offset(center.dx + radiusPx, center.dy),
-      crossPaint,
-    );
-    canvas.drawLine(
-      Offset(center.dx, center.dy - radiusPx),
-      Offset(center.dx, center.dy + radiusPx),
-      crossPaint,
+    _drawPin(
+      canvas,
+      officeOffset,
+      fillColor: const Color(0xFF06B6D4),
+      iconColor: Colors.white,
+      iconKind: _MapPinKind.office,
     );
 
-    final officePaint = Paint()..color = const Color(0xFF1F2937);
-    canvas.drawCircle(center, 7, officePaint);
-
-    if (currentLatitude == null ||
-        currentLongitude == null ||
-        officeLatitude == null ||
-        officeLongitude == null ||
-        radiusMeters == null ||
-        radiusMeters! <= 0) {
+    final userPoint = userOffset;
+    if (userPoint == null) {
       return;
     }
 
-    final metersPerLatitudeDegree = 111320.0;
-    final metersPerLongitudeDegree =
-        111320.0 * math.cos((officeLatitude! * math.pi) / 180);
-    final northMeters =
-        (currentLatitude! - officeLatitude!) * metersPerLatitudeDegree;
-    final eastMeters =
-        (currentLongitude! - officeLongitude!) * metersPerLongitudeDegree;
-    final scale = radiusPx / radiusMeters!;
-    final rawOffset = Offset(eastMeters * scale, -northMeters * scale);
-    final maxPlotRadius = radiusPx * 1.18;
-    final distanceFromCenter = rawOffset.distance;
-    final plottedOffset =
-        distanceFromCenter > maxPlotRadius && distanceFromCenter > 0
-            ? rawOffset * (maxPlotRadius / distanceFromCenter)
-            : rawOffset;
-    final userPoint = center + plottedOffset;
-
     final linePaint = Paint()
-      ..color = statusColor.withValues(alpha: 0.45)
+      ..color = statusColor.withValues(alpha: 0.54)
       ..strokeWidth = 2;
-    canvas.drawLine(center, userPoint, linePaint);
+    canvas.drawLine(officeOffset, userPoint, linePaint);
 
     final userGlow = Paint()
-      ..color = statusColor.withValues(alpha: isInsideRadius ? 0.18 : 0.24);
+      ..color = statusColor.withValues(alpha: isInsideRadius ? 0.22 : 0.28);
     canvas.drawCircle(userPoint, 18, userGlow);
+    _drawPin(
+      canvas,
+      userPoint,
+      fillColor: statusColor,
+      iconColor: Colors.white,
+      iconKind: _MapPinKind.user,
+    );
+  }
 
-    final userPaint = Paint()..color = statusColor;
-    canvas.drawCircle(userPoint, 8, userPaint);
+  void _drawPin(
+    Canvas canvas,
+    Offset point, {
+    required Color fillColor,
+    required Color iconColor,
+    required _MapPinKind iconKind,
+  }) {
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.22)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+    final pinPath = Path()
+      ..moveTo(point.dx, point.dy + 25)
+      ..cubicTo(point.dx - 20, point.dy + 5, point.dx - 16, point.dy - 20,
+          point.dx, point.dy - 20)
+      ..cubicTo(point.dx + 16, point.dy - 20, point.dx + 20, point.dy + 5,
+          point.dx, point.dy + 25)
+      ..close();
+    canvas.drawPath(pinPath.shift(const Offset(0, 2)), shadowPaint);
+    canvas.drawPath(pinPath, Paint()..color = fillColor);
+    canvas.drawCircle(point.translate(0, -3), 11, Paint()..color = iconColor);
 
-    final ringPaint = Paint()
-      ..color = Colors.white
+    final detailPaint = Paint()
+      ..color = fillColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawCircle(userPoint, 8, ringPaint);
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+
+    if (iconKind == _MapPinKind.office) {
+      canvas.drawRect(
+        Rect.fromCenter(center: point.translate(0, -3), width: 10, height: 7),
+        detailPaint,
+      );
+      canvas.drawLine(
+        point.translate(-6, -6),
+        point.translate(0, -11),
+        detailPaint,
+      );
+      canvas.drawLine(
+        point.translate(6, -6),
+        point.translate(0, -11),
+        detailPaint,
+      );
+    } else {
+      canvas.drawCircle(point.translate(0, -6), 3, detailPaint);
+      canvas.drawArc(
+        Rect.fromCenter(center: point.translate(0, 2), width: 11, height: 8),
+        math.pi,
+        math.pi,
+        false,
+        detailPaint,
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _RadiusRadarPainter oldDelegate) {
-    return oldDelegate.currentLatitude != currentLatitude ||
-        oldDelegate.currentLongitude != currentLongitude ||
-        oldDelegate.officeLatitude != officeLatitude ||
-        oldDelegate.officeLongitude != officeLongitude ||
-        oldDelegate.radiusMeters != radiusMeters ||
+  bool shouldRepaint(covariant _MapOverlayPainter oldDelegate) {
+    return oldDelegate.officeOffset != officeOffset ||
+        oldDelegate.userOffset != userOffset ||
+        oldDelegate.radiusPx != radiusPx ||
         oldDelegate.isInsideRadius != isInsideRadius ||
         oldDelegate.statusColor != statusColor;
   }
+}
+
+enum _MapPinKind {
+  office,
+  user,
 }
 
 class _FacePreviewLine extends StatelessWidget {
