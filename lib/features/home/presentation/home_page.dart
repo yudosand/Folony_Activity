@@ -7,50 +7,56 @@ class HomePage extends StatelessWidget {
   const HomePage({
     super.key,
     required this.session,
+    this.onRefresh,
     this.homeMenus = const [],
   });
 
   final AppSession session;
+  final Future<void> Function()? onRefresh;
   final List<HomeMenuShortcut> homeMenus;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _SummaryHeader(session: session),
-        const SizedBox(height: 16),
-        Text('Ringkasan', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 10),
-        const _MetricRow(
-          label: 'Status hari ini',
-          value: 'Aktif',
-          note: 'Jam kerja standar 08:30 - 17:00',
-        ),
-        const Divider(height: 24),
-        const _MetricRow(
-          label: 'Agenda utama',
-          value: '3',
-          note: 'Prioritas sebelum jam 15:00',
-        ),
-        const Divider(height: 24),
-        const _MetricRow(
-          label: 'Reminder',
-          value: '2',
-          note: 'Butuh tindak lanjut',
-        ),
-        if (homeMenus.isNotEmpty) ...[
+    return RefreshIndicator(
+      onRefresh: onRefresh ?? () async {},
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        children: [
+          _SummaryHeader(session: session),
           const SizedBox(height: 16),
-          Text('Menu Utama', style: theme.textTheme.titleMedium),
+          Text('Ringkasan', style: theme.textTheme.titleMedium),
           const SizedBox(height: 10),
-          for (var i = 0; i < homeMenus.length; i++) ...[
-            _HomeMenuTile(item: homeMenus[i]),
-            if (i != homeMenus.length - 1) const Divider(height: 24),
+          const _MetricRow(
+            label: 'Status hari ini',
+            value: 'Aktif',
+            note: 'Jam kerja standar 08:30 - 17:00',
+          ),
+          const Divider(height: 24),
+          const _MetricRow(
+            label: 'Agenda utama',
+            value: '3',
+            note: 'Prioritas sebelum jam 15:00',
+          ),
+          const Divider(height: 24),
+          const _MetricRow(
+            label: 'Reminder',
+            value: '2',
+            note: 'Butuh tindak lanjut',
+          ),
+          if (homeMenus.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text('Menu Utama', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 10),
+            for (var i = 0; i < homeMenus.length; i++) ...[
+              _HomeMenuTile(item: homeMenus[i]),
+              if (i != homeMenus.length - 1) const Divider(height: 24),
+            ],
           ],
         ],
-      ],
+      ),
     );
   }
 }

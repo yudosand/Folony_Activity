@@ -166,7 +166,7 @@ class AppController extends ChangeNotifier {
     if (_matchesMultiRoleTester(identifier: identifier, password: password)) {
       if (_useRemoteAuth || !_allowDemoMode) {
         throw StateError(
-          'Akun allrole hanya tersedia di mode demo lokal. Gunakan akun backend yang valid untuk staging/live.',
+          'Akun allrole hanya tersedia di mode demo lokal. Gunakan akun Folony yang valid.',
         );
       }
       if (_authRepository != null) {
@@ -181,7 +181,7 @@ class AppController extends ChangeNotifier {
     if (!_useRemoteAuth || _authRepository == null) {
       if (!_allowDemoMode) {
         throw StateError(
-          'Mode demo tidak aktif. Login harus menggunakan backend staging/live yang valid.',
+          'Mode demo tidak aktif. Login harus menggunakan akun Folony yang valid.',
         );
       }
       signInAs(fallbackRole, userName: identifier);
@@ -211,7 +211,7 @@ class AppController extends ChangeNotifier {
     final authRepository = _authRepository;
     if (!_useRemoteAuth || authRepository == null) {
       throw StateError(
-          'Ubah password hanya tersedia pada mode staging/backend.');
+          'Ubah password hanya tersedia saat terhubung ke server Folony.');
     }
 
     await authRepository.changePassword(
@@ -501,6 +501,59 @@ class AppController extends ChangeNotifier {
 
   Future<void> refreshPerformanceSummaryForSession(AppSession session) async {
     await _loadPerformanceSummary(session);
+  }
+
+  Future<void> refreshAttendanceDataForSession(AppSession session) async {
+    await Future.wait([
+      refreshCurrentUserProfile(),
+      _loadAttendanceData(session),
+      _loadFaceProfileData(session),
+    ]);
+  }
+
+  Future<void> refreshWorkflowDataForSession(AppSession session) async {
+    await Future.wait([
+      refreshCurrentUserProfile(),
+      _loadWorkflowData(session),
+    ]);
+  }
+
+  Future<void> refreshProfileDataForSession(AppSession session) async {
+    await Future.wait([
+      refreshCurrentUserProfile(),
+      _loadWorkflowData(session),
+      _loadFaceProfileData(session),
+    ]);
+  }
+
+  Future<void> refreshHomeDataForSession(AppSession session) async {
+    await Future.wait([
+      refreshCurrentUserProfile(),
+      if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
+        _loadNetworkEntries(session),
+      if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
+        _loadPerformanceSummary(session),
+      if (session.role != AppRole.fgg && session.role != AppRole.areaManager)
+        _loadWorkflowData(session),
+    ]);
+  }
+
+  Future<void> refreshCurrentSessionData([AppSession? targetSession]) async {
+    final session = targetSession ?? _session;
+    if (session == null) {
+      return;
+    }
+
+    await Future.wait([
+      refreshCurrentUserProfile(),
+      _loadAttendanceData(session),
+      _loadFaceProfileData(session),
+      _loadWorkflowData(session),
+      if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
+        _loadNetworkEntries(session),
+      if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
+        _loadPerformanceSummary(session),
+    ]);
   }
 
   Future<void> _loadAttendanceData(AppSession session) async {

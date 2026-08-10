@@ -157,7 +157,7 @@ class AdminWebTest extends TestCase
         $content = $response->streamedContent();
         $this->assertStringContainsString('ID,Karyawan,Role,Mode,Status,Tanggal,Mulai,Selesai,Lokasi,Kompensasi', $content);
         $this->assertStringContainsString('"Task Updates"', $content);
-        $this->assertStringContainsString('wfa_001,"Nadia Staff",staff,overtime,completed', $content);
+        $this->assertStringContainsString('wfa_001,"Nadia Staff",Staff,overtime,completed', $content);
     }
 
     public function test_hr_can_view_approval_center_page(): void
@@ -184,7 +184,7 @@ class AdminWebTest extends TestCase
         $response->assertDownload('approval-center.csv');
         $content = $response->streamedContent();
         $this->assertStringContainsString('Module,"Reference ID",Requester,"Requester Role",Approver,"Approver Role",Status,Note,"Acted At"', $content);
-        $this->assertStringContainsString('leave,leave_001,"Nadia Staff",staff', $content);
+        $this->assertStringContainsString('leave,leave_001,"Nadia Staff",Staff', $content);
     }
 
     public function test_hr_can_view_network_monitoring_page(): void
@@ -211,7 +211,7 @@ class AdminWebTest extends TestCase
         $response->assertDownload('network-monitoring.csv');
         $content = $response->streamedContent();
         $this->assertStringContainsString('ID,Type,Nama,Owner,"Owner Role",Area,Status,"Bidang Usaha",Alamat,"Follow-up Terakhir","Waktu Follow-up"', $content);
-        $this->assertStringContainsString('net_fgg_001,ukm,"UKM Toko Harapan","Bima FGG",fgg', $content);
+        $this->assertStringContainsString('net_fgg_001,ukm,"UKM Toko Harapan","Bima FGG",FGG', $content);
     }
 
     public function test_hr_can_view_attendance_monitoring_summary(): void

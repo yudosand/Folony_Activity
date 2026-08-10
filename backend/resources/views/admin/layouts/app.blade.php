@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Folony Activity Admin' }}</title>
+    <link rel="icon" href="{{ asset('favicon.ico') }}?v=folony-20260805" sizes="any">
+    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}?v=folony-20260805">
     <style>
         :root {
             --bg: #f6f2ea;
@@ -345,7 +347,7 @@
                         @endisset
                     </div>
                     <div class="actions">
-                        <div class="pill">{{ auth()->user()->full_name }} &middot; {{ strtoupper(auth()->user()->role) }}</div>
+                        <div class="pill">{{ auth()->user()->full_name }} &middot; {{ \App\Support\Workflow\UserRole::label(auth()->user()->role) }}</div>
                         <form method="POST" action="{{ route('admin.logout') }}">
                             @csrf
                             <button type="submit" class="btn secondary">Logout</button>

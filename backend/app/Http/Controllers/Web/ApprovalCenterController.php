@@ -45,9 +45,9 @@ class ApprovalCenterController extends Controller
                     $step->module,
                     $step->reference_id,
                     $reference?->requester_name ?? '-',
-                    $reference?->requester_role ?? '-',
+                    UserRole::label($reference?->requester_role),
                     $step->approver_name,
-                    $step->approver_role,
+                    UserRole::label($step->approver_role),
                     $step->status,
                     $step->note,
                     optional($step->acted_at)->format('Y-m-d H:i'),
@@ -95,9 +95,9 @@ class ApprovalCenterController extends Controller
     private function roleOptions(): array
     {
         return [
-            UserRole::SPV => 'Supervisor',
-            UserRole::AREA_MANAGER => 'Area Manager',
-            UserRole::MANAGEMENT => 'Management',
+            UserRole::SPV => UserRole::label(UserRole::SPV),
+            UserRole::AREA_MANAGER => UserRole::label(UserRole::AREA_MANAGER),
+            UserRole::MANAGEMENT => UserRole::label(UserRole::MANAGEMENT),
         ];
     }
 }

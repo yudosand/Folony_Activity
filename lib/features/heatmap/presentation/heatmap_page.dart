@@ -39,112 +39,116 @@ class _HeatMapPageState extends State<HeatMapPage> {
     final snapshot = _snapshot;
     final points = snapshot?.points ?? const <HeatMapPoint>[];
 
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Peta Persebaran',
-                style: theme.textTheme.titleMedium,
-              ),
-            ),
-            StatusBadge(
-              label: widget.controller.isRemoteAuthEnabled
-                  ? 'Live Radius'
-                  : 'Mock Radius',
-              color: Colors.blue,
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          snapshot == null
-              ? 'Ambil lokasi user aktif lalu tampilkan titik yang masuk dalam radius.'
-              : '${points.length} titik dalam radius ${_radiusLabel(_radiusMeter)} dari posisi user aktif.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _MapPreview(
-          markerCount: points.length,
-          isLoading: _isLoading,
-        ),
-        const SizedBox(height: 18),
-        Row(
-          children: [
-            Expanded(
-              child: Text('Radius', style: theme.textTheme.titleMedium),
-            ),
-            TextButton.icon(
-              onPressed: _isLoading ? null : _refresh,
-              icon: const Icon(Icons.my_location_rounded),
-              label: const Text('Refresh lokasi'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SegmentedButton<int>(
-          segments: const [
-            ButtonSegment(value: 500, label: Text('500 m')),
-            ButtonSegment(value: 1000, label: Text('1 km')),
-            ButtonSegment(value: 2000, label: Text('2 km')),
-          ],
-          selected: {_radiusMeter},
-          showSelectedIcon: false,
-          onSelectionChanged: (selection) {
-            setState(() => _radiusMeter = selection.first);
-            _refresh();
-          },
-        ),
-        const SizedBox(height: 22),
-        Text('Titik Terdekat', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 6),
-        Text(
-          'Detail memuat pemilik data, alamat, nomor HP, jarak, dan catatan lapangan terbaru.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (_errorMessage != null && snapshot == null)
-          Column(
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        children: [
+          Row(
             children: [
-              EmptyState(
-                icon: Icons.location_off_rounded,
-                title: 'Lokasi belum siap',
-                message: _errorMessage!,
+              Expanded(
+                child: Text(
+                  'Peta Persebaran',
+                  style: theme.textTheme.titleMedium,
+                ),
               ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: _refresh,
-                child: const Text('Coba Lagi'),
+              StatusBadge(
+                label: widget.controller.isRemoteAuthEnabled
+                    ? 'Live Radius'
+                    : 'Mock Radius',
+                color: Colors.blue,
               ),
             ],
-          )
-        else if (points.isEmpty)
-          const EmptyState(
-            icon: Icons.location_searching_rounded,
-            title: 'Tidak ada titik',
-            message:
-                'Belum ada data yang masuk dalam radius aktif. Coba perluas radius atau refresh lokasi.',
-          )
-        else
-          for (var i = 0; i < points.length; i++) ...[
-            _MapPointRow(
-              point: points[i],
-              onOpen: () => _showPointDetail(points[i]),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            snapshot == null
+                ? 'Ambil lokasi user aktif lalu tampilkan titik yang masuk dalam radius.'
+                : '${points.length} titik dalam radius ${_radiusLabel(_radiusMeter)} dari posisi user aktif.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            if (i != points.length - 1) const Divider(height: 24),
-          ],
-      ],
+          ),
+          const SizedBox(height: 12),
+          _MapPreview(
+            markerCount: points.length,
+            isLoading: _isLoading,
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Radius', style: theme.textTheme.titleMedium),
+              ),
+              TextButton.icon(
+                onPressed: _isLoading ? null : _refresh,
+                icon: const Icon(Icons.my_location_rounded),
+                label: const Text('Refresh lokasi'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 500, label: Text('500 m')),
+              ButtonSegment(value: 1000, label: Text('1 km')),
+              ButtonSegment(value: 2000, label: Text('2 km')),
+            ],
+            selected: {_radiusMeter},
+            showSelectedIcon: false,
+            onSelectionChanged: (selection) {
+              setState(() => _radiusMeter = selection.first);
+              _refresh();
+            },
+          ),
+          const SizedBox(height: 22),
+          Text('Titik Terdekat', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(
+            'Detail memuat pemilik data, alamat, nomor HP, jarak, dan catatan lapangan terbaru.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_errorMessage != null && snapshot == null)
+            Column(
+              children: [
+                EmptyState(
+                  icon: Icons.location_off_rounded,
+                  title: 'Lokasi belum siap',
+                  message: _errorMessage!,
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: _refresh,
+                  child: const Text('Coba Lagi'),
+                ),
+              ],
+            )
+          else if (points.isEmpty)
+            const EmptyState(
+              icon: Icons.location_searching_rounded,
+              title: 'Tidak ada titik',
+              message:
+                  'Belum ada data yang masuk dalam radius aktif. Coba perluas radius atau refresh lokasi.',
+            )
+          else
+            for (var i = 0; i < points.length; i++) ...[
+              _MapPointRow(
+                point: points[i],
+                onOpen: () => _showPointDetail(points[i]),
+              ),
+              if (i != points.length - 1) const Divider(height: 24),
+            ],
+        ],
+      ),
     );
   }
 

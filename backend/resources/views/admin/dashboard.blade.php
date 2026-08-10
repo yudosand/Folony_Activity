@@ -55,7 +55,7 @@
             <h3 style="margin-top:0;">Role Aktif</h3>
             <div class="grid">
                 @foreach($summary['role_breakdown'] as $roleRow)
-                    <div class="pill">{{ strtoupper($roleRow->role) }} &middot; {{ $roleRow->total }}</div>
+                    <div class="pill">{{ \App\Support\Workflow\UserRole::label($roleRow->role) }} &middot; {{ $roleRow->total }}</div>
                 @endforeach
             </div>
         </div>

@@ -41,8 +41,8 @@
     <div>
         <label for="role">Role</label>
         <select id="role" name="role" required>
-            @foreach($roles as $role)
-                <option value="{{ $role }}" @selected(old('role', $employee->role) === $role)>{{ $role }}</option>
+            @foreach($roles as $role => $roleLabel)
+                <option value="{{ $role }}" @selected(old('role', $employee->role) === $role)>{{ $roleLabel }}</option>
             @endforeach
         </select>
     </div>

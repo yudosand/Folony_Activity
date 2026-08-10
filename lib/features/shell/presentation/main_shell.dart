@@ -59,7 +59,9 @@ class _MainShellState extends State<MainShell> {
                 setState(() => _currentIndex = 0);
               },
               itemBuilder: (context) {
-                return widget.controller.switchableRolesForSession(session).map((role) {
+                return widget.controller
+                    .switchableRolesForSession(session)
+                    .map((role) {
                   return PopupMenuItem<AppRole>(
                     value: role,
                     child: Text(role.label),
@@ -134,6 +136,8 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.home_rounded,
             page: HomePage(
               session: session,
+              onRefresh: () =>
+                  widget.controller.refreshHomeDataForSession(session),
               homeMenus: [
                 HomeMenuShortcut(
                   icon: Icons.laptop_mac_rounded,
@@ -208,7 +212,11 @@ class _MainShellState extends State<MainShell> {
           _NavItem(
             label: 'Home',
             icon: Icons.home_rounded,
-            page: HomePage(session: session),
+            page: HomePage(
+              session: session,
+              onRefresh: () =>
+                  widget.controller.refreshHomeDataForSession(session),
+            ),
           ),
           _NavItem(
             label: 'Dashboard',
@@ -248,7 +256,11 @@ class _MainShellState extends State<MainShell> {
           _NavItem(
             label: 'Home',
             icon: Icons.home_rounded,
-            page: HomePage(session: session),
+            page: HomePage(
+              session: session,
+              onRefresh: () =>
+                  widget.controller.refreshHomeDataForSession(session),
+            ),
           ),
           _NavItem(
             label: 'Absensi',
@@ -291,6 +303,8 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.home_rounded,
             page: HomePage(
               session: session,
+              onRefresh: () =>
+                  widget.controller.refreshHomeDataForSession(session),
               homeMenus: [
                 HomeMenuShortcut(
                   icon: Icons.laptop_mac_rounded,

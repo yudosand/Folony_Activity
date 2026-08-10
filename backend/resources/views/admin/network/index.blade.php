@@ -175,7 +175,7 @@
                         <td>
                             <div class="stack">
                                 <span>{{ $profile->owner_name }}</span>
-                                <span class="muted">{{ strtoupper($profile->owner_role) }} &middot; {{ $profile->area_name }}</span>
+                                <span class="muted">{{ \App\Support\Workflow\UserRole::label($profile->owner_role) }} &middot; {{ $profile->area_name }}</span>
                             </div>
                         </td>
                         <td><span class="pill">{{ $profile->status }}</span></td>

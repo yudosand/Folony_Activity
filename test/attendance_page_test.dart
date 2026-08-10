@@ -19,8 +19,10 @@ void main() {
         ),
       ),
     );
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
-    await tester.pump();
+    await _scrollUntilVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Area belum diset'),
+    );
 
     final button = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Area belum diset'),
@@ -67,6 +69,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await _scrollUntilVisible(
+        tester,
+        find.text('Check-in berhasil. Sesi kerja aktif dan siap dipantau.'),
+      );
       expect(
         find.text('Check-in berhasil. Sesi kerja aktif dan siap dipantau.'),
         findsOneWidget,
@@ -133,12 +139,30 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await _scrollUntilVisible(
+        tester,
+        find.text(
+          'Check-out berhasil. Anda bisa memulai sesi check-in baru kapan saja.',
+        ),
+      );
       expect(find.text('Reset Mock'), findsNothing);
       expect(
-        find.text('Check-out berhasil. Anda bisa memulai sesi check-in baru kapan saja.'),
+        find.text(
+          'Check-out berhasil. Anda bisa memulai sesi check-in baru kapan saja.',
+        ),
         findsOneWidget,
       );
       expect(find.text('Face Check-out'), findsNothing);
     },
   );
+}
+
+Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    120,
+    maxScrolls: 20,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pump();
 }

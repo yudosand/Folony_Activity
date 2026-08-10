@@ -25,78 +25,83 @@ class ProfilePage extends StatelessWidget {
         final theme = Theme.of(context);
         final faceProfile = controller.faceProfileForSession(session);
 
-        return ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            _ProfileHeader(session: session),
-            const SizedBox(height: 16),
-            Text('Informasi Akun', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 12),
-            _InfoRow(
-              label: 'Status User',
-              value: session.isActive ? 'Aktif' : 'Nonaktif',
-            ),
-            const Divider(height: 24),
-            _InfoRow(label: 'Role', value: session.role.label),
-            const Divider(height: 24),
-            _InfoRow(label: 'Jabatan', value: session.jobTitle ?? '-'),
-            const Divider(height: 24),
-            _InfoRow(label: 'Email', value: session.email ?? '-'),
-            const Divider(height: 24),
-            _InfoRow(label: 'Nomor HP', value: session.phoneNumber),
-            const Divider(height: 24),
-            _InfoRow(label: 'Area Kerja', value: session.areaName),
-            const Divider(height: 24),
-            _InfoRow(label: 'Lokasi Kerja', value: session.workLocation ?? '-'),
-            const Divider(height: 24),
-            _InfoRow(
-              label: 'Saldo Cuti',
-              value: _formatBalanceDays(
-                controller.leaveBalanceDaysForSession(session),
+        return RefreshIndicator(
+          onRefresh: () => controller.refreshProfileDataForSession(session),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            children: [
+              _ProfileHeader(session: session),
+              const SizedBox(height: 16),
+              Text('Informasi Akun', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 12),
+              _InfoRow(
+                label: 'Status User',
+                value: session.isActive ? 'Aktif' : 'Nonaktif',
               ),
-            ),
-            const Divider(height: 24),
-            _InfoRow(
-              label: 'Tgl Bergabung',
-              value: _formatDate(session.joinedAt),
-            ),
-            const Divider(height: 24),
-            _InfoRow(label: 'Alamat', value: session.address ?? '-'),
-            const Divider(height: 24),
-            _InfoRow(
-              label: 'Kontak Darurat',
-              value: session.emergencyContactName ?? '-',
-            ),
-            const Divider(height: 24),
-            _InfoRow(
-              label: 'No. Darurat',
-              value: session.emergencyContactPhone ?? '-',
-            ),
-            const SizedBox(height: 20),
-            _FaceEnrollmentCard(
-              session: session,
-              controller: controller,
-              profile: faceProfile,
-            ),
-            const SizedBox(height: 20),
-            Text('Pengaturan Berikutnya', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 12),
-            _ChangePasswordTile(
-              controller: controller,
-            ),
-            const Divider(height: 24),
-            const _SettingTile(
-              icon: Icons.notifications_none_rounded,
-              title: 'Notifikasi',
-              subtitle: 'Reminder check-out, WFA, dan approval.',
-            ),
-            const Divider(height: 24),
-            const _SettingTile(
-              icon: Icons.language_rounded,
-              title: 'Preferensi aplikasi',
-              subtitle: 'Bahasa, tema, dan kebutuhan operasional.',
-            ),
-          ],
+              const Divider(height: 24),
+              _InfoRow(label: 'Role', value: session.role.label),
+              const Divider(height: 24),
+              _InfoRow(label: 'Jabatan', value: session.jobTitle ?? '-'),
+              const Divider(height: 24),
+              _InfoRow(label: 'Email', value: session.email ?? '-'),
+              const Divider(height: 24),
+              _InfoRow(label: 'Nomor HP', value: session.phoneNumber),
+              const Divider(height: 24),
+              _InfoRow(label: 'Area Kerja', value: session.areaName),
+              const Divider(height: 24),
+              _InfoRow(
+                  label: 'Lokasi Kerja', value: session.workLocation ?? '-'),
+              const Divider(height: 24),
+              _InfoRow(
+                label: 'Saldo Cuti',
+                value: _formatBalanceDays(
+                  controller.leaveBalanceDaysForSession(session),
+                ),
+              ),
+              const Divider(height: 24),
+              _InfoRow(
+                label: 'Tgl Bergabung',
+                value: _formatDate(session.joinedAt),
+              ),
+              const Divider(height: 24),
+              _InfoRow(label: 'Alamat', value: session.address ?? '-'),
+              const Divider(height: 24),
+              _InfoRow(
+                label: 'Kontak Darurat',
+                value: session.emergencyContactName ?? '-',
+              ),
+              const Divider(height: 24),
+              _InfoRow(
+                label: 'No. Darurat',
+                value: session.emergencyContactPhone ?? '-',
+              ),
+              const SizedBox(height: 20),
+              _FaceEnrollmentCard(
+                session: session,
+                controller: controller,
+                profile: faceProfile,
+              ),
+              const SizedBox(height: 20),
+              Text('Pengaturan Berikutnya', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 12),
+              _ChangePasswordTile(
+                controller: controller,
+              ),
+              const Divider(height: 24),
+              const _SettingTile(
+                icon: Icons.notifications_none_rounded,
+                title: 'Notifikasi',
+                subtitle: 'Reminder check-out, WFA, dan approval.',
+              ),
+              const Divider(height: 24),
+              const _SettingTile(
+                icon: Icons.language_rounded,
+                title: 'Preferensi aplikasi',
+                subtitle: 'Bahasa, tema, dan kebutuhan operasional.',
+              ),
+            ],
+          ),
         );
       },
     );

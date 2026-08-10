@@ -33,8 +33,8 @@
                 <input type="date" name="date_until" value="{{ $filters['date_until'] ?? '' }}">
                 <select name="role">
                     <option value="">Semua role</option>
-                    @foreach($roles as $role)
-                        <option value="{{ $role }}" @selected(($filters['role'] ?? '') === $role)>{{ $role }}</option>
+                    @foreach($roles as $role => $roleLabel)
+                        <option value="{{ $role }}" @selected(($filters['role'] ?? '') === $role)>{{ $roleLabel }}</option>
                     @endforeach
                 </select>
                 <button class="btn secondary" type="submit">Filter</button>
@@ -52,7 +52,7 @@
                         @forelse($topEmployees as $row)
                             <tr>
                                 <td>{{ $row['employee']->full_name }}<br><span class="muted">{{ $row['employee']->employee_code }}</span></td>
-                                <td>{{ strtoupper($row['employee']->role) }}</td>
+                                <td>{{ \App\Support\Workflow\UserRole::label($row['employee']->role) }}</td>
                                 <td>{{ sprintf('%dj %02dm', intdiv($row['metrics']['total_work_minutes'], 60), $row['metrics']['total_work_minutes'] % 60) }}</td>
                                 <td>{{ $row['metrics']['leave_requests_count'] }} / {{ $row['metrics']['wfa_requests_count'] }}</td>
                             </tr>

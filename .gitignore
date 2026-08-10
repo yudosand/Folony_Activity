@@ -20,3 +20,4 @@ backend/storage/logs/
 backend/bootstrap/cache/*.php
 backend/.phpunit.result.cache
 *firebase-adminsdk*.json
+android/hs_err_pid*.log

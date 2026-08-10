@@ -74,7 +74,7 @@
                         <td>
                             <div class="stack">
                                 <strong>{{ $request->requester_name }}</strong>
-                                <span class="muted">{{ strtoupper($request->requester_role) }} &middot; {{ strtoupper($request->mode) }}</span>
+                                <span class="muted">{{ \App\Support\Workflow\UserRole::label($request->requester_role) }} &middot; {{ strtoupper($request->mode) }}</span>
                                 <span class="muted">{{ $request->location_label }}</span>
                                 <span class="muted">{{ $request->reason }}</span>
                                 <span class="eyebrow">ID {{ $request->id }}</span>
@@ -99,7 +99,7 @@
                             <div class="grid" style="gap:8px;">
                                 @forelse($request->approvalSteps as $step)
                                     <span class="pill {{ $step->status === 'approved' ? 'success' : ($step->status === 'rejected' ? 'danger' : 'warning') }}">
-                                        {{ strtoupper($step->approver_role) }} &middot; {{ $step->status }}
+                                        {{ \App\Support\Workflow\UserRole::label($step->approver_role) }} &middot; {{ $step->status }}
                                     </span>
                                 @empty
                                     <span class="muted">Tidak perlu approval</span>

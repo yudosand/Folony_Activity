@@ -19,4 +19,34 @@ final class UserRole
         self::MANAGEMENT,
         self::FGG,
     ];
+
+    public const LABELS = [
+        self::HR => 'HR',
+        self::STAFF => 'Staff',
+        self::SPV => 'SPV',
+        self::AREA_MANAGER => 'Area Manager',
+        self::MANAGEMENT => 'Management',
+        self::FGG => 'FGG',
+    ];
+
+    public static function label(?string $role): string
+    {
+        if ($role === null || $role === '') {
+            return '-';
+        }
+
+        return self::LABELS[$role] ?? $role;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function adminOptions(): array
+    {
+        return array_filter(
+            self::LABELS,
+            fn (string $role): bool => $role !== self::HR,
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
 }

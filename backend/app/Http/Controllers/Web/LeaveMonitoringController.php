@@ -37,7 +37,7 @@ class LeaveMonitoringController extends Controller
                 return [
                     $request->id,
                     $request->requester_name,
-                    $request->requester_role,
+                    UserRole::label($request->requester_role),
                     $request->category,
                     $request->status,
                     optional($request->start_at)->format('Y-m-d'),
@@ -59,7 +59,7 @@ class LeaveMonitoringController extends Controller
 
         return view('admin.leaves.index', [
             'requests' => $requests,
-            'roles' => array_values(array_filter(UserRole::ALL, fn (string $role) => $role !== UserRole::HR)),
+            'roles' => UserRole::adminOptions(),
             'filters' => $filters,
             'statuses' => ['pending', 'approved', 'rejected', 'completed', 'cancelled', 'draft'],
             'categories' => ['cuti', 'sakit', 'izinPerJam', 'izinPerHari'],

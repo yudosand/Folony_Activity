@@ -90,176 +90,184 @@ class _LeavePageState extends State<LeavePage> {
 
         return Form(
           key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-          Text('Pengajuan Cuti / Izin', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 10),
-          _SummaryLine(
-            label: 'Saldo cuti',
-            value: _formatBalanceDays(leaveBalance),
-            note: 'Tersedia',
-          ),
-          const Divider(height: 24),
-          _SummaryLine(
-            label: 'Pending',
-            value: pendingCount.toString(),
-            note: 'Menunggu approval',
-          ),
-          const SizedBox(height: 20),
-          Text('Form Pengajuan', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Text(
-            _approvalHint,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SelectionLine<LeaveRequestType>(
-            label: 'Jenis',
-            value: _selectedRequestType,
-            options: LeaveRequestType.values,
-            hint: 'Pilih jenis pengajuan',
-            itemLabel: (option) => option.label,
-            onChanged: (value) => setState(() {
-              _selectedRequestType = value ?? _selectedRequestType;
-              if (_selectedRequestType == LeaveRequestType.izinPerJam) {
-                _daysController.clear();
-              } else {
-                _recalculateDuration();
-              }
-            }),
-          ),
-          const Divider(height: 24),
-          _SelectionLine<LeaveCompensationType>(
-            label: 'Kompensasi',
-            value: _selectedCompensation,
-            options: LeaveCompensationType.values,
-            hint: 'Pilih kompensasi',
-            itemLabel: (option) => option.label,
-            onChanged: (value) => setState(
-              () => _selectedCompensation = value ?? _selectedCompensation,
-            ),
-          ),
-          const Divider(height: 24),
-          _TextInput(
-            fieldKey: const ValueKey('leave-start-date-input'),
-            controller: _startDateController,
-            label: 'Tanggal Mulai',
-            hint: 'Pilih tanggal mulai',
-            required: true,
-            readOnly: true,
-            suffixIcon: Icons.calendar_month_rounded,
-            onTap: _pickStartDate,
-          ),
-          const Divider(height: 24),
-          _TextInput(
-            fieldKey: const ValueKey('leave-end-date-input'),
-            controller: _endDateController,
-            label: 'Tanggal Selesai',
-            hint: 'Pilih tanggal selesai',
-            required: true,
-            readOnly: true,
-            suffixIcon: Icons.calendar_month_rounded,
-            onTap: _pickEndDate,
-          ),
-          const Divider(height: 24),
-          _TextInput(
-            controller: _daysController,
-            label: _selectedRequestType == LeaveRequestType.izinPerJam
-                ? 'Durasi (jam)'
-                : 'Jumlah Hari',
-            hint: _selectedRequestType == LeaveRequestType.izinPerJam
-                ? 'Contoh: 3'
-                : 'Terhitung otomatis dari rentang tanggal',
-            required: true,
-            keyboardType: TextInputType.number,
-            readOnly: _selectedRequestType != LeaveRequestType.izinPerJam,
-          ),
-          const Divider(height: 24),
-          _TextInput(
-            controller: _reasonController,
-            label: 'Alasan',
-            hint: 'Alasan pengajuan',
-            required: true,
-            maxLines: 2,
-          ),
-          const Divider(height: 24),
-          _TextInput(
-            controller: _delegationController,
-            label: 'Delegasi',
-            hint: 'Nama pengganti tugas',
-            required: true,
-          ),
-          const Divider(height: 24),
-          _EvidenceInput(
-            photoPath: _evidencePhotoPath,
-            onCamera: () => _pickEvidence(ImageSource.camera),
-            onGallery: () => _pickEvidence(ImageSource.gallery),
-            onRemove: _evidencePhotoPath == null
-                ? null
-                : () => setState(() => _evidencePhotoPath = null),
-          ),
-          if (_showSpvField) ...[
-            const Divider(height: 24),
-            _SelectionLine<String>(
-              label: 'SPV',
-              value: _selectedSpv,
-              options: widget.session.spvOptions,
-              hint: 'Pilih SPV',
-              itemLabel: (option) => option,
-              onChanged: (value) => setState(() => _selectedSpv = value),
-            ),
-          ],
-          if (_showManagementField) ...[
-            const Divider(height: 24),
-            _SelectionLine<String>(
-              label: 'Management',
-              value: _selectedManagement,
-              options: widget.session.managementOptions,
-              hint: 'Pilih Management',
-              itemLabel: (option) => option,
-              onChanged: (value) => setState(() => _selectedManagement = value),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _resetForm,
-                  child: const Text('Reset'),
+          child: RefreshIndicator(
+            onRefresh: () =>
+                widget.controller.refreshWorkflowDataForSession(widget.session),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              children: [
+                Text('Pengajuan Cuti / Izin',
+                    style: theme.textTheme.titleMedium),
+                const SizedBox(height: 10),
+                _SummaryLine(
+                  label: 'Saldo cuti',
+                  value: _formatBalanceDays(leaveBalance),
+                  note: 'Tersedia',
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: _isSubmitting ? null : _submitLeave,
-                  child: Text(_isSubmitting ? 'Memproses...' : 'Ajukan'),
+                const Divider(height: 24),
+                _SummaryLine(
+                  label: 'Pending',
+                  value: pendingCount.toString(),
+                  note: 'Menunggu approval',
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text('Riwayat Pengajuan', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 12),
-          if (requests.isEmpty)
-            const EmptyState(
-              icon: Icons.event_busy_rounded,
-              title: 'Belum ada riwayat',
-              message:
-                  'Pengajuan cuti atau izin yang dibuat user akan tampil di sini.',
-            )
-          else
-            for (var i = 0; i < requests.length; i++) ...[
-              _LeaveHistoryItem(
-                request: requests[i],
-                onTap: () => _showRequestDetail(requests[i]),
-              ),
-              if (i != requests.length - 1) const Divider(height: 24),
-            ],
-            ],
+                const SizedBox(height: 20),
+                Text('Form Pengajuan', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 6),
+                Text(
+                  _approvalHint,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _SelectionLine<LeaveRequestType>(
+                  label: 'Jenis',
+                  value: _selectedRequestType,
+                  options: LeaveRequestType.values,
+                  hint: 'Pilih jenis pengajuan',
+                  itemLabel: (option) => option.label,
+                  onChanged: (value) => setState(() {
+                    _selectedRequestType = value ?? _selectedRequestType;
+                    if (_selectedRequestType == LeaveRequestType.izinPerJam) {
+                      _daysController.clear();
+                    } else {
+                      _recalculateDuration();
+                    }
+                  }),
+                ),
+                const Divider(height: 24),
+                _SelectionLine<LeaveCompensationType>(
+                  label: 'Kompensasi',
+                  value: _selectedCompensation,
+                  options: LeaveCompensationType.values,
+                  hint: 'Pilih kompensasi',
+                  itemLabel: (option) => option.label,
+                  onChanged: (value) => setState(
+                    () =>
+                        _selectedCompensation = value ?? _selectedCompensation,
+                  ),
+                ),
+                const Divider(height: 24),
+                _TextInput(
+                  fieldKey: const ValueKey('leave-start-date-input'),
+                  controller: _startDateController,
+                  label: 'Tanggal Mulai',
+                  hint: 'Pilih tanggal mulai',
+                  required: true,
+                  readOnly: true,
+                  suffixIcon: Icons.calendar_month_rounded,
+                  onTap: _pickStartDate,
+                ),
+                const Divider(height: 24),
+                _TextInput(
+                  fieldKey: const ValueKey('leave-end-date-input'),
+                  controller: _endDateController,
+                  label: 'Tanggal Selesai',
+                  hint: 'Pilih tanggal selesai',
+                  required: true,
+                  readOnly: true,
+                  suffixIcon: Icons.calendar_month_rounded,
+                  onTap: _pickEndDate,
+                ),
+                const Divider(height: 24),
+                _TextInput(
+                  controller: _daysController,
+                  label: _selectedRequestType == LeaveRequestType.izinPerJam
+                      ? 'Durasi (jam)'
+                      : 'Jumlah Hari',
+                  hint: _selectedRequestType == LeaveRequestType.izinPerJam
+                      ? 'Contoh: 3'
+                      : 'Terhitung otomatis dari rentang tanggal',
+                  required: true,
+                  keyboardType: TextInputType.number,
+                  readOnly: _selectedRequestType != LeaveRequestType.izinPerJam,
+                ),
+                const Divider(height: 24),
+                _TextInput(
+                  controller: _reasonController,
+                  label: 'Alasan',
+                  hint: 'Alasan pengajuan',
+                  required: true,
+                  maxLines: 2,
+                ),
+                const Divider(height: 24),
+                _TextInput(
+                  controller: _delegationController,
+                  label: 'Delegasi',
+                  hint: 'Nama pengganti tugas',
+                  required: true,
+                ),
+                const Divider(height: 24),
+                _EvidenceInput(
+                  photoPath: _evidencePhotoPath,
+                  onCamera: () => _pickEvidence(ImageSource.camera),
+                  onGallery: () => _pickEvidence(ImageSource.gallery),
+                  onRemove: _evidencePhotoPath == null
+                      ? null
+                      : () => setState(() => _evidencePhotoPath = null),
+                ),
+                if (_showSpvField) ...[
+                  const Divider(height: 24),
+                  _SelectionLine<String>(
+                    label: 'SPV',
+                    value: _selectedSpv,
+                    options: widget.session.spvOptions,
+                    hint: 'Pilih SPV',
+                    itemLabel: (option) => option,
+                    onChanged: (value) => setState(() => _selectedSpv = value),
+                  ),
+                ],
+                if (_showManagementField) ...[
+                  const Divider(height: 24),
+                  _SelectionLine<String>(
+                    label: 'Management',
+                    value: _selectedManagement,
+                    options: widget.session.managementOptions,
+                    hint: 'Pilih Management',
+                    itemLabel: (option) => option,
+                    onChanged: (value) =>
+                        setState(() => _selectedManagement = value),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _resetForm,
+                        child: const Text('Reset'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _isSubmitting ? null : _submitLeave,
+                        child: Text(_isSubmitting ? 'Memproses...' : 'Ajukan'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text('Riwayat Pengajuan', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 12),
+                if (requests.isEmpty)
+                  const EmptyState(
+                    icon: Icons.event_busy_rounded,
+                    title: 'Belum ada riwayat',
+                    message:
+                        'Pengajuan cuti atau izin yang dibuat user akan tampil di sini.',
+                  )
+                else
+                  for (var i = 0; i < requests.length; i++) ...[
+                    _LeaveHistoryItem(
+                      request: requests[i],
+                      onTap: () => _showRequestDetail(requests[i]),
+                    ),
+                    if (i != requests.length - 1) const Divider(height: 24),
+                  ],
+              ],
+            ),
           ),
         );
       },
@@ -311,9 +319,10 @@ class _LeavePageState extends State<LeavePage> {
       requesterRole: widget.session.role,
       category: _selectedRequestType.toRecordCategory(),
       compensationOption: _selectedCompensation.toRecordOption(),
-      startAt:
-          _selectedStartDate ?? _parseDisplayDate(_startDateController.text.trim()),
-      endAt: _selectedEndDate ?? _parseDisplayDate(_endDateController.text.trim()),
+      startAt: _selectedStartDate ??
+          _parseDisplayDate(_startDateController.text.trim()),
+      endAt:
+          _selectedEndDate ?? _parseDisplayDate(_endDateController.text.trim()),
       durationValue: double.parse(_daysController.text.trim()),
       reason: _reasonController.text.trim(),
       delegateTo: _delegationController.text.trim(),
@@ -418,9 +427,8 @@ class _LeavePageState extends State<LeavePage> {
         _selectedEndDate = picked;
       }
       _startDateController.text = _formatDate(picked);
-      _endDateController.text = _selectedEndDate == null
-          ? ''
-          : _formatDate(_selectedEndDate!);
+      _endDateController.text =
+          _selectedEndDate == null ? '' : _formatDate(_selectedEndDate!);
       _recalculateDuration();
     });
   }
@@ -1006,7 +1014,8 @@ class _LeaveHistoryItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            StatusBadge(label: request.status.label, color: request.status.color),
+            StatusBadge(
+                label: request.status.label, color: request.status.color),
           ],
         ),
       ),

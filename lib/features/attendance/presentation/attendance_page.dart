@@ -204,286 +204,257 @@ class _AttendancePageState extends State<AttendancePage> {
                     : const StatusBadge(
                         label: 'Belum check-in', color: Colors.blue);
 
-        return ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Absensi Face Verification',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                status,
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Scan wajah berjalan langsung dari aplikasi. Jam kerja standar adalah ${AttendancePolicy.officeStart} sampai ${AttendancePolicy.officeEnd}. Check-in/check-out normal hanya aktif saat lokasi live berada di radius area kerja.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 16),
-            _LiveLocationRadiusCard(
-              areaName: _attendanceAreaName,
-              hasAttendanceArea: _hasAttendanceArea,
-              gpsActive: _gpsActive,
-              isInsideRadius: _isInsideAttendanceRadius,
-              currentLatitude: _livePosition?.latitude,
-              currentLongitude: _livePosition?.longitude,
-              officeLatitude: widget.session.officeLatitude,
-              officeLongitude: widget.session.officeLongitude,
-              distanceMeters: _liveDistanceMeters,
-              radiusMeters: widget.session.attendanceRadiusMeters,
-              errorText: _locationError,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE7E5E4)),
-              ),
-              child: Column(
+        return RefreshIndicator(
+          onRefresh: _refreshAttendancePage,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            children: [
+              Row(
                 children: [
-                  if (_sessionSummary != null) ...[
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          _isFinished
-                              ? Icons.task_alt_rounded
-                              : Icons.verified_user_rounded,
-                          size: 18,
-                          color: _isFinished
-                              ? Colors.teal
-                              : theme.colorScheme.primary,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _sessionSummary!,
-                                style: theme.textTheme.titleSmall,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _sessionSubSummary,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                  Expanded(
+                    child: Text(
+                      'Absensi Face Verification',
+                      style: theme.textTheme.titleMedium,
                     ),
-                    const Divider(height: 24),
-                  ],
-                  _MetricLine(
-                    label: _hasActiveOutsideOffice ||
-                            _sessionState.latestCompletedOutsideOfficeFinish !=
-                                null
-                        ? 'Mulai Kunjungan'
-                        : 'Check-in',
-                    value: _formatTime(_checkInRecord?.recordedAt),
-                    note: insight.arrivalNote,
                   ),
-                  const Divider(height: 24),
-                  _MetricLine(
-                    label: 'Lokasi',
-                    value: _locationMetricValue,
-                    note: _locationMetricNote,
-                  ),
-                  const Divider(height: 24),
-                  _MetricLine(
-                    label: 'Rule Hari Ini',
-                    value: _hasActiveOutsideOffice ||
-                            _sessionState.latestCompletedOutsideOfficeFinish !=
-                                null
-                        ? 'Absensi luar kantor'
-                        : insight.summaryLabel,
-                    note: _hasActiveOutsideOffice ||
-                            _sessionState.latestCompletedOutsideOfficeFinish !=
-                                null
-                        ? _outsideOfficeSummaryNote
-                        : insight.departureNote,
-                  ),
-                  const Divider(height: 24),
-                  _MetricLine(
-                    label: 'Verifikasi Wajah',
-                    value:
-                        _latestFaceCapturePath == null ? 'Belum ada' : 'Lolos',
-                    note: _latestFaceCapturePath == null
-                        ? 'Scan wajah dibutuhkan saat aksi absensi'
-                        : 'Capture audit sudah siap',
-                  ),
-                  const Divider(height: 24),
-                  _MetricLine(
-                    label: 'Durasi',
-                    value: _durationText,
-                    note: insight.summaryNote,
-                  ),
+                  status,
                 ],
               ),
-            ),
-            if (insight.contextNotes.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Scan wajah berjalan langsung dari aplikasi. Jam kerja standar adalah ${AttendancePolicy.officeStart} sampai ${AttendancePolicy.officeEnd}. Check-in/check-out normal hanya aktif saat lokasi live berada di radius area kerja.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _LiveLocationRadiusCard(
+                areaName: _attendanceAreaName,
+                hasAttendanceArea: _hasAttendanceArea,
+                gpsActive: _gpsActive,
+                isInsideRadius: _isInsideAttendanceRadius,
+                currentLatitude: _livePosition?.latitude,
+                currentLongitude: _livePosition?.longitude,
+                officeLatitude: widget.session.officeLatitude,
+                officeLongitude: widget.session.officeLongitude,
+                distanceMeters: _liveDistanceMeters,
+                radiusMeters: widget.session.attendanceRadiusMeters,
+                errorText: _locationError,
+              ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.28,
-                  ),
-                  borderRadius: BorderRadius.circular(18),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE7E5E4)),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Sinkronisasi WFA',
-                        style: theme.textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    for (var i = 0; i < insight.contextNotes.length; i++) ...[
-                      _RuleTile(text: insight.contextNotes[i]),
-                      if (i != insight.contextNotes.length - 1)
-                        const SizedBox(height: 10),
+                    if (_sessionSummary != null) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            _isFinished
+                                ? Icons.task_alt_rounded
+                                : Icons.verified_user_rounded,
+                            size: 18,
+                            color: _isFinished
+                                ? Colors.teal
+                                : theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _sessionSummary!,
+                                  style: theme.textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _sessionSubSummary,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 24),
                     ],
+                    _MetricLine(
+                      label: _hasActiveOutsideOffice ||
+                              _sessionState
+                                      .latestCompletedOutsideOfficeFinish !=
+                                  null
+                          ? 'Mulai Kunjungan'
+                          : 'Check-in',
+                      value: _formatTime(_checkInRecord?.recordedAt),
+                      note: insight.arrivalNote,
+                    ),
+                    const Divider(height: 24),
+                    _MetricLine(
+                      label: 'Lokasi',
+                      value: _locationMetricValue,
+                      note: _locationMetricNote,
+                    ),
+                    const Divider(height: 24),
+                    _MetricLine(
+                      label: 'Rule Hari Ini',
+                      value: _hasActiveOutsideOffice ||
+                              _sessionState
+                                      .latestCompletedOutsideOfficeFinish !=
+                                  null
+                          ? 'Absensi luar kantor'
+                          : insight.summaryLabel,
+                      note: _hasActiveOutsideOffice ||
+                              _sessionState
+                                      .latestCompletedOutsideOfficeFinish !=
+                                  null
+                          ? _outsideOfficeSummaryNote
+                          : insight.departureNote,
+                    ),
+                    const Divider(height: 24),
+                    _MetricLine(
+                      label: 'Verifikasi Wajah',
+                      value: _latestFaceCapturePath == null
+                          ? 'Belum ada'
+                          : 'Lolos',
+                      note: _latestFaceCapturePath == null
+                          ? 'Scan wajah dibutuhkan saat aksi absensi'
+                          : 'Capture audit sudah siap',
+                    ),
+                    const Divider(height: 24),
+                    _MetricLine(
+                      label: 'Durasi',
+                      value: _durationText,
+                      note: insight.summaryNote,
+                    ),
                   ],
                 ),
               ),
-            ],
-            const SizedBox(height: 16),
-            _FacePreviewLine(
-              faceCapturePath: _latestFaceCapturePath,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: (_isCheckedIn || _hasActiveOutsideOffice)
-                        ? null
-                        : _toggleGps,
-                    child: Text(_gpsActive ? 'GPS Aktif' : 'GPS Nonaktif'),
+              if (insight.contextNotes.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.28,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _primaryAction,
-                    child: Text(_primaryActionLabel),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Sinkronisasi WFA',
+                          style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      for (var i = 0; i < insight.contextNotes.length; i++) ...[
+                        _RuleTile(text: insight.contextNotes[i]),
+                        if (i != insight.contextNotes.length - 1)
+                          const SizedBox(height: 10),
+                      ],
+                    ],
                   ),
                 ),
               ],
-            ),
-            if (!_isCheckedIn && !_hasActiveOutsideOffice) ...[
-              const SizedBox(height: 12),
-              FilledButton.tonalIcon(
-                onPressed: _isOutsideOfficeSubmitting
-                    ? null
-                    : _startOutsideOfficeAttendance,
-                icon: const Icon(Icons.storefront_rounded),
-                label: Text(
-                  _isOutsideOfficeSubmitting
-                      ? 'Memproses...'
-                      : 'Absensi diluar kantor',
-                ),
+              const SizedBox(height: 16),
+              _FacePreviewLine(
+                faceCapturePath: _latestFaceCapturePath,
               ),
-            ],
-            if (_isVerifyingFace) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2.2),
-                  ),
-                  const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      'Memverifikasi wajah, mengunggah capture, dan menyimpan absensi...',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    child: OutlinedButton(
+                      onPressed: (_isCheckedIn || _hasActiveOutsideOffice)
+                          ? null
+                          : _toggleGps,
+                      child: Text(_gpsActive ? 'GPS Aktif' : 'GPS Nonaktif'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _primaryAction,
+                      child: Text(_primaryActionLabel),
                     ),
                   ),
                 ],
               ),
+              if (!_isCheckedIn && !_hasActiveOutsideOffice) ...[
+                const SizedBox(height: 12),
+                FilledButton.tonalIcon(
+                  onPressed: _isOutsideOfficeSubmitting
+                      ? null
+                      : _startOutsideOfficeAttendance,
+                  icon: const Icon(Icons.storefront_rounded),
+                  label: Text(
+                    _isOutsideOfficeSubmitting
+                        ? 'Memproses...'
+                        : 'Absensi diluar kantor',
+                  ),
+                ),
+              ],
+              if (_isVerifyingFace) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Memverifikasi wajah, mengunggah capture, dan menyimpan absensi...',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 20),
+              Text('Riwayat Singkat', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 6),
+              Text(
+                'Urutan aktivitas terbaru dari verifikasi wajah, pencatatan lokasi, sampai check-in atau check-out.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_events.isEmpty)
+                const EmptyState(
+                  icon: Icons.history_rounded,
+                  title: 'Belum ada riwayat',
+                  message:
+                      'Aktivitas verifikasi wajah, check-in, dan check-out akan muncul di sini.',
+                )
+              else
+                for (final event in _events) ...[
+                  _TimelineItem(event: event),
+                  if (event != _events.last) const SizedBox(height: 14),
+                ],
             ],
-            const SizedBox(height: 20),
-            Text('Riwayat Singkat', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(
-              'Urutan aktivitas terbaru dari verifikasi wajah, pencatatan lokasi, sampai check-in atau check-out.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (_events.isEmpty)
-              const EmptyState(
-                icon: Icons.history_rounded,
-                title: 'Belum ada riwayat',
-                message:
-                    'Aktivitas verifikasi wajah, check-in, dan check-out akan muncul di sini.',
-              )
-            else
-              for (final event in _events) ...[
-                _TimelineItem(event: event),
-                if (event != _events.last) const SizedBox(height: 14),
-              ],
-            const SizedBox(height: 20),
-            Text('Business Rules', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(
-              'Aturan mock saat ini untuk menjaga alur absensi wajah tetap konsisten.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Column(
-              children: [
-                _RuleTile(
-                  text:
-                      'Face check-in hanya aktif jika GPS menyala dan verifikasi wajah lolos.',
-                ),
-                SizedBox(height: 10),
-                _RuleTile(
-                  text:
-                      'Setelah wajah lolos verifikasi, lokasi user wajib tercatat sebelum check-in atau check-out dieksekusi.',
-                ),
-                SizedBox(height: 10),
-                _RuleTile(
-                  text:
-                      'Jam kerja standar mock adalah masuk ${AttendancePolicy.officeStart} dan pulang ${AttendancePolicy.officeEnd}.',
-                ),
-                SizedBox(height: 10),
-                _RuleTile(
-                  text:
-                      'Satu user hanya boleh punya satu sesi aktif dalam satu waktu.',
-                ),
-                SizedBox(height: 10),
-                _RuleTile(
-                  text: 'Capture wajah dan lokasi menjadi audit mock absensi.',
-                ),
-                SizedBox(height: 10),
-                _RuleTile(
-                  text:
-                      'Area Manager juga bisa memakai absensi luar kantor untuk kunjungan client atau lokasi visit.',
-                ),
-              ],
-            ),
-          ],
+          ),
         );
       },
     );
+  }
+
+  Future<void> _refreshAttendancePage() async {
+    await widget.controller.refreshAttendanceDataForSession(widget.session);
+    unawaited(_startLiveLocationTracking());
   }
 
   VoidCallback? get _primaryAction {
@@ -1254,6 +1225,7 @@ class _AttendancePageState extends State<AttendancePage> {
   }) async {
     final placeController = TextEditingController();
     String? evidencePath;
+    String? validationError;
 
     return showModalBottomSheet<_OutsideOfficeDraft>(
       context: context,
@@ -1272,7 +1244,24 @@ class _AttendancePageState extends State<AttendancePage> {
               if (file == null) {
                 return;
               }
-              setModalState(() => evidencePath = file.path);
+              setModalState(() {
+                evidencePath = file.path;
+                validationError = null;
+              });
+            }
+
+            void showValidationError() {
+              const message =
+                  'Lengkapi lokasi/keperluan dan foto dokumentasi.';
+              setModalState(() => validationError = message);
+              final messenger = ScaffoldMessenger.of(context);
+              messenger.clearSnackBars();
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text(message),
+                  duration: Duration(seconds: 2),
+                ),
+              );
             }
 
             return SafeArea(
@@ -1295,6 +1284,13 @@ class _AttendancePageState extends State<AttendancePage> {
                       const SizedBox(height: 16),
                       TextField(
                         controller: placeController,
+                        onChanged: (_) {
+                          if (validationError != null &&
+                              placeController.text.trim().isNotEmpty &&
+                              evidencePath != null) {
+                            setModalState(() => validationError = null);
+                          }
+                        },
                         decoration: const InputDecoration(
                           labelText: 'Absen dimana hari ini?',
                           hintText: 'Contoh: Kunjungan ke client di Tomang',
@@ -1333,6 +1329,35 @@ class _AttendancePageState extends State<AttendancePage> {
                             fit: BoxFit.cover,
                           ),
                         ),
+                      if (validationError != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .errorContainer
+                                .withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                          child: Text(
+                            validationError!,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onErrorContainer,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       Row(
                         children: [
@@ -1348,13 +1373,7 @@ class _AttendancePageState extends State<AttendancePage> {
                               onPressed: () {
                                 if (placeController.text.trim().isEmpty ||
                                     evidencePath == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Lengkapi lokasi/keperluan dan foto dokumentasi.',
-                                      ),
-                                    ),
-                                  );
+                                  showValidationError();
                                   return;
                                 }
                                 Navigator.of(context).pop(
@@ -1668,21 +1687,57 @@ class _LiveLocationRadiusCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.08),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            statusColor.withValues(alpha: 0.13),
+            Colors.white,
+          ],
+        ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: statusColor.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withValues(alpha: 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.my_location_rounded, color: statusColor),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.my_location_rounded, color: statusColor),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  areaName,
-                  style: theme.textTheme.titleMedium,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      areaName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Pantau posisi live sebelum absensi',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               StatusBadge(label: statusLabel, color: statusColor),
@@ -1700,16 +1755,21 @@ class _LiveLocationRadiusCard extends StatelessWidget {
             statusColor: statusColor,
           ),
           const SizedBox(height: 12),
-          Text(
-            coordinateLabel,
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Jarak dari titik area: $distanceLabel dari radius $radiusLabel.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MapInfoChip(
+                icon: Icons.near_me_rounded,
+                label: 'Lokasi live',
+                value: coordinateLabel,
+              ),
+              _MapInfoChip(
+                icon: Icons.social_distance_rounded,
+                label: 'Jarak',
+                value: '$distanceLabel / $radiusLabel',
+              ),
+            ],
           ),
           if (errorText != null) ...[
             const SizedBox(height: 8),
@@ -1724,7 +1784,7 @@ class _LiveLocationRadiusCard extends StatelessWidget {
   }
 }
 
-class _LocationMapPreview extends StatelessWidget {
+class _LocationMapPreview extends StatefulWidget {
   const _LocationMapPreview({
     required this.areaName,
     required this.currentLatitude,
@@ -1746,55 +1806,116 @@ class _LocationMapPreview extends StatelessWidget {
   final Color statusColor;
 
   @override
+  State<_LocationMapPreview> createState() => _LocationMapPreviewState();
+}
+
+class _LocationMapPreviewState extends State<_LocationMapPreview> {
+  int _zoomAdjustment = 0;
+
+  void _zoomIn() {
+    setState(
+        () => _zoomAdjustment = (_zoomAdjustment + 1).clamp(-3, 3).toInt());
+  }
+
+  void _zoomOut() {
+    setState(
+        () => _zoomAdjustment = (_zoomAdjustment - 1).clamp(-3, 3).toInt());
+  }
+
+  void _resetFocus() {
+    setState(() => _zoomAdjustment = 0);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasUserPosition = currentLatitude != null && currentLongitude != null;
-    final hasOfficePosition = officeLatitude != null && officeLongitude != null;
+    final hasUserPosition =
+        widget.currentLatitude != null && widget.currentLongitude != null;
+    final hasOfficePosition =
+        widget.officeLatitude != null && widget.officeLongitude != null;
 
     return Container(
-      height: 300,
+      height: 330,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(18),
+        color: const Color(0xFFF8F5EE),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE7E5E4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          if (hasOfficePosition && radiusMeters != null)
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFFFFCF7),
+                    Color(0xFFF1EDE4),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (hasOfficePosition && widget.radiusMeters != null)
             Positioned.fill(
               child: _SlippyMapLayer(
-                currentLatitude: currentLatitude,
-                currentLongitude: currentLongitude,
-                officeLatitude: officeLatitude!,
-                officeLongitude: officeLongitude!,
-                radiusMeters: radiusMeters!,
-                isInsideRadius: isInsideRadius,
-                statusColor: statusColor,
+                currentLatitude: widget.currentLatitude,
+                currentLongitude: widget.currentLongitude,
+                officeLatitude: widget.officeLatitude!,
+                officeLongitude: widget.officeLongitude!,
+                radiusMeters: widget.radiusMeters!,
+                isInsideRadius: widget.isInsideRadius,
+                statusColor: widget.statusColor,
+                zoomAdjustment: _zoomAdjustment,
               ),
             ),
           Positioned(
-            left: 14,
+            left: 12,
             top: 12,
-            right: 14,
-            child: Row(
-              children: [
-                const Icon(Icons.business_rounded, size: 16),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Titik area: $areaName',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+            right: 12,
+            child: _MapGlassPanel(
+              child: Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.business_rounded,
+                      size: 16,
+                      color: Color(0xFF0F766E),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Titik area: ${widget.areaName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  _LiveIndicator(active: hasUserPosition),
+                ],
+              ),
             ),
           ),
-          if (!hasOfficePosition || radiusMeters == null)
+          if (!hasOfficePosition || widget.radiusMeters == null)
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -1810,38 +1931,242 @@ class _LocationMapPreview extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.86),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.10),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'Mencari titik lokasi kamu...',
-                    style: theme.textTheme.bodyMedium,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
             ),
           Positioned(
-            left: 14,
-            right: 14,
-            bottom: 12,
-            child: Row(
+            right: 12,
+            top: 62,
+            child: Column(
               children: [
-                _RadarLegendDot(
-                  color: const Color(0xFF06B6D4),
-                  label: 'Titik area',
+                _MapControlButton(
+                  icon: Icons.add_rounded,
+                  tooltip: 'Perbesar peta',
+                  onPressed: _zoomIn,
                 ),
-                const SizedBox(width: 12),
-                _RadarLegendDot(
-                  color: statusColor,
-                  label: 'Posisi kamu',
+                const SizedBox(height: 8),
+                _MapControlButton(
+                  icon: Icons.remove_rounded,
+                  tooltip: 'Perkecil peta',
+                  onPressed: _zoomOut,
+                ),
+                const SizedBox(height: 8),
+                _MapControlButton(
+                  icon: Icons.gps_fixed_rounded,
+                  tooltip: 'Fokus ulang lokasi',
+                  onPressed: _resetFocus,
                 ),
               ],
             ),
           ),
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 12,
+            child: _MapGlassPanel(
+              child: Row(
+                children: [
+                  const _RadarLegendDot(
+                    color: Color(0xFF06B6D4),
+                    label: 'Titik area',
+                  ),
+                  const SizedBox(width: 12),
+                  _RadarLegendDot(
+                    color: widget.statusColor,
+                    label: 'Posisi kamu',
+                  ),
+                  const Spacer(),
+                  Text(
+                    widget.isInsideRadius ? 'Siap absen' : 'Dekati area',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: widget.statusColor,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _MapInfoChip extends StatelessWidget {
+  const _MapInfoChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE7E5E4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF0F766E)),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapGlassPanel extends StatelessWidget {
+  const _MapGlassPanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.84),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _LiveIndicator extends StatelessWidget {
+  const _LiveIndicator({required this.active});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? const Color(0xFF10B981) : const Color(0xFFF59E0B);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            active ? 'LIVE' : 'GPS',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapControlButton extends StatelessWidget {
+  const _MapControlButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.90),
+        borderRadius: BorderRadius.circular(999),
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.16),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(999),
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(icon, size: 18, color: const Color(0xFF14532D)),
+          ),
+        ),
       ),
     );
   }
@@ -1856,6 +2181,7 @@ class _SlippyMapLayer extends StatelessWidget {
     required this.radiusMeters,
     required this.isInsideRadius,
     required this.statusColor,
+    required this.zoomAdjustment,
   });
 
   final double? currentLatitude;
@@ -1865,6 +2191,7 @@ class _SlippyMapLayer extends StatelessWidget {
   final int radiusMeters;
   final bool isInsideRadius;
   final Color statusColor;
+  final int zoomAdjustment;
 
   @override
   Widget build(BuildContext context) {
@@ -1885,11 +2212,15 @@ class _SlippyMapLayer extends StatelessWidget {
                 currentLongitude!,
               )
             : 0.0;
-        final zoom = _MapMath.bestZoomFor(
-          latitude: centerLatitude,
-          radiusMeters: math.max(radiusMeters.toDouble(), userDistance),
-          shortestSide: math.max(180, math.min(size.width, size.height)),
-        );
+        final zoom = (_MapMath.bestZoomFor(
+                  latitude: centerLatitude,
+                  radiusMeters: math.max(radiusMeters.toDouble(), userDistance),
+                  shortestSide:
+                      math.max(180, math.min(size.width, size.height)),
+                ) +
+                zoomAdjustment)
+            .clamp(_MapMath.minZoom, _MapMath.maxZoom)
+            .toInt();
         final centerWorld = _MapMath.latLngToWorldPixel(
           centerLatitude,
           centerLongitude,
@@ -1957,6 +2288,23 @@ class _SlippyMapLayer extends StatelessWidget {
                   radiusPx: radiusPx,
                   isInsideRadius: isInsideRadius,
                   statusColor: statusColor,
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.08),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.08),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -2034,6 +2382,8 @@ class _MapTile {
 
 class _MapMath {
   static const double tileSize = 256;
+  static const int minZoom = 12;
+  static const int maxZoom = 19;
 
   static int bestZoomFor({
     required double latitude,
@@ -2041,13 +2391,13 @@ class _MapMath {
     required double shortestSide,
   }) {
     final targetRadiusPx = shortestSide * 0.26;
-    for (var zoom = 19; zoom >= 12; zoom--) {
+    for (var zoom = maxZoom; zoom >= minZoom; zoom--) {
       final radiusPx = radiusMeters / metersPerPixel(latitude, zoom);
       if (radiusPx <= targetRadiusPx) {
         return zoom;
       }
     }
-    return 12;
+    return minZoom;
   }
 
   static double metersPerPixel(double latitude, int zoom) {
@@ -2174,9 +2524,15 @@ class _MapOverlayPainter extends CustomPainter {
       ..color = const Color(0xFF10B981)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.2;
+    final boundarySoftStroke = Paint()
+      ..color = const Color(0xFF10B981).withValues(alpha: 0.20)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
 
     canvas.drawCircle(officeOffset, clippedRadius, boundaryPaint);
     canvas.drawCircle(officeOffset, clippedRadius, boundaryStroke);
+    canvas.drawCircle(officeOffset, clippedRadius * 0.66, boundarySoftStroke);
+    canvas.drawCircle(officeOffset, clippedRadius * 0.33, boundarySoftStroke);
 
     _drawPin(
       canvas,
@@ -2184,6 +2540,12 @@ class _MapOverlayPainter extends CustomPainter {
       fillColor: const Color(0xFF06B6D4),
       iconColor: Colors.white,
       iconKind: _MapPinKind.office,
+    );
+    _drawLabel(
+      canvas,
+      officeOffset.translate(0, -42),
+      'Area',
+      const Color(0xFF0E7490),
     );
 
     final userPoint = userOffset;
@@ -2193,11 +2555,24 @@ class _MapOverlayPainter extends CustomPainter {
 
     final linePaint = Paint()
       ..color = statusColor.withValues(alpha: 0.54)
-      ..strokeWidth = 2;
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
     canvas.drawLine(officeOffset, userPoint, linePaint);
+    canvas.drawCircle(
+      officeOffset,
+      4,
+      Paint()..color = Colors.white.withValues(alpha: 0.88),
+    );
+    canvas.drawCircle(
+      userPoint,
+      4,
+      Paint()..color = Colors.white.withValues(alpha: 0.88),
+    );
 
     final userGlow = Paint()
       ..color = statusColor.withValues(alpha: isInsideRadius ? 0.22 : 0.28);
+    canvas.drawCircle(
+        userPoint, 28, Paint()..color = statusColor.withValues(alpha: 0.08));
     canvas.drawCircle(userPoint, 18, userGlow);
     _drawPin(
       canvas,
@@ -2205,6 +2580,12 @@ class _MapOverlayPainter extends CustomPainter {
       fillColor: statusColor,
       iconColor: Colors.white,
       iconKind: _MapPinKind.user,
+    );
+    _drawLabel(
+      canvas,
+      userPoint.translate(0, -42),
+      'Kamu',
+      statusColor,
     );
   }
 
@@ -2260,6 +2641,44 @@ class _MapOverlayPainter extends CustomPainter {
         detailPaint,
       );
     }
+  }
+
+  void _drawLabel(Canvas canvas, Offset point, String label, Color color) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.2,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final rect = Rect.fromCenter(
+      center: point,
+      width: textPainter.width + 18,
+      height: 24,
+    );
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(999));
+    canvas.drawRRect(
+      rrect.shift(const Offset(0, 2)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.10)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    canvas.drawRRect(
+      rrect,
+      Paint()..color = Colors.white.withValues(alpha: 0.90),
+    );
+    textPainter.paint(
+      canvas,
+      Offset(
+        rect.left + (rect.width - textPainter.width) / 2,
+        rect.top + (rect.height - textPainter.height) / 2,
+      ),
+    );
   }
 
   @override

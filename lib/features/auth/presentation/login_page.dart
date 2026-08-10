@@ -34,7 +34,6 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final remoteAuthEnabled = widget.controller.isRemoteAuthEnabled;
 
     return Scaffold(
       body: SafeArea(
@@ -48,17 +47,25 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   const SizedBox(height: 28),
                   Text(
-                    'HEX Activity',
+                    'Folony Activity',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       color: theme.colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Masuk untuk mengelola absensi, aktivitas, jaringan, heat map, cuti, dan approval.',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  RichText(
+                    text: TextSpan(
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      children: const [
+                        TextSpan(text: 'Bangun aktivitas kerja yang '),
+                        TextSpan(
+                          text: 'jujur, disiplin, mandiri, dan penuh tanggung jawab.',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -115,24 +122,14 @@ class _LoginPageState extends State<LoginPage> {
                           : 'Masuk',
                     ),
                   ),
-                  const SizedBox(height: 18),
                   if (widget.controller.isDemoModeEnabled) ...[
+                    const SizedBox(height: 18),
                     TextButton(
                       onPressed: () =>
                           setState(() => _showDemoMode = !_showDemoMode),
                       child: Text(_showDemoMode
                           ? 'Sembunyikan mode demo'
                           : 'Mode demo/dev'),
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      remoteAuthEnabled
-                          ? 'Mode staging aktif. Gunakan akun backend yang valid.'
-                          : 'Mode demo dimatikan. Gunakan build staging/backend.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
                     ),
                   ],
                   if (_showDemoMode && widget.controller.isDemoModeEnabled) ...[

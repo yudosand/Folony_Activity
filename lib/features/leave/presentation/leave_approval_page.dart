@@ -26,7 +26,8 @@ class LeaveApprovalPage extends StatefulWidget {
 
 class _LeaveApprovalPageState extends State<LeaveApprovalPage>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 2, vsync: this);
+  late final TabController _tabController =
+      TabController(length: 2, vsync: this);
   bool _decisionDialogOpen = false;
   bool _approvalActionInFlight = false;
   bool _pendingControllerRefresh = false;
@@ -54,8 +55,10 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
   }
 
   bool get _allResolved {
-    return _leaveRequests.every((request) => request.status != ApprovalStatus.pending) &&
-        _wfaRequests.every((request) => request.status != ApprovalStatus.pending);
+    return _leaveRequests
+            .every((request) => request.status != ApprovalStatus.pending) &&
+        _wfaRequests
+            .every((request) => request.status != ApprovalStatus.pending);
   }
 
   @override
@@ -87,7 +90,7 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
     final theme = Theme.of(context);
 
     return Column(
-          children: [
+      children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
           child: Column(
@@ -136,93 +139,105 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
             ],
           ),
         ),
-          ],
+      ],
     );
   }
 
   Widget _buildLeaveTab(BuildContext context) {
     final requests = _leaveRequests;
 
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        if (requests.isEmpty)
-          const EmptyState(
-            icon: Icons.fact_check_outlined,
-            title: 'Tidak ada pengajuan cuti',
-            message: 'Pengajuan cuti atau izin yang perlu diputuskan akan muncul di sini.',
-          )
-        else
-          for (var i = 0; i < requests.length; i++) ...[
-            _LeaveApprovalItem(
-              request: requests[i],
-              onOpen: () => _showLeaveDetail(requests[i]),
-              onApprove: requests[i].status == ApprovalStatus.pending
-                  ? () => _handleLeaveDecision(
-                        requests[i],
-                        ApprovalStatus.approved,
-                      )
-                  : null,
-              onReject: requests[i].status == ApprovalStatus.pending
-                  ? () => _handleLeaveDecision(
-                        requests[i],
-                        ApprovalStatus.rejected,
-                      )
-                  : null,
+    return RefreshIndicator(
+      onRefresh: () =>
+          widget.controller.refreshWorkflowDataForSession(widget.session),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        children: [
+          if (requests.isEmpty)
+            const EmptyState(
+              icon: Icons.fact_check_outlined,
+              title: 'Tidak ada pengajuan cuti',
+              message:
+                  'Pengajuan cuti atau izin yang perlu diputuskan akan muncul di sini.',
+            )
+          else
+            for (var i = 0; i < requests.length; i++) ...[
+              _LeaveApprovalItem(
+                request: requests[i],
+                onOpen: () => _showLeaveDetail(requests[i]),
+                onApprove: requests[i].status == ApprovalStatus.pending
+                    ? () => _handleLeaveDecision(
+                          requests[i],
+                          ApprovalStatus.approved,
+                        )
+                    : null,
+                onReject: requests[i].status == ApprovalStatus.pending
+                    ? () => _handleLeaveDecision(
+                          requests[i],
+                          ApprovalStatus.rejected,
+                        )
+                    : null,
+              ),
+              if (i != requests.length - 1) const Divider(height: 24),
+            ],
+          if (_allResolved) ...[
+            const SizedBox(height: 20),
+            OutlinedButton(
+              onPressed: _resetMocks,
+              child: const Text('Reset Mock Approval'),
             ),
-            if (i != requests.length - 1) const Divider(height: 24),
           ],
-        if (_allResolved) ...[
-          const SizedBox(height: 20),
-          OutlinedButton(
-            onPressed: _resetMocks,
-            child: const Text('Reset Mock Approval'),
-          ),
         ],
-      ],
+      ),
     );
   }
 
   Widget _buildWfaTab(BuildContext context) {
     final requests = _wfaRequests;
 
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        if (requests.isEmpty)
-          const EmptyState(
-            icon: Icons.laptop_mac_rounded,
-            title: 'Tidak ada pengajuan WFA',
-            message: 'Pengajuan WFA atau overtime yang perlu diputuskan akan muncul di sini.',
-          )
-        else
-          for (var i = 0; i < requests.length; i++) ...[
-            _WfaApprovalItem(
-              request: requests[i],
-              onOpen: () => _showWfaDetail(requests[i]),
-              onApprove: requests[i].status == ApprovalStatus.pending
-                  ? () => _handleWfaDecision(
-                        requests[i],
-                        ApprovalStatus.approved,
-                      )
-                  : null,
-              onReject: requests[i].status == ApprovalStatus.pending
-                  ? () => _handleWfaDecision(
-                        requests[i],
-                        ApprovalStatus.rejected,
-                      )
-                  : null,
+    return RefreshIndicator(
+      onRefresh: () =>
+          widget.controller.refreshWorkflowDataForSession(widget.session),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        children: [
+          if (requests.isEmpty)
+            const EmptyState(
+              icon: Icons.laptop_mac_rounded,
+              title: 'Tidak ada pengajuan WFA',
+              message:
+                  'Pengajuan WFA atau overtime yang perlu diputuskan akan muncul di sini.',
+            )
+          else
+            for (var i = 0; i < requests.length; i++) ...[
+              _WfaApprovalItem(
+                request: requests[i],
+                onOpen: () => _showWfaDetail(requests[i]),
+                onApprove: requests[i].status == ApprovalStatus.pending
+                    ? () => _handleWfaDecision(
+                          requests[i],
+                          ApprovalStatus.approved,
+                        )
+                    : null,
+                onReject: requests[i].status == ApprovalStatus.pending
+                    ? () => _handleWfaDecision(
+                          requests[i],
+                          ApprovalStatus.rejected,
+                        )
+                    : null,
+              ),
+              if (i != requests.length - 1) const Divider(height: 24),
+            ],
+          if (_allResolved) ...[
+            const SizedBox(height: 20),
+            OutlinedButton(
+              onPressed: _resetMocks,
+              child: const Text('Reset Mock Approval'),
             ),
-            if (i != requests.length - 1) const Divider(height: 24),
           ],
-        if (_allResolved) ...[
-          const SizedBox(height: 20),
-          OutlinedButton(
-            onPressed: _resetMocks,
-            child: const Text('Reset Mock Approval'),
-          ),
         ],
-      ],
+      ),
     );
   }
 
@@ -248,7 +263,9 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Pengajuan cuti ${request.name} ${status.snackbarLabel}')),
+      SnackBar(
+          content:
+              Text('Pengajuan cuti ${request.name} ${status.snackbarLabel}')),
     );
   }
 
@@ -274,7 +291,9 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Pengajuan WFA ${request.name} ${status.snackbarLabel}')),
+      SnackBar(
+          content:
+              Text('Pengajuan WFA ${request.name} ${status.snackbarLabel}')),
     );
   }
 
@@ -404,7 +423,8 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(request.name, style: theme.textTheme.titleLarge),
+                          child: Text(request.name,
+                              style: theme.textTheme.titleLarge),
                         ),
                         const SizedBox(width: 12),
                         StatusBadge(
@@ -500,7 +520,8 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(request.name, style: theme.textTheme.titleLarge),
+                          child: Text(request.name,
+                              style: theme.textTheme.titleLarge),
                         ),
                         const SizedBox(width: 12),
                         StatusBadge(
@@ -518,7 +539,8 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
                     const Divider(height: 24),
                     _DetailLine(label: 'Lokasi', value: request.location),
                     const Divider(height: 24),
-                    _DetailLine(label: 'Kompensasi', value: request.compensation),
+                    _DetailLine(
+                        label: 'Kompensasi', value: request.compensation),
                     const Divider(height: 24),
                     _DetailLine(label: 'Alasan', value: request.reason),
                     const Divider(height: 24),
@@ -699,7 +721,8 @@ class _LeaveApprovalItem extends StatelessWidget {
                     ],
                   ),
                 ),
-                StatusBadge(label: request.status.label, color: request.status.color),
+                StatusBadge(
+                    label: request.status.label, color: request.status.color),
               ],
             ),
             const SizedBox(height: 10),
@@ -785,7 +808,8 @@ class _WfaApprovalItem extends StatelessWidget {
                     ],
                   ),
                 ),
-                StatusBadge(label: request.status.label, color: request.status.color),
+                StatusBadge(
+                    label: request.status.label, color: request.status.color),
               ],
             ),
             const SizedBox(height: 10),

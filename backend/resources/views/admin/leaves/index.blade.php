@@ -12,8 +12,8 @@
             <input name="search" placeholder="Cari nama / ID pengajuan" value="{{ $filters['search'] ?? '' }}">
             <select name="role">
                 <option value="">Semua role</option>
-                @foreach($roles as $role)
-                    <option value="{{ $role }}" @selected(($filters['role'] ?? '') === $role)>{{ $role }}</option>
+                @foreach($roles as $role => $roleLabel)
+                    <option value="{{ $role }}" @selected(($filters['role'] ?? '') === $role)>{{ $roleLabel }}</option>
                 @endforeach
             </select>
             <select name="status">
@@ -48,7 +48,7 @@
                     <tr>
                         <td>
                             <strong>{{ $request->requester_name }}</strong><br>
-                            <span class="muted">{{ strtoupper($request->requester_role) }} &middot; {{ $request->category }}</span><br>
+                            <span class="muted">{{ \App\Support\Workflow\UserRole::label($request->requester_role) }} &middot; {{ $request->category }}</span><br>
                             <span class="muted">{{ $request->reason }}</span>
                         </td>
                         <td>{{ $request->start_at?->format('d M Y') }} - {{ $request->end_at?->format('d M Y') }}</td>
@@ -69,7 +69,7 @@
                             <div class="grid" style="gap:8px;">
                                 @forelse($request->approvalSteps as $step)
                                     <span class="pill {{ $step->status === 'approved' ? 'success' : ($step->status === 'rejected' ? 'danger' : 'warning') }}">
-                                        {{ strtoupper($step->approver_role) }} &middot; {{ $step->status }}
+                                        {{ \App\Support\Workflow\UserRole::label($step->approver_role) }} &middot; {{ $step->status }}
                                     </span>
                                 @empty
                                     <span class="muted">Tidak memerlukan approval</span>

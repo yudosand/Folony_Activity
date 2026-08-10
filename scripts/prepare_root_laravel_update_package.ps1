@@ -62,8 +62,33 @@ foreach ($directory in $copyDirectories) {
     Copy-Item -LiteralPath (Join-Path $backendRoot $directory) -Destination (Join-Path $tempPackageRoot $directory) -Recurse -Force
 }
 
+$bootstrapCacheRoot = Join-Path $tempPackageRoot 'bootstrap\cache'
+if (Test-Path -LiteralPath $bootstrapCacheRoot) {
+    Get-ChildItem -LiteralPath $bootstrapCacheRoot -File -Filter '*.php' | Remove-Item -Force
+}
+
 foreach ($file in $copyFiles) {
     Copy-Item -LiteralPath (Join-Path $backendRoot $file) -Destination (Join-Path $tempPackageRoot $file) -Force
+}
+
+$clearCacheHelper = Join-Path $projectRoot 'deploy\clear-cache-once.php'
+if (Test-Path -LiteralPath $clearCacheHelper) {
+    Copy-Item -LiteralPath $clearCacheHelper -Destination (Join-Path $tempPackageRoot 'public\clear-cache-once.php') -Force
+}
+
+$cleanupTestUserHelper = Join-Path $projectRoot 'deploy\cleanup-test-user-once.php'
+if (Test-Path -LiteralPath $cleanupTestUserHelper) {
+    Copy-Item -LiteralPath $cleanupTestUserHelper -Destination (Join-Path $tempPackageRoot 'public\cleanup-test-user-once.php') -Force
+}
+
+$cleanupAttendanceHelper = Join-Path $projectRoot 'deploy\cleanup-attendance-test-once.php'
+if (Test-Path -LiteralPath $cleanupAttendanceHelper) {
+    Copy-Item -LiteralPath $cleanupAttendanceHelper -Destination (Join-Path $tempPackageRoot 'public\cleanup-attendance-test-once.php') -Force
+}
+
+$emergencyRepairHelper = Join-Path $projectRoot 'deploy\emergency-repair-once.php'
+if (Test-Path -LiteralPath $emergencyRepairHelper) {
+    Copy-Item -LiteralPath $emergencyRepairHelper -Destination (Join-Path $tempPackageRoot 'public\emergency-repair-once.php') -Force
 }
 
 $readmePath = Join-Path $tempPackageRoot 'UPLOAD_README.txt'
@@ -75,6 +100,7 @@ Paket ini TIDAK membawa:
 - storage/
 - database/database.sqlite
 - node_modules/
+- bootstrap/cache/*.php
 
 Tujuan:
 - overwrite code Laravel aktif tanpa menyentuh data environment dan storage server
@@ -87,8 +113,17 @@ Langkah di server:
 5. JANGAN ganti .env server
 6. jalankan:
    php artisan optimize:clear
+   php artisan storage:link
    php artisan route:list --path=admin
    php artisan migrate --force
+
+Jika tidak ada akses SSH:
+- buka https://absent.folony.co.id/clear-cache-once.php?token=folony-clear-20260804-b63a91 setelah extract selesai
+- helper ini menjalankan optimize:clear dan mencoba menghapus dirinya otomatis
+
+Catatan foto/lampiran:
+- Bila link foto /storage/field-uploads/... 404 nginx, pastikan public/storage adalah symlink ke storage/app/public.
+- Cek dengan: ls -ld public/storage storage/app/public
 "@ | Set-Content -LiteralPath $readmePath
 
 Copy-Item -LiteralPath (Join-Path $tempPackageRoot '*') -Destination $packageRoot -Recurse -Force
@@ -97,10 +132,17 @@ if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
 }
 
-& tar.exe -a -cf $zipPath -C $tempStageRoot 'laravel-root-update'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to create zip archive at $zipPath"
+try {
+    [System.IO.Compression.ZipFile]::CreateFromDirectory(
+        $tempStageRoot,
+        $zipPath,
+        [System.IO.Compression.CompressionLevel]::Optimal,
+        $false
+    )
+} catch {
+    throw "Failed to create zip archive at $zipPath. $($_.Exception.Message)"
 }
 
 if (Test-Path -LiteralPath $tempStageRoot) {

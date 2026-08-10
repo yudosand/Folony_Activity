@@ -1,5 +1,5 @@
 param(
-    [string]$BaseUrl = "http://folony-27-112-79-213.nip.io/api"
+    [string]$BaseUrl = "https://absent.folony.co.id/api"
 )
 
 $ErrorActionPreference = "Stop"

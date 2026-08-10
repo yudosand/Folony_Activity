@@ -23,11 +23,11 @@
             </div>
             <div>
                 <label for="work_area_latitude">Latitude</label>
-                <input id="work_area_latitude" name="latitude" type="number" step="0.000000000000001" value="{{ old('latitude', '-6.159692890088879') }}" required>
+                <input id="work_area_latitude" name="latitude" type="number" step="any" inputmode="decimal" value="{{ old('latitude', '-6.159692890088879') }}" required>
             </div>
             <div>
                 <label for="work_area_longitude">Longitude</label>
-                <input id="work_area_longitude" name="longitude" type="number" step="0.000000000000001" value="{{ old('longitude', '106.81804453790896') }}" required>
+                <input id="work_area_longitude" name="longitude" type="number" step="any" inputmode="decimal" value="{{ old('longitude', '106.81804453790896') }}" required>
             </div>
             <div>
                 <label for="work_area_radius">Radius (meter)</label>
@@ -61,8 +61,8 @@
                             </form>
                             <input form="{{ $workAreaFormId }}" name="name" value="{{ old('name', $workArea->name) }}" required>
                         </td>
-                        <td><input form="{{ $workAreaFormId }}" name="latitude" type="number" step="0.000000000000001" value="{{ old('latitude', $workArea->latitude) }}" required></td>
-                        <td><input form="{{ $workAreaFormId }}" name="longitude" type="number" step="0.000000000000001" value="{{ old('longitude', $workArea->longitude) }}" required></td>
+                        <td><input form="{{ $workAreaFormId }}" name="latitude" type="number" step="any" inputmode="decimal" value="{{ old('latitude', $workArea->latitude) }}" required></td>
+                        <td><input form="{{ $workAreaFormId }}" name="longitude" type="number" step="any" inputmode="decimal" value="{{ old('longitude', $workArea->longitude) }}" required></td>
                         <td><input form="{{ $workAreaFormId }}" name="radius_meters" type="number" min="1" step="1" value="{{ old('radius_meters', $workArea->radius_meters) }}" required></td>
                         <td>
                             <select form="{{ $workAreaFormId }}" name="is_active">
@@ -112,8 +112,8 @@
                 <input name="search" placeholder="Cari nama / kode karyawan" value="{{ $filters['search'] ?? '' }}">
                 <select name="role">
                     <option value="">Semua role</option>
-                    @foreach($roles as $role)
-                        <option value="{{ $role }}" @selected(($filters['role'] ?? '') === $role)>{{ $role }}</option>
+                    @foreach($roles as $role => $roleLabel)
+                        <option value="{{ $role }}" @selected(($filters['role'] ?? '') === $role)>{{ $roleLabel }}</option>
                     @endforeach
                 </select>
                 <select name="decision">
@@ -251,8 +251,18 @@
                         $recordSummaryKey = $record->user_id . '|' . $record->work_date?->toDateString();
                         $recordSummary = $recordSummaries[$recordSummaryKey] ?? null;
                         $outsideOfficeMode = ($record->metadata['attendance_mode'] ?? null) === 'outside_office';
+                        $actionLabel = match ($record->action) {
+                            'checkIn' => 'Checkin',
+                            'checkOut' => 'Checkout',
+                            'outsideOfficeStart' => 'Checkin Outside',
+                            'outsideOfficeFinish' => 'Checkout Outside',
+                            default => $record->action,
+                        };
+                        $outsideOfficePlace = $outsideOfficeMode
+                            ? trim((string) ($record->metadata['place_description'] ?? ''))
+                            : '';
                         $businessLabel = $outsideOfficeMode
-                            ? ($record->action === 'outsideOfficeStart' ? 'Absensi luar kantor dimulai' : 'Absensi luar kantor selesai')
+                            ? ($outsideOfficePlace !== '' ? $outsideOfficePlace : 'Absensi luar kantor')
                             : ($record->action === 'checkIn'
                                 ? ($recordSummary['arrival_label'] ?? null)
                                 : ($recordSummary['departure_label'] ?? null));
@@ -275,9 +285,9 @@
                     <tr>
                         <td>
                             <strong>{{ $record->user?->full_name ?? $record->user_id }}</strong><br>
-                            <span class="muted">{{ $record->user?->employee_code ?? '-' }} &middot; {{ strtoupper($record->user?->role ?? '-') }}</span>
+                            <span class="muted">{{ $record->user?->employee_code ?? '-' }} &middot; {{ \App\Support\Workflow\UserRole::label($record->user?->role) }}</span>
                         </td>
-                        <td>{{ $record->action }}</td>
+                        <td>{{ $actionLabel }}</td>
                         <td>{{ $record->recorded_at?->format('d M Y H:i') }}</td>
                         <td>
                             <div class="stack">

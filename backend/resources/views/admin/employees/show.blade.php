@@ -93,7 +93,7 @@
             </div>
             <div class="detail-list">
                 <div class="detail-item"><strong>Kode</strong><span>{{ $employee->employee_code }}</span></div>
-                <div class="detail-item"><strong>Role</strong><span>{{ strtoupper($employee->role) }}</span></div>
+                <div class="detail-item"><strong>Role</strong><span>{{ \App\Support\Workflow\UserRole::label($employee->role) }}</span></div>
                 <div class="detail-item"><strong>Jabatan</strong><span>{{ $employee->job_title ?: '-' }}</span></div>
                 <div class="detail-item"><strong>Lokasi Kerja</strong><span>{{ $employee->work_location ?: '-' }}</span></div>
                 <div class="detail-item"><strong>Titik Kantor Global</strong><span>{{ number_format((float) $officeAttendanceSetting['latitude'], 6, '.', '') . ', ' . number_format((float) $officeAttendanceSetting['longitude'], 6, '.', '') }}</span></div>
@@ -178,8 +178,18 @@
                             $recordSummaryKey = $record->user_id . '|' . $record->work_date?->toDateString();
                             $recordSummary = $recentAttendanceSummaries[$recordSummaryKey] ?? null;
                             $outsideOfficeMode = ($record->metadata['attendance_mode'] ?? null) === 'outside_office';
+                            $actionLabel = match ($record->action) {
+                                'checkIn' => 'Checkin',
+                                'checkOut' => 'Checkout',
+                                'outsideOfficeStart' => 'Checkin Outside',
+                                'outsideOfficeFinish' => 'Checkout Outside',
+                                default => $record->action,
+                            };
+                            $outsideOfficePlace = $outsideOfficeMode
+                                ? trim((string) ($record->metadata['place_description'] ?? ''))
+                                : '';
                             $businessLabel = $outsideOfficeMode
-                                ? ($record->action === 'outsideOfficeStart' ? 'Absensi luar kantor dimulai' : 'Absensi luar kantor selesai')
+                                ? ($outsideOfficePlace !== '' ? $outsideOfficePlace : 'Absensi luar kantor')
                                 : ($record->action === 'checkIn'
                                     ? ($recordSummary['arrival_label'] ?? null)
                                     : ($recordSummary['departure_label'] ?? null));
@@ -200,7 +210,7 @@
                                     : ($recordSummary['departure_note'] ?? null));
                         @endphp
                         <tr>
-                            <td>{{ $record->action }}</td>
+                            <td>{{ $actionLabel }}</td>
                             <td>{{ $record->recorded_at?->format('d M Y H:i') }}</td>
                             <td>
                                 <div class="stack">
@@ -255,7 +265,7 @@
                     @forelse($recentApprovals as $approval)
                         <tr>
                             <td>{{ strtoupper($approval->module) }}<br><span class="muted">{{ $approval->reference_id }}</span></td>
-                            <td>{{ $approval->approver_name }}<br><span class="muted">{{ strtoupper($approval->approver_role) }}</span></td>
+                            <td>{{ $approval->approver_name }}<br><span class="muted">{{ \App\Support\Workflow\UserRole::label($approval->approver_role) }}</span></td>
                             <td><span class="pill">{{ $approval->status }}</span></td>
                         </tr>
                     @empty

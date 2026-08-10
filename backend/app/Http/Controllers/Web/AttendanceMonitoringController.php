@@ -66,8 +66,8 @@ class AttendanceMonitoringController extends Controller
                 return [
                     $record->user?->employee_code ?? $record->user_id,
                     $record->user?->full_name ?? $record->user_id,
-                    $record->user?->role ?? '-',
-                    $record->action,
+                    UserRole::label($record->user?->role),
+                    $this->actionLabelForRecord($record),
                     optional($record->recorded_at)->format('Y-m-d H:i'),
                     $record->location['address_label'] ?? '',
                     $record->verification['decision'] ?? '',
@@ -101,7 +101,7 @@ class AttendanceMonitoringController extends Controller
             'attendanceRecap' => $attendanceRecap,
             'attendanceWorkAreas' => AttendanceWorkArea::query()->orderBy('name')->get(),
             'summary' => $summary,
-            'roles' => array_values(array_filter(UserRole::ALL, fn (string $role) => $role !== UserRole::HR)),
+            'roles' => UserRole::adminOptions(),
             'decisions' => ['verified', 'retry', 'rejected'],
             'filters' => $filters,
         ]);
@@ -245,8 +245,25 @@ class AttendanceMonitoringController extends Controller
         return $record->user_id . '|' . $record->work_date->toDateString();
     }
 
+    private function actionLabelForRecord(AttendanceRecord $record): string
+    {
+        return match ($record->action) {
+            'checkIn' => 'Checkin',
+            'checkOut' => 'Checkout',
+            'outsideOfficeStart' => 'Checkin Outside',
+            'outsideOfficeFinish' => 'Checkout Outside',
+            default => $record->action,
+        };
+    }
+
     private function summaryNoteForRecord(AttendanceRecord $record, ?array $summary): ?string
     {
+        if (($record->metadata['attendance_mode'] ?? null) === 'outside_office') {
+            $placeDescription = trim((string) ($record->metadata['place_description'] ?? ''));
+
+            return $placeDescription !== '' ? $placeDescription : $record->note;
+        }
+
         if ($summary === null) {
             return null;
         }

@@ -146,7 +146,7 @@ class _HexActivityAppState extends State<HexActivityApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: HexActivityApp.navigatorKey,
-      title: 'HEX Activity',
+      title: 'Folony Activity',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       locale: const Locale('id', 'ID'),

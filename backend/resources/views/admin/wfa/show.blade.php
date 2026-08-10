@@ -43,7 +43,7 @@
         <div class="panel pad">
             <h3 style="margin-top:0;">Informasi Pengajuan</h3>
             <div class="detail-list">
-                <div class="detail-item"><strong>Karyawan</strong><span>{{ $requestRecord->requester_name }} ({{ strtoupper($requestRecord->requester_role) }})</span></div>
+                <div class="detail-item"><strong>Karyawan</strong><span>{{ $requestRecord->requester_name }} ({{ \App\Support\Workflow\UserRole::label($requestRecord->requester_role) }})</span></div>
                 <div class="detail-item"><strong>Tanggal</strong><span>{{ $requestRecord->work_date?->format('d M Y') ?: '-' }}</span></div>
                 <div class="detail-item"><strong>Jadwal</strong><span>{{ $requestRecord->start_time }} - {{ $requestRecord->end_time }}</span></div>
                 <div class="detail-item"><strong>Lokasi</strong><span>{{ $requestRecord->location_label ?: '-' }}</span></div>
@@ -78,7 +78,7 @@
                     <tbody>
                     @forelse($requestRecord->approvalSteps as $step)
                         <tr>
-                            <td>{{ $step->approver_name }}<br><span class="muted">{{ strtoupper($step->approver_role) }}</span></td>
+                            <td>{{ $step->approver_name }}<br><span class="muted">{{ \App\Support\Workflow\UserRole::label($step->approver_role) }}</span></td>
                             <td><span class="pill">{{ $step->status }}</span></td>
                             <td>{{ $step->note ?: '-' }}</td>
                         </tr>

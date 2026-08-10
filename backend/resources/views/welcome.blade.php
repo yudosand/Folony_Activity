@@ -5,6 +5,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <title>{{ config('app.name', 'Laravel') }}</title>
+        <link rel="icon" href="{{ asset('favicon.ico') }}?v=folony-20260805" sizes="any">
+        <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}?v=folony-20260805">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">

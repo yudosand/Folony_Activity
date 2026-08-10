@@ -58,7 +58,7 @@ class ReportsController extends Controller
                 return [
                     $employee->employee_code,
                     $employee->full_name,
-                    $employee->role,
+                    UserRole::label($employee->role),
                     number_format((float) $employeeMetrics['leave_balance_days'], 1, '.', ''),
                     $employeeMetrics['attendance_days'],
                     $metricsService->formatMinutes($employeeMetrics['total_work_minutes']),
@@ -76,7 +76,7 @@ class ReportsController extends Controller
 
         return view('admin.reports.index', [
             'filters' => $filters,
-            'roles' => array_values(array_filter(UserRole::ALL, fn (string $role) => $role !== UserRole::HR)),
+            'roles' => UserRole::adminOptions(),
             'summary' => [
                 'employees' => (clone $employeeQuery)->count(),
                 'activeEmployees' => (clone $employeeQuery)->where('is_active', true)->count(),

@@ -13,7 +13,7 @@ class BackendConfig {
       ),
       baseUrl: String.fromEnvironment(
         'HEX_BACKEND_BASE_URL',
-        defaultValue: 'http://folony-27-112-79-213.nip.io/api',
+        defaultValue: 'https://absent.folony.co.id/api',
       ),
       demoModeEnabled: bool.fromEnvironment(
         'HEX_ENABLE_DEMO_MODE',

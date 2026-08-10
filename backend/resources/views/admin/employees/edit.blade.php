@@ -14,7 +14,7 @@
         <div class="panel pad">
             <div class="eyebrow" style="margin-bottom:10px;">Pembaruan Data</div>
             <h3 style="margin:0 0 10px;">{{ $employee->full_name }}</h3>
-            <p class="muted" style="margin:0 0 8px;">{{ $employee->employee_code }} &middot; {{ strtoupper($employee->role) }}</p>
+            <p class="muted" style="margin:0 0 8px;">{{ $employee->employee_code }} &middot; {{ \App\Support\Workflow\UserRole::label($employee->role) }}</p>
             <p class="muted" style="margin:0;">Rapikan role, jabatan, lokasi kerja, dan saldo cuti agar sinkron dengan aplikasi mobile.</p>
         </div>
         <div class="panel pad">

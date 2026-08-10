@@ -13,8 +13,8 @@
                 <input name="search" placeholder="Cari nama / kode / no HP" value="{{ $filters['search'] ?? '' }}">
                 <select name="role">
                     <option value="">Semua role</option>
-                    @foreach($roles as $role)
-                        <option value="{{ $role }}" @selected(($filters['role'] ?? '') === $role)>{{ $role }}</option>
+                    @foreach($roles as $role => $roleLabel)
+                        <option value="{{ $role }}" @selected(($filters['role'] ?? '') === $role)>{{ $roleLabel }}</option>
                     @endforeach
                 </select>
                 <select name="status">
@@ -51,7 +51,7 @@
                             <span class="muted">{{ $employee->employee_code }} &middot; {{ $employee->phone_number ?: 'No HP belum diisi' }}</span>
                         </td>
                         <td>
-                            <div>{{ strtoupper($employee->role) }}</div>
+                            <div>{{ \App\Support\Workflow\UserRole::label($employee->role) }}</div>
                             <div class="muted">{{ $employee->job_title ?: 'Jabatan belum diisi' }}</div>
                         </td>
                         <td>

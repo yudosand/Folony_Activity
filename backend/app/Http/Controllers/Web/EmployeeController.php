@@ -65,7 +65,7 @@ class EmployeeController extends Controller
                 return [
                     $user->employee_code,
                     $user->full_name,
-                    $user->role,
+                    UserRole::label($user->role),
                     $user->job_title,
                     $user->work_location,
                     $user->phone_number,
@@ -91,7 +91,7 @@ class EmployeeController extends Controller
         return view('admin.employees.index', [
             'employees' => $employees,
             'employeeMetrics' => $employeeMetrics,
-            'roles' => array_values(array_filter(UserRole::ALL, fn (string $role) => $role !== UserRole::HR)),
+            'roles' => UserRole::adminOptions(),
             'filters' => $filters,
         ]);
     }
@@ -103,7 +103,7 @@ class EmployeeController extends Controller
                 'is_active' => true,
                 'leave_balance_days' => 12,
             ]),
-            'roles' => array_values(array_filter(UserRole::ALL, fn (string $role) => $role !== UserRole::HR)),
+            'roles' => UserRole::adminOptions(),
             'attendanceWorkAreas' => AttendanceWorkArea::query()->where('is_active', true)->orderBy('name')->get(),
             'spvs' => User::query()->where('role', UserRole::SPV)->orderBy('full_name')->get(),
             'managements' => User::query()->where('role', UserRole::MANAGEMENT)->orderBy('full_name')->get(),
@@ -185,7 +185,7 @@ class EmployeeController extends Controller
 
         return view('admin.employees.edit', [
             'employee' => $employee,
-            'roles' => array_values(array_filter(UserRole::ALL, fn (string $role) => $role !== UserRole::HR)),
+            'roles' => UserRole::adminOptions(),
             'attendanceWorkAreas' => AttendanceWorkArea::query()->where('is_active', true)->orderBy('name')->get(),
             'spvs' => User::query()->where('role', UserRole::SPV)->orderBy('full_name')->get(),
             'managements' => User::query()->where('role', UserRole::MANAGEMENT)->orderBy('full_name')->get(),

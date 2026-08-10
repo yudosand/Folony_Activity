@@ -44,7 +44,7 @@ class WfaMonitoringController extends Controller
                 return [
                     $request->id,
                     $request->requester_name,
-                    $request->requester_role,
+                    UserRole::label($request->requester_role),
                     $request->mode,
                     $request->status,
                     $request->work_date?->format('Y-m-d'),
@@ -105,12 +105,6 @@ class WfaMonitoringController extends Controller
      */
     private function roleOptions(): array
     {
-        return [
-            UserRole::STAFF => 'Staff',
-            UserRole::SPV => 'Supervisor',
-            UserRole::AREA_MANAGER => 'Area Manager',
-            UserRole::MANAGEMENT => 'Management',
-            UserRole::FGG => 'FGG',
-        ];
+        return UserRole::adminOptions();
     }
 }

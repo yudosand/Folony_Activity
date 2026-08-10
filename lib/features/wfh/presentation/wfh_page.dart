@@ -122,322 +122,344 @@ class _WfhPageState extends State<WfhPage> {
 
         return Form(
           key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFE7E5E4)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: RefreshIndicator(
+            onRefresh: () =>
+                widget.controller.refreshWorkflowDataForSession(widget.session),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text('WFA Activity', style: theme.textTheme.titleMedium),
-                    ),
-                    headerBadge,
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'WFA dipakai untuk kerja resmi di luar kantor, termasuk lembur atau overtime yang terjadi di luar jam kerja dan perlu approval serta dasar kompensasi.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFE7E5E4)),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          _WfaSectionCard(
-            title: 'Pengajuan WFA',
-            subtitle: _approvalHint,
-            child: Column(
-              children: [
-                _SelectionLine<WfaRequestType>(
-                  label: 'Jenis',
-                  value: _selectedRequestType,
-                  options: WfaRequestType.values,
-                  hint: 'Pilih jenis WFA',
-                  itemLabel: (option) => option.label,
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-                    setState(() {
-                      _selectedRequestType = value;
-                      _selectedCompensation = value == WfaRequestType.overtime
-                          ? WfaCompensationPlan.shiftMundur
-                          : WfaCompensationPlan.normalShift;
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-                _RequestTypeBanner(type: _selectedRequestType),
-                const Divider(height: 24),
-                _TextInput(
-                  fieldKey: const ValueKey('wfa-work-date-input'),
-                  controller: _workDateController,
-                  label: 'Tanggal',
-                  hint: 'Pilih tanggal kerja',
-                  required: true,
-                  readOnly: true,
-                  suffixIcon: Icons.calendar_month_rounded,
-                  onTap: _pickWorkDate,
-                ),
-                const Divider(height: 24),
-                _TextInput(
-                  controller: _locationController,
-                  label: 'Lokasi',
-                  hint: 'Contoh: Rumah / lokasi meeting',
-                  required: true,
-                ),
-                const Divider(height: 24),
-                _TextInput(
-                  controller: _startPlanController,
-                  label: 'Mulai',
-                  hint: 'Contoh: 08:30',
-                  required: true,
-                ),
-                const Divider(height: 24),
-                _TextInput(
-                  controller: _endPlanController,
-                  label: 'Selesai',
-                  hint: 'Contoh: 17:00',
-                  required: true,
-                ),
-                const Divider(height: 24),
-                _SelectionLine<WfaCompensationPlan>(
-                  label: 'Kompensasi',
-                  value: _selectedCompensation,
-                  options: _availableCompensationPlans,
-                  hint: 'Pilih rencana kompensasi',
-                  itemLabel: (option) => option.label,
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedCompensation = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 6),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 112),
-                      child: ConstrainedBox(
-                        constraints:
-                            BoxConstraints(maxWidth: constraints.maxWidth - 112),
-                        child: Text(
-                          _selectedCompensation.helperText,
-                          softWrap: true,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const Divider(height: 24),
-                _TextInput(
-                  controller: _reasonController,
-                  label: 'Alasan',
-                  hint: _selectedRequestType == WfaRequestType.overtime
-                      ? 'Contoh: meeting malam dengan mitra'
-                      : 'Alasan bekerja dari luar kantor',
-                  required: true,
-                  maxLines: 2,
-                ),
-                const Divider(height: 24),
-                _TextInput(
-                  controller: _initialTaskController,
-                  label: 'Task Awal',
-                  hint: 'Output utama atau fokus kerja saat WFA',
-                  required: true,
-                  maxLines: 2,
-                ),
-                if (_showSpvField) ...[
-                  const Divider(height: 24),
-                  _SelectionLine<String>(
-                    label: 'SPV',
-                    value: _selectedSpv,
-                    options: widget.session.spvOptions,
-                    hint: 'Pilih SPV',
-                    itemLabel: (option) => option,
-                    onChanged: (value) => setState(() => _selectedSpv = value),
-                  ),
-                ],
-                if (_showManagementField) ...[
-                  const Divider(height: 24),
-                  _SelectionLine<String>(
-                    label: 'Management',
-                    value: _selectedManagement,
-                    options: widget.session.managementOptions,
-                    hint: 'Pilih Management',
-                    itemLabel: (option) => option,
-                    onChanged: (value) =>
-                        setState(() => _selectedManagement = value),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _resetForm,
-                        child: const Text('Reset'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _isSubmitting ? null : _submitRequest,
-                        child: Text(_isSubmitting ? 'Memproses...' : 'Ajukan WFA'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          _WfaSectionCard(
-            title: 'Aktivitas WFA',
-            subtitle: 'Mulai sesi dari approval yang sudah disetujui, lalu simpan progres kerja dan bukti lapangan selama WFA berlangsung.',
-            child: Column(
-              children: [
-                if (_activeRequest != null)
-                  _ActiveWfaCard(
-                    request: _activeRequest!,
-                    durationText: _formatDuration(
-                      _activeRequest!.actualStartAt,
-                      _activeRequest!.actualEndAt,
-                    ),
-                    compensationSummary: _compensationSummary(_activeRequest!),
-                  )
-                else if (_nextApprovedRequest != null)
-                  _ApprovedWfaCard(
-                    request: _nextApprovedRequest!,
-                    compensationSummary:
-                        _compensationSummary(_nextApprovedRequest!),
-                    onStart: () => _startApprovedSession(_nextApprovedRequest!),
-                    isBusy: _isChangingSessionState,
-                  )
-                else
-                  const EmptyState(
-                    icon: Icons.laptop_mac_rounded,
-                    title: 'Belum ada sesi aktif',
-                    message:
-                        'Ajukan WFA dulu. Setelah ada request yang disetujui, sesi kerja bisa dimulai dari approval tersebut.',
-                  ),
-              ],
-            ),
-          ),
-          if (_activeRequest != null) ...[
-            const SizedBox(height: 24),
-            _WfaSectionCard(
-              title: 'Update Task & Bukti',
-              subtitle: 'Unggah progres kerja dengan teks singkat dan lampiran foto dari kamera atau galeri.',
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _updateController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      hintText:
-                          'Tulis progres kerja, hasil meeting, atau follow-up terbaru',
-                    ),
-                  ),
-                  if (_pendingAttachment != null) ...[
-                    const SizedBox(height: 12),
-                    _AttachmentPreview(
-                      file: _pendingAttachment!,
-                      label: _pendingAttachmentLabel ?? 'Lampiran',
-                      onRemove: () {
-                        setState(() {
-                          _pendingAttachment = null;
-                          _pendingAttachmentLabel = null;
-                        });
-                      },
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickUpdateImage(ImageSource.gallery),
-                          icon: const Icon(Icons.photo_library_rounded),
-                          label: const Text('Galeri'),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text('WFA Activity',
+                                style: theme.textTheme.titleMedium),
+                          ),
+                          headerBadge,
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickUpdateImage(ImageSource.camera),
-                          icon: const Icon(Icons.photo_camera_rounded),
-                          label: const Text('Kamera'),
+                      const SizedBox(height: 6),
+                      Text(
+                        'WFA dipakai untuk kerja resmi di luar kantor, termasuk lembur atau overtime yang terjadi di luar jam kerja dan perlu approval serta dasar kompensasi.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
+                ),
+                const SizedBox(height: 24),
+                _WfaSectionCard(
+                  title: 'Pengajuan WFA',
+                  subtitle: _approvalHint,
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _isUpdatingTask ? null : _addUpdate,
-                          child: Text(
-                            _isUpdatingTask ? 'Mengirim...' : 'Tambah Update',
-                          ),
-                        ),
+                      _SelectionLine<WfaRequestType>(
+                        label: 'Jenis',
+                        value: _selectedRequestType,
+                        options: WfaRequestType.values,
+                        hint: 'Pilih jenis WFA',
+                        itemLabel: (option) => option.label,
+                        onChanged: (value) {
+                          if (value == null) {
+                            return;
+                          }
+                          setState(() {
+                            _selectedRequestType = value;
+                            _selectedCompensation =
+                                value == WfaRequestType.overtime
+                                    ? WfaCompensationPlan.shiftMundur
+                                    : WfaCompensationPlan.normalShift;
+                          });
+                        },
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed:
-                              _isChangingSessionState ? null : _finishSession,
-                          child: Text(
-                            _isChangingSessionState
-                                ? 'Memproses...'
-                                : 'Selesaikan WFA',
-                          ),
-                        ),
+                      const SizedBox(height: 12),
+                      _RequestTypeBanner(type: _selectedRequestType),
+                      const Divider(height: 24),
+                      _TextInput(
+                        fieldKey: const ValueKey('wfa-work-date-input'),
+                        controller: _workDateController,
+                        label: 'Tanggal',
+                        hint: 'Pilih tanggal kerja',
+                        required: true,
+                        readOnly: true,
+                        suffixIcon: Icons.calendar_month_rounded,
+                        onTap: _pickWorkDate,
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          _WfaSectionCard(
-            title: 'Riwayat Pengajuan',
-            subtitle: 'Semua request WFA reguler dan overtime tersimpan di sini lengkap dengan status, kompensasi, dan detailnya.',
-            child: requests.isEmpty
-                ? const EmptyState(
-                    icon: Icons.history_rounded,
-                    title: 'Belum ada pengajuan',
-                    message: 'Pengajuan WFA dan overtime akan muncul di sini.',
-                  )
-                : Column(
-                    children: [
-                      for (var i = 0; i < requests.length; i++) ...[
-                        _WfaHistoryItem(
-                          request: requests[i],
-                          onTap: () => _showRequestDetail(requests[i]),
+                      const Divider(height: 24),
+                      _TextInput(
+                        controller: _locationController,
+                        label: 'Lokasi',
+                        hint: 'Contoh: Rumah / lokasi meeting',
+                        required: true,
+                      ),
+                      const Divider(height: 24),
+                      _TextInput(
+                        controller: _startPlanController,
+                        label: 'Mulai',
+                        hint: 'Contoh: 08:30',
+                        required: true,
+                      ),
+                      const Divider(height: 24),
+                      _TextInput(
+                        controller: _endPlanController,
+                        label: 'Selesai',
+                        hint: 'Contoh: 17:00',
+                        required: true,
+                      ),
+                      const Divider(height: 24),
+                      _SelectionLine<WfaCompensationPlan>(
+                        label: 'Kompensasi',
+                        value: _selectedCompensation,
+                        options: _availableCompensationPlans,
+                        hint: 'Pilih rencana kompensasi',
+                        itemLabel: (option) => option.label,
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _selectedCompensation = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 112),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                  maxWidth: constraints.maxWidth - 112),
+                              child: Text(
+                                _selectedCompensation.helperText,
+                                softWrap: true,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 24),
+                      _TextInput(
+                        controller: _reasonController,
+                        label: 'Alasan',
+                        hint: _selectedRequestType == WfaRequestType.overtime
+                            ? 'Contoh: meeting malam dengan mitra'
+                            : 'Alasan bekerja dari luar kantor',
+                        required: true,
+                        maxLines: 2,
+                      ),
+                      const Divider(height: 24),
+                      _TextInput(
+                        controller: _initialTaskController,
+                        label: 'Task Awal',
+                        hint: 'Output utama atau fokus kerja saat WFA',
+                        required: true,
+                        maxLines: 2,
+                      ),
+                      if (_showSpvField) ...[
+                        const Divider(height: 24),
+                        _SelectionLine<String>(
+                          label: 'SPV',
+                          value: _selectedSpv,
+                          options: widget.session.spvOptions,
+                          hint: 'Pilih SPV',
+                          itemLabel: (option) => option,
+                          onChanged: (value) =>
+                              setState(() => _selectedSpv = value),
                         ),
-                        if (i != requests.length - 1) const Divider(height: 24),
                       ],
+                      if (_showManagementField) ...[
+                        const Divider(height: 24),
+                        _SelectionLine<String>(
+                          label: 'Management',
+                          value: _selectedManagement,
+                          options: widget.session.managementOptions,
+                          hint: 'Pilih Management',
+                          itemLabel: (option) => option,
+                          onChanged: (value) =>
+                              setState(() => _selectedManagement = value),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _resetForm,
+                              child: const Text('Reset'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: _isSubmitting ? null : _submitRequest,
+                              child: Text(_isSubmitting
+                                  ? 'Memproses...'
+                                  : 'Ajukan WFA'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-          ),
-            ],
+                ),
+                const SizedBox(height: 24),
+                _WfaSectionCard(
+                  title: 'Aktivitas WFA',
+                  subtitle:
+                      'Mulai sesi dari approval yang sudah disetujui, lalu simpan progres kerja dan bukti lapangan selama WFA berlangsung.',
+                  child: Column(
+                    children: [
+                      if (_activeRequest != null)
+                        _ActiveWfaCard(
+                          request: _activeRequest!,
+                          durationText: _formatDuration(
+                            _activeRequest!.actualStartAt,
+                            _activeRequest!.actualEndAt,
+                          ),
+                          compensationSummary:
+                              _compensationSummary(_activeRequest!),
+                        )
+                      else if (_nextApprovedRequest != null)
+                        _ApprovedWfaCard(
+                          request: _nextApprovedRequest!,
+                          compensationSummary:
+                              _compensationSummary(_nextApprovedRequest!),
+                          onStart: () =>
+                              _startApprovedSession(_nextApprovedRequest!),
+                          isBusy: _isChangingSessionState,
+                        )
+                      else
+                        const EmptyState(
+                          icon: Icons.laptop_mac_rounded,
+                          title: 'Belum ada sesi aktif',
+                          message:
+                              'Ajukan WFA dulu. Setelah ada request yang disetujui, sesi kerja bisa dimulai dari approval tersebut.',
+                        ),
+                    ],
+                  ),
+                ),
+                if (_activeRequest != null) ...[
+                  const SizedBox(height: 24),
+                  _WfaSectionCard(
+                    title: 'Update Task & Bukti',
+                    subtitle:
+                        'Unggah progres kerja dengan teks singkat dan lampiran foto dari kamera atau galeri.',
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _updateController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            hintText:
+                                'Tulis progres kerja, hasil meeting, atau follow-up terbaru',
+                          ),
+                        ),
+                        if (_pendingAttachment != null) ...[
+                          const SizedBox(height: 12),
+                          _AttachmentPreview(
+                            file: _pendingAttachment!,
+                            label: _pendingAttachmentLabel ?? 'Lampiran',
+                            onRemove: () {
+                              setState(() {
+                                _pendingAttachment = null;
+                                _pendingAttachmentLabel = null;
+                              });
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () =>
+                                    _pickUpdateImage(ImageSource.gallery),
+                                icon: const Icon(Icons.photo_library_rounded),
+                                label: const Text('Galeri'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () =>
+                                    _pickUpdateImage(ImageSource.camera),
+                                icon: const Icon(Icons.photo_camera_rounded),
+                                label: const Text('Kamera'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _isUpdatingTask ? null : _addUpdate,
+                                child: Text(
+                                  _isUpdatingTask
+                                      ? 'Mengirim...'
+                                      : 'Tambah Update',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: _isChangingSessionState
+                                    ? null
+                                    : _finishSession,
+                                child: Text(
+                                  _isChangingSessionState
+                                      ? 'Memproses...'
+                                      : 'Selesaikan WFA',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                _WfaSectionCard(
+                  title: 'Riwayat Pengajuan',
+                  subtitle:
+                      'Semua request WFA reguler dan overtime tersimpan di sini lengkap dengan status, kompensasi, dan detailnya.',
+                  child: requests.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.history_rounded,
+                          title: 'Belum ada pengajuan',
+                          message:
+                              'Pengajuan WFA dan overtime akan muncul di sini.',
+                        )
+                      : Column(
+                          children: [
+                            for (var i = 0; i < requests.length; i++) ...[
+                              _WfaHistoryItem(
+                                request: requests[i],
+                                onTap: () => _showRequestDetail(requests[i]),
+                              ),
+                              if (i != requests.length - 1)
+                                const Divider(height: 24),
+                            ],
+                          ],
+                        ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -482,8 +504,9 @@ class _WfhPageState extends State<WfhPage> {
 
     setState(() {
       _pendingAttachment = image;
-      _pendingAttachmentLabel =
-          source == ImageSource.camera ? 'Foto dari kamera' : 'Foto dari galeri';
+      _pendingAttachmentLabel = source == ImageSource.camera
+          ? 'Foto dari kamera'
+          : 'Foto dari galeri';
     });
   }
 
@@ -513,7 +536,8 @@ class _WfhPageState extends State<WfhPage> {
       requesterRole: widget.session.role,
       mode: _selectedRequestType.toRecordMode(),
       compensationMode: _selectedCompensation.toRecordMode(),
-      workDate: _selectedWorkDate ?? _parseDisplayDate(_workDateController.text.trim()),
+      workDate: _selectedWorkDate ??
+          _parseDisplayDate(_workDateController.text.trim()),
       startTime: _startPlanController.text.trim(),
       endTime: _endPlanController.text.trim(),
       locationLabel: _locationController.text.trim(),
@@ -601,7 +625,8 @@ class _WfhPageState extends State<WfhPage> {
     final text = _updateController.text.trim();
     if (text.isEmpty && _pendingAttachment == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Isi update task atau lampirkan foto dulu')),
+        const SnackBar(
+            content: Text('Isi update task atau lampirkan foto dulu')),
       );
       return;
     }
@@ -792,7 +817,8 @@ class _WfhPageState extends State<WfhPage> {
     return WfaTaskUpdate(
       time: _formatTime(update.createdAt),
       text: update.message,
-      attachmentPath: update.attachments.isEmpty ? null : update.attachments.first.url,
+      attachmentPath:
+          update.attachments.isEmpty ? null : update.attachments.first.url,
       attachmentLabel:
           update.attachments.isEmpty ? null : update.attachments.first.fileName,
     );
@@ -1199,7 +1225,8 @@ class _RequestTypeBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isOvertime = type == WfaRequestType.overtime;
-    final color = isOvertime ? const Color(0xFFB45309) : theme.colorScheme.primary;
+    final color =
+        isOvertime ? const Color(0xFFB45309) : theme.colorScheme.primary;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1349,7 +1376,8 @@ class _ApprovedWfaCard extends StatelessWidget {
                   style: theme.textTheme.titleMedium,
                 ),
               ),
-              StatusBadge(label: request.status.label, color: request.status.color),
+              StatusBadge(
+                  label: request.status.label, color: request.status.color),
             ],
           ),
           const SizedBox(height: 8),
@@ -1418,7 +1446,8 @@ class _ActiveWfaCard extends StatelessWidget {
                   style: theme.textTheme.titleMedium,
                 ),
               ),
-              StatusBadge(label: request.status.label, color: request.status.color),
+              StatusBadge(
+                  label: request.status.label, color: request.status.color),
             ],
           ),
           const SizedBox(height: 10),
@@ -1462,7 +1491,8 @@ class _AttachmentPreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color:
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -1553,7 +1583,8 @@ class _WfaHistoryItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            StatusBadge(label: request.status.label, color: request.status.color),
+            StatusBadge(
+                label: request.status.label, color: request.status.color),
           ],
         ),
       ),

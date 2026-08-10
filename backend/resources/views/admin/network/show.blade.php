@@ -50,7 +50,7 @@
             <h3 style="margin-top:0;">Informasi Profil</h3>
             <div class="detail-list">
                 <div class="detail-item"><strong>ID</strong><span>{{ $profile->id }}</span></div>
-                <div class="detail-item"><strong>Owner</strong><span>{{ $profile->owner_name }} ({{ strtoupper($profile->owner_role) }})</span></div>
+                <div class="detail-item"><strong>Owner</strong><span>{{ $profile->owner_name }} ({{ \App\Support\Workflow\UserRole::label($profile->owner_role) }})</span></div>
                 <div class="detail-item"><strong>Bidang Usaha</strong><span>{{ $profile->business_type ?: '-' }}</span></div>
                 <div class="detail-item"><strong>Alamat</strong><span>{{ $profile->address ?: '-' }}</span></div>
                 <div class="detail-item"><strong>No. HP</strong><span>{{ $profile->phone_number ?: '-' }}</span></div>

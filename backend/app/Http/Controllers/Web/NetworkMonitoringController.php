@@ -56,7 +56,7 @@ class NetworkMonitoringController extends Controller
                     $profile->type,
                     $profile->name,
                     $profile->owner_name,
-                    $profile->owner_role,
+                    UserRole::label($profile->owner_role),
                     $profile->area_name,
                     $profile->status,
                     $profile->business_type,
@@ -81,8 +81,8 @@ class NetworkMonitoringController extends Controller
             'summary' => $summary,
             'filters' => $filters,
             'ownerRoles' => [
-                UserRole::FGG => 'FGG',
-                UserRole::AREA_MANAGER => 'Area Manager',
+                UserRole::FGG => UserRole::label(UserRole::FGG),
+                UserRole::AREA_MANAGER => UserRole::label(UserRole::AREA_MANAGER),
             ],
             'types' => [
                 'ukm' => 'UKM',

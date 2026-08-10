@@ -78,13 +78,13 @@
                         <td>
                             <div class="stack">
                                 <span>{{ $reference?->requester_name ?? '-' }}</span>
-                                <span class="muted">{{ strtoupper($reference?->requester_role ?? '-') }}</span>
+                                <span class="muted">{{ \App\Support\Workflow\UserRole::label($reference?->requester_role) }}</span>
                             </div>
                         </td>
                         <td>
                             <div class="stack">
                                 <span>{{ $step->approver_name }}</span>
-                                <span class="muted">{{ strtoupper($step->approver_role) }}</span>
+                                <span class="muted">{{ \App\Support\Workflow\UserRole::label($step->approver_role) }}</span>
                             </div>
                         </td>
                         <td><span class="pill {{ $step->status === 'approved' ? 'success' : ($step->status === 'rejected' ? 'danger' : 'warning') }}">{{ $step->status }}</span></td>
