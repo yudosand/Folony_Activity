@@ -3,6 +3,7 @@ class BackendConfig {
     required this.workflowRemoteEnabled,
     required this.baseUrl,
     required this.demoModeEnabled,
+    required this.environmentLabel,
   });
 
   factory BackendConfig.fromEnvironment() {
@@ -19,10 +20,18 @@ class BackendConfig {
         'HEX_ENABLE_DEMO_MODE',
         defaultValue: false,
       ),
+      environmentLabel: String.fromEnvironment(
+        'HEX_APP_ENV_LABEL',
+        defaultValue: 'PRODUCTION',
+      ),
     );
   }
 
   final bool workflowRemoteEnabled;
   final String baseUrl;
   final bool demoModeEnabled;
+  final String environmentLabel;
+
+  bool get isProduction =>
+      environmentLabel.trim().toUpperCase() == 'PRODUCTION';
 }

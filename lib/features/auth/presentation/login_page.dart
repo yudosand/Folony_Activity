@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_controller.dart';
+import '../../../core/config/backend_config.dart';
 import '../../../core/enums/app_role.dart';
 
 class LoginPage extends StatefulWidget {
@@ -34,6 +35,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final backendConfig = BackendConfig.fromEnvironment();
 
     return Scaffold(
       body: SafeArea(
@@ -62,12 +64,44 @@ class _LoginPageState extends State<LoginPage> {
                       children: const [
                         TextSpan(text: 'Bangun aktivitas kerja yang '),
                         TextSpan(
-                          text: 'jujur, disiplin, mandiri, dan penuh tanggung jawab.',
+                          text:
+                              'jujur, disiplin, mandiri, dan penuh tanggung jawab.',
                           style: TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),
                   ),
+                  if (!backendConfig.isProduction) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3CD),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFFFD166)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            backendConfig.environmentLabel.toUpperCase(),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: const Color(0xFF7A4B00),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            backendConfig.baseUrl,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFF7A4B00),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 30),
                   Text('Login', style: theme.textTheme.titleLarge),
                   const SizedBox(height: 14),
@@ -115,7 +149,8 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 18),
                   FilledButton(
-                    onPressed: widget.controller.isAuthenticating ? null : _login,
+                    onPressed:
+                        widget.controller.isAuthenticating ? null : _login,
                     child: Text(
                       widget.controller.isAuthenticating
                           ? 'Memproses...'
