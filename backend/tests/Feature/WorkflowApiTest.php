@@ -42,6 +42,8 @@ class WorkflowApiTest extends TestCase
             ->assertJsonPath('data.status', 'pending');
 
         $this->assertCount(2, $response->json('data.approval_steps'));
+        $this->assertSame('usr_spv_001', $response->json('data.approval_steps.0.approver_id'));
+        $this->assertSame('usr_mgt_001', $response->json('data.approval_steps.1.approver_id'));
     }
 
     public function test_management_inbox_returns_pending_leave_after_spv_approval(): void

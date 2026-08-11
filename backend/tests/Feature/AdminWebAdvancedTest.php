@@ -357,6 +357,7 @@ class AdminWebAdvancedTest extends TestCase
                 'work_location' => $employee->work_location,
                 'attendance_work_area_id' => 'work_area_ho',
                 'territory_rules_payload' => json_encode($rules, JSON_UNESCAPED_UNICODE),
+                'management_id' => 'usr_mgt_001',
                 'leave_balance_days' => 10,
                 'joined_at' => optional($employee->joined_at)->format('Y-m-d'),
                 'is_active' => '1',

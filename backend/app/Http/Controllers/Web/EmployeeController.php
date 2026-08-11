@@ -317,6 +317,13 @@ class EmployeeController extends Controller
             'password' => [$employee ? 'nullable' : 'required', 'string', 'min:6'],
         ]);
 
+        if (blank($payload['spv_id'] ?? null) && blank($payload['management_id'] ?? null)) {
+            throw ValidationException::withMessages([
+                'spv_id' => 'Minimal isi SPV atau Management sebagai approver.',
+                'management_id' => 'Minimal isi SPV atau Management sebagai approver.',
+            ]);
+        }
+
         $attendanceWorkArea = AttendanceWorkArea::query()->find($payload['attendance_work_area_id']);
         if ($attendanceWorkArea) {
             $payload['work_location'] = $attendanceWorkArea->name;

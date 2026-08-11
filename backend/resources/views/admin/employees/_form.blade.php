@@ -138,6 +138,7 @@
             @endforeach
         </select>
     </div>
+    <p class="muted full" style="margin:0;">Minimal isi salah satu approver. Jika SPV dan Management sama-sama diisi, request wajib disetujui SPV lalu Management.</p>
     <div>
         <label for="leave_balance_days">Saldo Cuti</label>
         <input id="leave_balance_days" name="leave_balance_days" type="number" step="0.5" min="0" value="{{ old('leave_balance_days', $employee->leave_balance_days ?? 12) }}" required>
