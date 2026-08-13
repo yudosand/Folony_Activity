@@ -191,6 +191,7 @@
         const addRuleButton = document.getElementById('territory_add_rule');
         const ruleList = document.getElementById('territory_rule_list');
         const initialRules = Array.isArray(@json($territoryRules)) ? @json($territoryRules) : [];
+        const ALL_TERRITORIES = '__all__';
         const normalizeValue = (value) => (value || '').trim().toLowerCase().replace(/\s+/g, ' ');
         let rules = initialRules
             .filter((item) => item && typeof item === 'object')
@@ -221,13 +222,21 @@
             return values.find((value) => normalizeValue(pickName(value)) === normalizedPreferred) ?? null;
         };
 
-        const replaceOptions = (select, values, { placeholder = null } = {}) => {
+        const replaceOptions = (select, values, { placeholder = null, allLabel = null } = {}) => {
             select.innerHTML = '';
 
             if (placeholder !== null) {
                 const option = document.createElement('option');
                 option.value = '';
                 option.textContent = placeholder;
+                select.appendChild(option);
+            }
+
+            if (allLabel !== null) {
+                const option = document.createElement('option');
+                option.value = ALL_TERRITORIES;
+                option.textContent = allLabel;
+                option.dataset.code = ALL_TERRITORIES;
                 select.appendChild(option);
             }
 
@@ -241,8 +250,12 @@
         };
 
         const selectedCode = (select) => select.selectedOptions[0]?.dataset.code ?? '';
+        const isAllSelected = (select) => select.value === ALL_TERRITORIES;
         const selectedName = (select) => {
             const value = select.value?.trim();
+            if (value === ALL_TERRITORIES) {
+                return null;
+            }
             return value ? value : null;
         };
 
@@ -263,6 +276,9 @@
         };
 
         const inferScope = (rule) => {
+            if (rule.territory_scope === 'all') {
+                return 'all';
+            }
             if (rule.territory_subdistrict) {
                 return 'subdistrict';
             }
@@ -279,6 +295,10 @@
         };
 
         const ruleLabel = (rule) => {
+            if ((rule.territory_scope || inferScope(rule)) === 'all') {
+                return 'Semua provinsi';
+            }
+
             return [
                 rule.territory_province,
                 rule.territory_city,
@@ -355,13 +375,21 @@
         };
 
         const setSelectValue = (select, preferred, items) => {
+            if (preferred === ALL_TERRITORIES || preferred === 'all') {
+                select.value = ALL_TERRITORIES;
+                return;
+            }
+
             const canonical = findCanonical(items, preferred);
             select.value = canonical?.name ?? '';
         };
 
         const loadProvinces = async (preferred = null) => {
             const provinces = await requestJson('/api/territories/provinces');
-            replaceOptions(provinceInput, provinces, { placeholder: '- Pilih Provinsi -' });
+            replaceOptions(provinceInput, provinces, {
+                placeholder: '- Pilih Provinsi -',
+                allLabel: '- Semua Provinsi -',
+            });
             setSelectValue(provinceInput, preferred, provinces);
             return provinces;
         };
@@ -369,11 +397,12 @@
         const loadCities = async (preferred = null) => {
             const provinceCode = selectedCode(provinceInput);
             const cities = provinceCode
+                && provinceCode !== ALL_TERRITORIES
                 ? await requestJson(`/api/territories/cities?province_code=${encodeURIComponent(provinceCode)}`)
                 : [];
             replaceOptions(cityInput, cities, { placeholder: '- Semua Kota/Kabupaten dalam Provinsi -' });
             setSelectValue(cityInput, preferred, cities);
-            cityInput.disabled = !provinceCode;
+            cityInput.disabled = !provinceCode || provinceCode === ALL_TERRITORIES;
             return cities;
         };
 
@@ -412,6 +441,12 @@
 
         provinceInput?.addEventListener('change', async () => {
             resetLower([cityInput, districtInput, subdistrictInput]);
+            if (isAllSelected(provinceInput)) {
+                cityInput.disabled = true;
+                districtInput.disabled = true;
+                subdistrictInput.disabled = true;
+                return;
+            }
             await loadCities();
             await loadDistricts();
             await loadSubdistricts();
@@ -431,7 +466,7 @@
         addRuleButton?.addEventListener('click', () => {
             const rule = {
                 rule_type: ruleTypeInput.value === 'exclude' ? 'exclude' : 'include',
-                territory_scope: null,
+                territory_scope: isAllSelected(provinceInput) ? 'all' : null,
                 territory_province: selectedName(provinceInput),
                 territory_city: selectedName(cityInput),
                 territory_district: selectedName(districtInput),
@@ -440,7 +475,12 @@
 
             rule.territory_scope = inferScope(rule);
 
-            if (!rule.territory_province || !rule.territory_scope) {
+            if (rule.territory_scope === 'all' && rule.rule_type === 'exclude') {
+                window.alert('Rule exclude tidak bisa menggunakan semua provinsi.');
+                return;
+            }
+
+            if (rule.territory_scope !== 'all' && (!rule.territory_province || !rule.territory_scope)) {
                 window.alert('Pilih minimal provinsi sebelum menambahkan rule wilayah.');
                 return;
             }
@@ -473,7 +513,7 @@
         });
 
         const bootstrap = async () => {
-            await loadProvinces(rules[0]?.territory_province || null);
+            await loadProvinces(rules[0]?.territory_scope === 'all' ? ALL_TERRITORIES : (rules[0]?.territory_province || null));
             await loadCities(rules[0]?.territory_city || null);
             await loadDistricts(rules[0]?.territory_district || null);
             await loadSubdistricts(rules[0]?.territory_subdistrict || null);

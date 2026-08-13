@@ -48,12 +48,13 @@ class _FaceScanPageState extends State<FaceScanPage>
     vsync: this,
     duration: const Duration(milliseconds: 1800),
   )..repeat(reverse: true);
-  late final FaceScanEngine _engine = widget.scenario == FaceScanScenario.enrollment
-      ? FaceScanEngine.enrollment()
-      : FaceScanEngine.verification(
-          actionLabel: _verificationLabel.toLowerCase(),
-          turnChallenge: _verificationTurnChallenge,
-        );
+  late final FaceScanEngine _engine =
+      widget.scenario == FaceScanScenario.enrollment
+          ? FaceScanEngine.enrollment()
+          : FaceScanEngine.verification(
+              actionLabel: _verificationLabel.toLowerCase(),
+              turnChallenge: _verificationTurnChallenge,
+            );
   late final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
       performanceMode: FaceDetectorMode.fast,
@@ -146,8 +147,8 @@ class _FaceScanPageState extends State<FaceScanPage>
               completedSteps: completedSteps,
               totalSteps: totalSteps,
               currentLabel: currentChallenge?.label ?? 'Selesai',
-              instruction:
-                  currentChallenge?.instruction ?? 'Scan wajah selesai diproses.',
+              instruction: currentChallenge?.instruction ??
+                  'Scan wajah selesai diproses.',
               statusText: _statusText,
             ),
             const SizedBox(height: 14),
@@ -374,9 +375,8 @@ class _FaceScanPageState extends State<FaceScanPage>
         selectedCamera,
         ResolutionPreset.medium,
         enableAudio: false,
-        imageFormatGroup: Platform.isIOS
-            ? ImageFormatGroup.bgra8888
-            : ImageFormatGroup.nv21,
+        imageFormatGroup:
+            Platform.isIOS ? ImageFormatGroup.bgra8888 : ImageFormatGroup.nv21,
       );
 
       await controller.initialize();

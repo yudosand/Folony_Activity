@@ -10,6 +10,7 @@ import '../../../app/app_controller.dart';
 import '../../../core/models/app_session.dart';
 import '../../../core/models/attendance_record.dart';
 import '../../../core/models/face_verification_result.dart';
+import '../../../core/network/human_readable_error.dart';
 import '../../../core/services/attendance_policy.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -243,132 +244,6 @@ class _AttendancePageState extends State<AttendancePage> {
                 errorText: _locationError,
               ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE7E5E4)),
-                ),
-                child: Column(
-                  children: [
-                    if (_sessionSummary != null) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            _isFinished
-                                ? Icons.task_alt_rounded
-                                : Icons.verified_user_rounded,
-                            size: 18,
-                            color: _isFinished
-                                ? Colors.teal
-                                : theme.colorScheme.primary,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _sessionSummary!,
-                                  style: theme.textTheme.titleSmall,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _sessionSubSummary,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 24),
-                    ],
-                    _MetricLine(
-                      label: _hasActiveOutsideOffice ||
-                              _sessionState
-                                      .latestCompletedOutsideOfficeFinish !=
-                                  null
-                          ? 'Mulai Kunjungan'
-                          : 'Check-in',
-                      value: _formatTime(_checkInRecord?.recordedAt),
-                      note: insight.arrivalNote,
-                    ),
-                    const Divider(height: 24),
-                    _MetricLine(
-                      label: 'Lokasi',
-                      value: _locationMetricValue,
-                      note: _locationMetricNote,
-                    ),
-                    const Divider(height: 24),
-                    _MetricLine(
-                      label: 'Rule Hari Ini',
-                      value: _hasActiveOutsideOffice ||
-                              _sessionState
-                                      .latestCompletedOutsideOfficeFinish !=
-                                  null
-                          ? 'Absensi luar kantor'
-                          : insight.summaryLabel,
-                      note: _hasActiveOutsideOffice ||
-                              _sessionState
-                                      .latestCompletedOutsideOfficeFinish !=
-                                  null
-                          ? _outsideOfficeSummaryNote
-                          : insight.departureNote,
-                    ),
-                    const Divider(height: 24),
-                    _MetricLine(
-                      label: 'Verifikasi Wajah',
-                      value: _latestFaceCapturePath == null
-                          ? 'Belum ada'
-                          : 'Lolos',
-                      note: _latestFaceCapturePath == null
-                          ? 'Scan wajah dibutuhkan saat aksi absensi'
-                          : 'Capture audit sudah siap',
-                    ),
-                    const Divider(height: 24),
-                    _MetricLine(
-                      label: 'Durasi',
-                      value: _durationText,
-                      note: insight.summaryNote,
-                    ),
-                  ],
-                ),
-              ),
-              if (insight.contextNotes.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withValues(
-                      alpha: 0.28,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Sinkronisasi WFA',
-                          style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      for (var i = 0; i < insight.contextNotes.length; i++) ...[
-                        _RuleTile(text: insight.contextNotes[i]),
-                        if (i != insight.contextNotes.length - 1)
-                          const SizedBox(height: 10),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              _FacePreviewLine(
-                faceCapturePath: _latestFaceCapturePath,
-              ),
-              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -421,6 +296,161 @@ class _AttendancePageState extends State<AttendancePage> {
                       ),
                     ),
                   ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              _FacePreviewLine(
+                faceCapturePath: _latestFaceCapturePath,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE7E5E4)),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Theme(
+                    data: theme.copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      initiallyExpanded: true,
+                      tilePadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      leading: const Icon(Icons.fact_check_outlined),
+                      title: Text(
+                        'Data Absensi Hari Ini',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      subtitle: Text(
+                        'Check-in, lokasi, verifikasi wajah, dan durasi kerja.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      children: [
+                        Column(
+                          children: [
+                            if (_sessionSummary != null) ...[
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    _isFinished
+                                        ? Icons.task_alt_rounded
+                                        : Icons.verified_user_rounded,
+                                    size: 18,
+                                    color: _isFinished
+                                        ? Colors.teal
+                                        : theme.colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _sessionSummary!,
+                                          style: theme.textTheme.titleSmall,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _sessionSubSummary,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 24),
+                            ],
+                            _MetricLine(
+                              label: _hasActiveOutsideOffice ||
+                                      _sessionState
+                                              .latestCompletedOutsideOfficeFinish !=
+                                          null
+                                  ? 'Mulai Kunjungan'
+                                  : 'Check-in',
+                              value: _formatTime(_checkInRecord?.recordedAt),
+                              note: insight.arrivalNote,
+                            ),
+                            const Divider(height: 24),
+                            _MetricLine(
+                              label: 'Lokasi',
+                              value: _locationMetricValue,
+                              note: _locationMetricNote,
+                            ),
+                            const Divider(height: 24),
+                            _MetricLine(
+                              label: 'Rule Hari Ini',
+                              value: _hasActiveOutsideOffice ||
+                                      _sessionState
+                                              .latestCompletedOutsideOfficeFinish !=
+                                          null
+                                  ? 'Absensi luar kantor'
+                                  : insight.summaryLabel,
+                              note: _hasActiveOutsideOffice ||
+                                      _sessionState
+                                              .latestCompletedOutsideOfficeFinish !=
+                                          null
+                                  ? _outsideOfficeSummaryNote
+                                  : insight.departureNote,
+                            ),
+                            const Divider(height: 24),
+                            _MetricLine(
+                              label: 'Verifikasi Wajah',
+                              value: _latestFaceCapturePath == null
+                                  ? 'Belum ada'
+                                  : 'Lolos',
+                              note: _latestFaceCapturePath == null
+                                  ? 'Scan wajah dibutuhkan saat aksi absensi'
+                                  : 'Capture audit sudah siap',
+                            ),
+                            const Divider(height: 24),
+                            _MetricLine(
+                              label: 'Durasi',
+                              value: _durationText,
+                              note: insight.summaryNote,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (insight.contextNotes.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.28,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Sinkronisasi WFA',
+                          style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      for (var i = 0; i < insight.contextNotes.length; i++) ...[
+                        _RuleTile(text: insight.contextNotes[i]),
+                        if (i != insight.contextNotes.length - 1)
+                          const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
                 ),
               ],
               const SizedBox(height: 20),
@@ -1087,7 +1117,9 @@ class _AttendancePageState extends State<AttendancePage> {
       if (!mounted) {
         return;
       }
-      _showAttendanceSnackBar('Absensi luar kantor gagal: $error');
+      _showAttendanceSnackBar(
+        'Absensi luar kantor gagal: ${humanReadableError(error, action: 'menyimpan absensi luar kantor')}',
+      );
     } finally {
       if (mounted) {
         setState(() => _isOutsideOfficeSubmitting = false);
@@ -1211,7 +1243,9 @@ class _AttendancePageState extends State<AttendancePage> {
       if (!mounted) {
         return;
       }
-      _showAttendanceSnackBar('Gagal menyimpan check-out luar kantor: $error');
+      _showAttendanceSnackBar(
+        'Gagal menyimpan check-out luar kantor: ${humanReadableError(error, action: 'menyimpan check-out luar kantor')}',
+      );
     } finally {
       if (mounted) {
         setState(() => _isOutsideOfficeSubmitting = false);
@@ -1251,8 +1285,7 @@ class _AttendancePageState extends State<AttendancePage> {
             }
 
             void showValidationError() {
-              const message =
-                  'Lengkapi lokasi/keperluan dan foto dokumentasi.';
+              const message = 'Lengkapi lokasi/keperluan dan foto dokumentasi.';
               setModalState(() => validationError = message);
               final messenger = ScaffoldMessenger.of(context);
               messenger.clearSnackBars();
@@ -1306,17 +1339,12 @@ class _AttendancePageState extends State<AttendancePage> {
                             icon: const Icon(Icons.photo_camera_rounded),
                             label: const Text('Kamera'),
                           ),
-                          OutlinedButton.icon(
-                            onPressed: () => pickEvidence(ImageSource.gallery),
-                            icon: const Icon(Icons.photo_library_rounded),
-                            label: const Text('Galeri'),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       if (evidencePath == null)
                         Text(
-                          'Dokumentasi foto kamera atau galeri wajib diisi.',
+                          'Dokumentasi foto wajib diambil dari kamera HP.',
                           style: Theme.of(context).textTheme.bodySmall,
                         )
                       else
@@ -1346,15 +1374,13 @@ class _AttendancePageState extends State<AttendancePage> {
                           ),
                           child: Text(
                             validationError!,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onErrorContainer,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onErrorContainer,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                           ),
                         ),
                       ],

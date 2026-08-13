@@ -45,7 +45,8 @@ class AttendancePolicy {
     }).toList();
 
     final shiftCompensationOvertime = overtimeWfa
-        .where((item) => item.compensationMode == WfaCompensationMode.shiftMundur)
+        .where(
+            (item) => item.compensationMode == WfaCompensationMode.shiftMundur)
         .toList();
 
     final startBoundary = _timeOnDate(now, officeStart);
@@ -63,9 +64,10 @@ class AttendancePolicy {
         checkInAt != null && checkInAt.isBefore(startBoundary)
             ? startBoundary.difference(checkInAt)
             : Duration.zero;
-    final earlyLeaveDuration = checkOutAt != null && checkOutAt.isBefore(endBoundary)
-        ? endBoundary.difference(checkOutAt)
-        : Duration.zero;
+    final earlyLeaveDuration =
+        checkOutAt != null && checkOutAt.isBefore(endBoundary)
+            ? endBoundary.difference(checkOutAt)
+            : Duration.zero;
     final attendanceOvertime =
         checkOutAt != null && checkOutAt.isAfter(endBoundary)
             ? checkOutAt.difference(endBoundary)
@@ -129,7 +131,8 @@ class AttendancePolicy {
             officeStart,
             shiftCompensationOvertime.fold<Duration>(
               Duration.zero,
-              (sum, item) => sum + _windowDuration(item.startTime, item.endTime),
+              (sum, item) =>
+                  sum + _windowDuration(item.startTime, item.endTime),
             ),
           );
 

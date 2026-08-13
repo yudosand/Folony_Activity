@@ -8,6 +8,7 @@ import '../../../core/enums/app_role.dart';
 import '../../../core/models/app_session.dart';
 import '../../../core/models/approval_step.dart';
 import '../../../core/models/wfa_request_record.dart' as wfa_model;
+import '../../../core/network/human_readable_error.dart';
 import '../../../core/widgets/adaptive_image.dart';
 import '../../../core/widgets/approval_step_list.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -55,11 +56,9 @@ class _WfhPageState extends State<WfhPage> {
       .map(_mapRequest)
       .toList();
 
-  bool get _showSpvField => widget.session.role == AppRole.staff;
-  bool get _showManagementField =>
-      widget.session.role == AppRole.staff ||
-      widget.session.role == AppRole.spv ||
-      widget.session.role == AppRole.areaManager;
+  bool get _showSpvField => widget.session.spvOptions.isNotEmpty;
+  bool get _showManagementField => widget.session.managementOptions.isNotEmpty;
+  bool get _hasConfiguredApprover => _showSpvField || _showManagementField;
 
   WfaRequest? get _activeRequest {
     for (final request in _requests) {
@@ -162,6 +161,8 @@ class _WfhPageState extends State<WfhPage> {
                 _WfaSectionCard(
                   title: 'Pengajuan WFA',
                   subtitle: _approvalHint,
+                  collapsible: true,
+                  initiallyExpanded: _activeRequest == null,
                   child: Column(
                     children: [
                       _SelectionLine<WfaRequestType>(
@@ -481,16 +482,19 @@ class _WfhPageState extends State<WfhPage> {
   }
 
   String get _approvalHint {
-    switch (widget.session.role) {
-      case AppRole.staff:
-        return 'Pengajuan WFA staff akan diteruskan ke SPV lalu Management. Update task, bukti foto, dan overtime tetap melekat ke request yang disetujui.';
-      case AppRole.spv:
-        return 'Pengajuan WFA SPV akan diteruskan ke Management. Overtime malam bisa diajukan agar kompensasinya terdokumentasi.';
-      case AppRole.areaManager:
-        return 'Pengajuan WFA Area Manager akan diteruskan langsung ke Management, termasuk jika ada meeting malam atau overtime di luar jam kerja.';
-      default:
-        return 'Pengajuan WFA management dicatat sebagai mock monitoring. Approval chain bisa disambungkan ke struktur final nanti.';
+    if (!_hasConfiguredApprover) {
+      return 'Belum ada approver di data karyawan. HR perlu mengisi minimal SPV atau Management agar WFA bisa diajukan.';
     }
+
+    if (_showSpvField && _showManagementField) {
+      return 'Pengajuan WFA akan diteruskan ke SPV lalu Management. Update task, bukti foto, dan overtime tetap melekat ke request yang disetujui.';
+    }
+
+    if (_showSpvField) {
+      return 'Pengajuan WFA akan diteruskan ke SPV yang ditetapkan HR.';
+    }
+
+    return 'Pengajuan WFA akan diteruskan ke Management yang ditetapkan HR.';
   }
 
   Future<void> _pickUpdateImage(ImageSource source) async {
@@ -512,6 +516,14 @@ class _WfhPageState extends State<WfhPage> {
 
   Future<void> _submitRequest() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    if (!_hasConfiguredApprover) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Minimal satu approver harus diatur oleh HR.'),
+        ),
+      );
       return;
     }
     if (_showSpvField && (_selectedSpv == null || _selectedSpv!.isEmpty)) {
@@ -571,7 +583,11 @@ class _WfhPageState extends State<WfhPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Pengajuan WFA gagal: $error')),
+        SnackBar(
+          content: Text(
+            'Pengajuan WFA gagal: ${humanReadableError(error, action: 'mengajukan WFA')}',
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -581,15 +597,15 @@ class _WfhPageState extends State<WfhPage> {
   }
 
   String get _submissionSuccessMessage {
-    switch (widget.session.role) {
-      case AppRole.staff:
-        return 'Pengajuan WFA masuk dan menunggu approval SPV lalu Management';
-      case AppRole.spv:
-      case AppRole.areaManager:
-        return 'Pengajuan WFA masuk dan menunggu approval Management';
-      default:
-        return 'Pengajuan WFA langsung tercatat untuk monitoring';
+    final approvalSteps = _approvalStepsForRequest;
+    if (approvalSteps.isEmpty) {
+      return 'Pengajuan WFA tercatat untuk monitoring';
     }
+    if (approvalSteps.length == 1) {
+      return 'Pengajuan WFA masuk dan menunggu approval ${approvalSteps.first.approverName}';
+    }
+
+    return 'Pengajuan WFA masuk dan menunggu approval SPV lalu Management';
   }
 
   Future<void> _startApprovedSession(WfaRequest request) async {
@@ -607,7 +623,11 @@ class _WfhPageState extends State<WfhPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal memulai sesi WFA: $error')),
+        SnackBar(
+          content: Text(
+            'Gagal memulai sesi WFA: ${humanReadableError(error, action: 'memulai sesi WFA')}',
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -649,12 +669,19 @@ class _WfhPageState extends State<WfhPage> {
         _pendingAttachment = null;
         _pendingAttachmentLabel = null;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Update task WFA berhasil tersimpan.')),
+      );
     } catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Update task gagal: $error')),
+        SnackBar(
+          content: Text(
+            'Update task gagal: ${humanReadableError(error, action: 'menyimpan update WFA')}',
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -692,7 +719,11 @@ class _WfhPageState extends State<WfhPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menyelesaikan WFA: $error')),
+        SnackBar(
+          content: Text(
+            'Gagal menyelesaikan WFA: ${humanReadableError(error, action: 'menyelesaikan WFA')}',
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -702,38 +733,30 @@ class _WfhPageState extends State<WfhPage> {
   }
 
   List<ApprovalStep> get _approvalStepsForRequest {
-    switch (widget.session.role) {
-      case AppRole.staff:
-        return [
-          ApprovalStep(
-            sequence: 1,
-            approverRole: AppRole.spv,
-            approverId: _ownerKeyFor(AppRole.spv, _selectedSpv!),
-            approverName: _selectedSpv,
-            status: ApprovalStepStatus.pending,
-          ),
-          ApprovalStep(
-            sequence: 2,
-            approverRole: AppRole.management,
-            approverId: _ownerKeyFor(AppRole.management, _selectedManagement!),
-            approverName: _selectedManagement,
-            status: ApprovalStepStatus.pending,
-          ),
-        ];
-      case AppRole.spv:
-      case AppRole.areaManager:
-        return [
-          ApprovalStep(
-            sequence: 1,
-            approverRole: AppRole.management,
-            approverId: _ownerKeyFor(AppRole.management, _selectedManagement!),
-            approverName: _selectedManagement,
-            status: ApprovalStepStatus.pending,
-          ),
-        ];
-      default:
-        return const [];
+    final steps = <ApprovalStep>[];
+    if (_showSpvField && _selectedSpv != null && _selectedSpv!.isNotEmpty) {
+      steps.add(ApprovalStep(
+        sequence: steps.length + 1,
+        approverRole: AppRole.spv,
+        approverId:
+            widget.session.spvId ?? _ownerKeyFor(AppRole.spv, _selectedSpv!),
+        approverName: _selectedSpv,
+        status: ApprovalStepStatus.pending,
+      ));
     }
+    if (_showManagementField &&
+        _selectedManagement != null &&
+        _selectedManagement!.isNotEmpty) {
+      steps.add(ApprovalStep(
+        sequence: steps.length + 1,
+        approverRole: AppRole.management,
+        approverId: widget.session.managementId ??
+            _ownerKeyFor(AppRole.management, _selectedManagement!),
+        approverName: _selectedManagement,
+        status: ApprovalStepStatus.pending,
+      ));
+    }
+    return steps;
   }
 
   String _ownerKeyFor(AppRole role, String userName) {
@@ -1178,11 +1201,15 @@ class _WfaSectionCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.collapsible = false,
+    this.initiallyExpanded = true,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final bool collapsible;
+  final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -1195,21 +1222,45 @@ class _WfaSectionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE7E5E4)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+      child: collapsible
+          ? Material(
+              color: Colors.transparent,
+              child: Theme(
+                data: theme.copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  initiallyExpanded: initiallyExpanded,
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.keyboard_arrow_down_rounded),
+                  title: Text(title, style: theme.textTheme.titleMedium),
+                  subtitle: Text(
+                    subtitle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  children: [
+                    const SizedBox(height: 14),
+                    child,
+                  ],
+                ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.titleMedium),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                child,
+              ],
             ),
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
-      ),
     );
   }
 }
@@ -1467,6 +1518,21 @@ class _ActiveWfaCard extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 16),
+          Text('History Update', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 10),
+          if (request.updates.isEmpty)
+            Text(
+              'Belum ada update task. Setiap update yang dikirim selama sesi WFA akan muncul di sini.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            for (var i = 0; i < request.updates.length; i++) ...[
+              _TaskItem(update: request.updates[i]),
+              if (i != request.updates.length - 1) const Divider(height: 22),
+            ],
         ],
       ),
     );

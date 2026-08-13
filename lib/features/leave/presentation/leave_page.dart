@@ -9,6 +9,7 @@ import '../../../core/models/app_session.dart';
 import '../../../core/models/approval_step.dart';
 import '../../../core/models/leave_request_record.dart' as leave_model;
 import '../../../core/models/remote_attachment.dart';
+import '../../../core/network/human_readable_error.dart';
 import '../../../core/widgets/approval_step_list.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -51,11 +52,9 @@ class _LeavePageState extends State<LeavePage> {
       .map(_mapRequest)
       .toList();
 
-  bool get _showSpvField => widget.session.role == AppRole.staff;
-  bool get _showManagementField =>
-      widget.session.role == AppRole.staff ||
-      widget.session.role == AppRole.spv ||
-      widget.session.role == AppRole.areaManager;
+  bool get _showSpvField => widget.session.spvOptions.isNotEmpty;
+  bool get _showManagementField => widget.session.managementOptions.isNotEmpty;
+  bool get _hasConfiguredApprover => _showSpvField || _showManagementField;
 
   @override
   void initState() {
@@ -275,20 +274,35 @@ class _LeavePageState extends State<LeavePage> {
   }
 
   String get _approvalHint {
+    if (!_hasConfiguredApprover) {
+      return 'Approver belum diatur oleh HR. Hubungi HR sebelum mengajukan cuti atau izin.';
+    }
+
+    final approvers = [
+      if (_showSpvField) 'SPV',
+      if (_showManagementField) 'Management',
+    ].join(' lalu ');
+
     switch (widget.session.role) {
       case AppRole.staff:
-        return 'Pengajuan staff akan diteruskan ke SPV lalu Management sesuai struktur approval user ini.';
+        return 'Pengajuan staff akan diteruskan ke $approvers sesuai struktur approval user ini.';
       case AppRole.spv:
-        return 'Pengajuan SPV akan diteruskan ke Management sesuai struktur approval user ini.';
+        return 'Pengajuan SPV akan diteruskan ke $approvers sesuai struktur approval user ini.';
       case AppRole.areaManager:
-        return 'Pengajuan Area Manager akan diteruskan langsung ke Management, sama seperti SPV.';
+        return 'Pengajuan Area Manager akan diteruskan ke $approvers sesuai struktur approval user ini.';
       default:
-        return 'Form mock untuk pengajuan cuti atau izin sebelum backend.';
+        return 'Pengajuan akan diteruskan ke $approvers sesuai struktur approval user ini.';
     }
   }
 
   Future<void> _submitLeave() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    if (!_hasConfiguredApprover) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Approver belum diatur oleh HR.')),
+      );
       return;
     }
     if (_showSpvField && (_selectedSpv == null || _selectedSpv!.isEmpty)) {
@@ -357,7 +371,11 @@ class _LeavePageState extends State<LeavePage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Pengajuan gagal: $error')),
+        SnackBar(
+          content: Text(
+            'Pengajuan gagal: ${humanReadableError(error, action: 'mengajukan cuti/izin')}',
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -367,15 +385,14 @@ class _LeavePageState extends State<LeavePage> {
   }
 
   String get _submissionSuccessMessage {
-    switch (widget.session.role) {
-      case AppRole.staff:
-        return 'Pengajuan masuk dan menunggu approval SPV lalu Management';
-      case AppRole.spv:
-      case AppRole.areaManager:
-        return 'Pengajuan masuk dan menunggu approval Management';
-      default:
-        return 'Pengajuan langsung tercatat untuk monitoring';
+    final approvalSteps = _approvalStepsForRequest;
+    if (approvalSteps.isEmpty) {
+      return 'Pengajuan langsung tercatat untuk monitoring';
     }
+    if (approvalSteps.length == 1) {
+      return 'Pengajuan masuk dan menunggu approval ${approvalSteps.first.approverName}';
+    }
+    return 'Pengajuan masuk dan menunggu approval SPV lalu Management';
   }
 
   void _resetForm() {
@@ -478,38 +495,35 @@ class _LeavePageState extends State<LeavePage> {
   }
 
   List<ApprovalStep> get _approvalStepsForRequest {
-    switch (widget.session.role) {
-      case AppRole.staff:
-        return [
-          ApprovalStep(
-            sequence: 1,
-            approverRole: AppRole.spv,
-            approverId: _ownerKeyFor(AppRole.spv, _selectedSpv!),
-            approverName: _selectedSpv,
-            status: ApprovalStepStatus.pending,
-          ),
-          ApprovalStep(
-            sequence: 2,
-            approverRole: AppRole.management,
-            approverId: _ownerKeyFor(AppRole.management, _selectedManagement!),
-            approverName: _selectedManagement,
-            status: ApprovalStepStatus.pending,
-          ),
-        ];
-      case AppRole.spv:
-      case AppRole.areaManager:
-        return [
-          ApprovalStep(
-            sequence: 1,
-            approverRole: AppRole.management,
-            approverId: _ownerKeyFor(AppRole.management, _selectedManagement!),
-            approverName: _selectedManagement,
-            status: ApprovalStepStatus.pending,
-          ),
-        ];
-      default:
-        return const [];
+    final steps = <ApprovalStep>[];
+
+    if (_selectedSpv != null && _selectedSpv!.trim().isNotEmpty) {
+      steps.add(
+        ApprovalStep(
+          sequence: steps.length + 1,
+          approverRole: AppRole.spv,
+          approverId:
+              widget.session.spvId ?? _ownerKeyFor(AppRole.spv, _selectedSpv!),
+          approverName: _selectedSpv,
+          status: ApprovalStepStatus.pending,
+        ),
+      );
     }
+
+    if (_selectedManagement != null && _selectedManagement!.trim().isNotEmpty) {
+      steps.add(
+        ApprovalStep(
+          sequence: steps.length + 1,
+          approverRole: AppRole.management,
+          approverId: widget.session.managementId ??
+              _ownerKeyFor(AppRole.management, _selectedManagement!),
+          approverName: _selectedManagement,
+          status: ApprovalStepStatus.pending,
+        ),
+      );
+    }
+
+    return steps;
   }
 
   String _ownerKeyFor(AppRole role, String userName) {

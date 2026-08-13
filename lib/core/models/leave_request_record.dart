@@ -175,7 +175,8 @@ List<RemoteAttachment> _attachmentsFromJson(Object? value) {
   if (value is List) {
     return value
         .whereType<Map>()
-        .map((item) => RemoteAttachment.fromJson(Map<String, dynamic>.from(item)))
+        .map((item) =>
+            RemoteAttachment.fromJson(Map<String, dynamic>.from(item)))
         .toList(growable: false);
   }
   return const [];

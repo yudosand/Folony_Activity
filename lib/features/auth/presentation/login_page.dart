@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_controller.dart';
 import '../../../core/config/backend_config.dart';
 import '../../../core/enums/app_role.dart';
+import '../../../core/network/human_readable_error.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -229,7 +230,11 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login gagal: $error')),
+        SnackBar(
+          content: Text(
+            'Login gagal: ${humanReadableError(error, action: 'login')}',
+          ),
+        ),
       );
     }
   }

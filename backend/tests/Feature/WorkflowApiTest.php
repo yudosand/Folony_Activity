@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Announcement;
 use App\Models\User;
 use Database\Seeders\WorkflowDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -90,5 +91,79 @@ class WorkflowApiTest extends TestCase
             ->assertJsonPath('data.user.id', 'usr_area_001')
             ->assertJsonPath('data.user.role', 'areaManager');
         $this->assertNotEmpty($response->json('data.token'));
+    }
+
+    public function test_authenticated_user_can_read_active_announcements(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        Announcement::query()->create([
+            'title' => 'Briefing Operasional',
+            'body' => 'Briefing dilakukan jam 08:15.',
+            'is_active' => true,
+            'published_at' => now()->subMinute(),
+        ]);
+        Announcement::query()->create([
+            'title' => 'Draft Internal',
+            'body' => 'Tidak boleh tampil di aplikasi.',
+            'is_active' => false,
+            'published_at' => now()->subMinute(),
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_001'));
+
+        $response = $this->getJson('/api/announcements');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.0.title', 'Briefing Operasional')
+            ->assertJsonMissing(['title' => 'Draft Internal']);
+    }
+
+    public function test_authenticated_user_can_update_profile_photo(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        Sanctum::actingAs(User::query()->findOrFail('usr_001'));
+
+        $response = $this->postJson('/api/profile/photo', [
+            'profile_photo' => [
+                'id' => 'profile_photo_001',
+                'file_name' => 'nadia-profile.jpg',
+                'mime_type' => 'image/jpeg',
+                'url' => 'https://cdn.example.test/nadia-profile.jpg',
+                'thumbnail_url' => 'https://cdn.example.test/nadia-profile-thumb.jpg',
+                'size_in_bytes' => 128000,
+            ],
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.profile_photo.id', 'profile_photo_001');
+
+        $this->assertSame(
+            'profile_photo_001',
+            User::query()->findOrFail('usr_001')->profile_photo_attachment['id'] ?? null
+        );
+    }
+
+    public function test_authenticated_user_can_delete_profile_photo(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        $user = User::query()->findOrFail('usr_001');
+        $user->update([
+            'profile_photo_attachment' => [
+                'id' => 'profile_photo_001',
+                'file_name' => 'nadia-profile.jpg',
+                'mime_type' => 'image/jpeg',
+                'url' => 'https://cdn.example.test/nadia-profile.jpg',
+            ],
+        ]);
+        Sanctum::actingAs($user);
+
+        $this->deleteJson('/api/profile/photo')
+            ->assertOk()
+            ->assertJsonPath('data.profile_photo', null);
+
+        $this->assertNull(User::query()->findOrFail('usr_001')->profile_photo_attachment);
     }
 }

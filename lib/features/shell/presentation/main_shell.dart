@@ -11,6 +11,7 @@ import '../../leave/presentation/leave_approval_page.dart';
 import '../../leave/presentation/leave_page.dart';
 import '../../network/presentation/network_page.dart';
 import '../../profile/presentation/profile_page.dart';
+import '../../survey/presentation/survey_page.dart';
 import '../../wfh/presentation/wfh_page.dart';
 
 class MainShell extends StatefulWidget {
@@ -136,8 +137,24 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.home_rounded,
             page: HomePage(
               session: session,
+              controller: widget.controller,
               onRefresh: () =>
                   widget.controller.refreshHomeDataForSession(session),
+              onOpenAttendance: () => _selectDestination('Absensi'),
+              onOpenWfa: () => _openStandalonePage(
+                title: 'WFA',
+                child: WfhPage(
+                  session: session,
+                  controller: widget.controller,
+                ),
+              ),
+              onOpenLeave: () => _openStandalonePage(
+                title: 'Cuti / Izin',
+                child: LeavePage(
+                  session: session,
+                  controller: widget.controller,
+                ),
+              ),
               homeMenus: [
                 HomeMenuShortcut(
                   icon: Icons.laptop_mac_rounded,
@@ -163,6 +180,7 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
                 ),
+                _surveyShortcut(session),
               ],
             ),
           ),
@@ -214,8 +232,27 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.home_rounded,
             page: HomePage(
               session: session,
+              controller: widget.controller,
               onRefresh: () =>
                   widget.controller.refreshHomeDataForSession(session),
+              onOpenWfa: () => _openStandalonePage(
+                title: 'WFA',
+                child: WfhPage(
+                  session: session,
+                  controller: widget.controller,
+                ),
+              ),
+              onOpenLeave: () => _openStandalonePage(
+                title: 'Cuti / Izin',
+                child: LeavePage(
+                  session: session,
+                  controller: widget.controller,
+                ),
+              ),
+              onOpenNetwork: () => _selectDestination('Jaringan'),
+              homeMenus: [
+                _surveyShortcut(session),
+              ],
             ),
           ),
           _NavItem(
@@ -258,8 +295,15 @@ class _MainShellState extends State<MainShell> {
             icon: Icons.home_rounded,
             page: HomePage(
               session: session,
+              controller: widget.controller,
               onRefresh: () =>
                   widget.controller.refreshHomeDataForSession(session),
+              onOpenAttendance: () => _selectDestination('Absensi'),
+              onOpenWfa: () => _selectDestination('WFA'),
+              onOpenLeave: () => _selectDestination('Cuti'),
+              homeMenus: [
+                _surveyShortcut(session),
+              ],
             ),
           ),
           _NavItem(
@@ -296,15 +340,30 @@ class _MainShellState extends State<MainShell> {
           ),
         ];
       case AppRole.spv:
-      case AppRole.management:
         return [
           _NavItem(
             label: 'Home',
             icon: Icons.home_rounded,
             page: HomePage(
               session: session,
+              controller: widget.controller,
               onRefresh: () =>
                   widget.controller.refreshHomeDataForSession(session),
+              onOpenAttendance: () => _selectDestination('Absensi'),
+              onOpenWfa: () => _openStandalonePage(
+                title: 'WFA',
+                child: WfhPage(
+                  session: session,
+                  controller: widget.controller,
+                ),
+              ),
+              onOpenLeave: () => _openStandalonePage(
+                title: 'Cuti / Izin',
+                child: LeavePage(
+                  session: session,
+                  controller: widget.controller,
+                ),
+              ),
               homeMenus: [
                 HomeMenuShortcut(
                   icon: Icons.laptop_mac_rounded,
@@ -330,6 +389,7 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
                 ),
+                _surveyShortcut(session),
               ],
             ),
           ),
@@ -358,7 +418,124 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
         ];
+      case AppRole.management:
+        return [
+          _NavItem(
+            label: 'Home',
+            icon: Icons.home_rounded,
+            page: HomePage(
+              session: session,
+              controller: widget.controller,
+              onRefresh: () =>
+                  widget.controller.refreshHomeDataForSession(session),
+              onOpenAttendance: () => _selectDestination('Absensi'),
+              onOpenWfa: () => _openStandalonePage(
+                title: 'WFA',
+                child: WfhPage(
+                  session: session,
+                  controller: widget.controller,
+                ),
+              ),
+              onOpenLeave: () => _openStandalonePage(
+                title: 'Cuti / Izin',
+                child: LeavePage(
+                  session: session,
+                  controller: widget.controller,
+                ),
+              ),
+              homeMenus: [
+                HomeMenuShortcut(
+                  icon: Icons.laptop_mac_rounded,
+                  title: 'WFA',
+                  subtitle: 'Buka aktivitas WFA langsung dari Home.',
+                  onTap: () => _openStandalonePage(
+                    title: 'WFA',
+                    child: WfhPage(
+                      session: session,
+                      controller: widget.controller,
+                    ),
+                  ),
+                ),
+                HomeMenuShortcut(
+                  icon: Icons.event_note_rounded,
+                  title: 'Cuti / Izin',
+                  subtitle: 'Buka form pengajuan cuti atau izin.',
+                  onTap: () => _openStandalonePage(
+                    title: 'Cuti / Izin',
+                    child: LeavePage(
+                      session: session,
+                      controller: widget.controller,
+                    ),
+                  ),
+                ),
+                _surveyShortcut(session),
+              ],
+            ),
+          ),
+          _NavItem(
+            label: 'Absensi',
+            icon: Icons.fingerprint_rounded,
+            page: AttendancePage(
+              session: session,
+              controller: widget.controller,
+            ),
+          ),
+          _NavItem(
+            label: 'Approval',
+            icon: Icons.fact_check_rounded,
+            page: LeaveApprovalPage(
+              session: session,
+              controller: widget.controller,
+            ),
+          ),
+          _NavItem(
+            label: 'Jaringan',
+            icon: Icons.hub_rounded,
+            page: NetworkPage(
+              session: session,
+              controller: widget.controller,
+            ),
+          ),
+          _NavItem(
+            label: 'Akun',
+            icon: Icons.person_rounded,
+            page: ProfilePage(
+              session: session,
+              controller: widget.controller,
+            ),
+          ),
+        ];
     }
+  }
+
+  HomeMenuShortcut _surveyShortcut(AppSession session) {
+    return HomeMenuShortcut(
+      icon: Icons.assignment_rounded,
+      title: 'Survey',
+      subtitle: 'Isi Survey Kios atau Survey Harga dari satu menu.',
+      onTap: () => _openStandalonePage(
+        title: 'Survey',
+        child: SurveyPage(
+          session: session,
+          controller: widget.controller,
+        ),
+      ),
+    );
+  }
+
+  void _selectDestination(String label) {
+    final session = widget.controller.session;
+    if (session == null) {
+      return;
+    }
+
+    final destinations = _destinationsFor(session);
+    final index = destinations.indexWhere((item) => item.label == label);
+    if (index == -1) {
+      return;
+    }
+
+    setState(() => _currentIndex = index);
   }
 
   Future<void> _openStandalonePage({

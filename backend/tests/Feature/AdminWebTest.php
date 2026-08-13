@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\ApprovalStep;
+use App\Models\Announcement;
+use App\Models\NetworkProfile;
 use App\Models\User;
 use App\Support\Workflow\UserRole;
 use Database\Seeders\WorkflowDemoSeeder;
@@ -201,6 +203,42 @@ class AdminWebTest extends TestCase
             ->assertSee('Kunjungan awal');
     }
 
+    public function test_hr_can_create_manual_network_profile_from_monitoring_page(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        $hr = User::query()->findOrFail('usr_hr_001');
+
+        $response = $this->actingAs($hr)->post(route('admin.network.manual.store'), [
+            'type' => 'ukm',
+            'name' => 'Manual HR UKM',
+            'address' => 'Jl. Manual No. 1',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081299990001',
+            'status' => 'draft',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Tebet',
+            'territory_subdistrict' => 'Manggarai',
+            'latitude' => '-6.21462',
+            'longitude' => '106.84513',
+            'note' => 'Input manual saat audit HR.',
+        ]);
+
+        $response->assertRedirect(route('admin.network.index'));
+
+        $this->assertDatabaseHas('network_profiles', [
+            'owner_id' => $hr->id,
+            'owner_role' => UserRole::HR,
+            'name' => 'Manual HR UKM',
+            'area_name' => 'Manggarai',
+        ]);
+
+        $this->assertSame(
+            1,
+            NetworkProfile::query()->where('name', 'Manual HR UKM')->count(),
+        );
+    }
+
     public function test_hr_can_export_network_monitoring_csv(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
@@ -226,5 +264,29 @@ class AdminWebTest extends TestCase
             ->assertSee('Total Record')
             ->assertSee('Terverifikasi / Telat')
             ->assertSee('Export CSV');
+    }
+
+    public function test_hr_can_publish_announcement_from_web_admin(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        $hr = User::query()->findOrFail('usr_hr_001');
+
+        $response = $this->actingAs($hr)->post(route('admin.announcements.store'), [
+            'title' => 'Reminder Absensi',
+            'body' => 'Jangan lupa check-in dan check-out sesuai jadwal.',
+            'is_active' => 1,
+        ]);
+
+        $response->assertRedirect(route('admin.announcements.index'));
+
+        $this->assertDatabaseHas('announcements', [
+            'title' => 'Reminder Absensi',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($hr)
+            ->get(route('admin.announcements.index'))
+            ->assertOk()
+            ->assertSee('Reminder Absensi');
     }
 }

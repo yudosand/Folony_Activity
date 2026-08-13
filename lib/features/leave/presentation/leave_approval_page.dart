@@ -180,7 +180,7 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
               ),
               if (i != requests.length - 1) const Divider(height: 24),
             ],
-          if (_allResolved) ...[
+          if (_allResolved && widget.session.role != AppRole.management) ...[
             const SizedBox(height: 20),
             OutlinedButton(
               onPressed: _resetMocks,
@@ -229,7 +229,7 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
               ),
               if (i != requests.length - 1) const Divider(height: 24),
             ],
-          if (_allResolved) ...[
+          if (_allResolved && widget.session.role != AppRole.management) ...[
             const SizedBox(height: 20),
             OutlinedButton(
               onPressed: _resetMocks,

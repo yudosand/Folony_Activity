@@ -27,7 +27,8 @@ class MockWorkflowStore {
     return items;
   }
 
-  leave_model.LeaveRequestRecord upsertLeave(leave_model.LeaveRequestRecord request) {
+  leave_model.LeaveRequestRecord upsertLeave(
+      leave_model.LeaveRequestRecord request) {
     _leaveById[request.id] = request;
     return request;
   }
@@ -42,7 +43,8 @@ class MockWorkflowStore {
       throw StateError('Leave request with id $requestId not found');
     }
 
-    final updated = current.copyWith(status: status, note: note ?? current.note);
+    final updated =
+        current.copyWith(status: status, note: note ?? current.note);
     _leaveById[requestId] = updated;
     return updated;
   }
@@ -114,10 +116,12 @@ class MockWorkflowStore {
   }) {
     final items = <ApprovalItem>[
       ..._leaveById.values
-          .where((item) => _isPendingForApprover(item.approvalSteps, approverId))
+          .where(
+              (item) => _isPendingForApprover(item.approvalSteps, approverId))
           .map(_leaveToApprovalItem),
       ..._wfaById.values
-          .where((item) => _isPendingForApprover(item.approvalSteps, approverId))
+          .where(
+              (item) => _isPendingForApprover(item.approvalSteps, approverId))
           .map(_wfaToApprovalItem),
     ];
 
@@ -225,11 +229,13 @@ class MockWorkflowStore {
     }).toList();
   }
 
-  leave_model.WorkflowStatus _leaveStatusFromApproval(List<ApprovalStep> steps) {
+  leave_model.WorkflowStatus _leaveStatusFromApproval(
+      List<ApprovalStep> steps) {
     if (steps.any((step) => step.status == ApprovalStepStatus.rejected)) {
       return leave_model.WorkflowStatus.rejected;
     }
-    if (steps.isEmpty || steps.every((step) => step.status == ApprovalStepStatus.approved)) {
+    if (steps.isEmpty ||
+        steps.every((step) => step.status == ApprovalStepStatus.approved)) {
       return leave_model.WorkflowStatus.approved;
     }
     return leave_model.WorkflowStatus.pending;
@@ -239,7 +245,8 @@ class MockWorkflowStore {
     if (steps.any((step) => step.status == ApprovalStepStatus.rejected)) {
       return wfa_model.WorkflowStatus.rejected;
     }
-    if (steps.isEmpty || steps.every((step) => step.status == ApprovalStepStatus.approved)) {
+    if (steps.isEmpty ||
+        steps.every((step) => step.status == ApprovalStepStatus.approved)) {
       return wfa_model.WorkflowStatus.approved;
     }
     return wfa_model.WorkflowStatus.pending;
@@ -281,7 +288,8 @@ class MockWorkflowStore {
     if (steps.any((step) => step.status == ApprovalStepStatus.rejected)) {
       return ApprovalStepStatus.rejected;
     }
-    if (steps.isNotEmpty && steps.every((step) => step.status == ApprovalStepStatus.approved)) {
+    if (steps.isNotEmpty &&
+        steps.every((step) => step.status == ApprovalStepStatus.approved)) {
       return ApprovalStepStatus.approved;
     }
     return ApprovalStepStatus.pending;

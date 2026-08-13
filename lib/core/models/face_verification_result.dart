@@ -32,12 +32,16 @@ class FaceVerificationResult {
       capture: RemoteAttachment.fromJson(
         json['verification_log'] is Map<String, dynamic>
             ? Map<String, dynamic>.from(
-                ((json['verification_log'] as Map<String, dynamic>)['capture_attachment'] as Map?) ??
+                ((json['verification_log']
+                            as Map<String, dynamic>)['capture_attachment']
+                        as Map?) ??
                     const {},
               )
             : json['verification_log'] is Map
                 ? Map<String, dynamic>.from(
-                    (((json['verification_log'] as Map)['capture_attachment']) as Map?) ?? const {},
+                    (((json['verification_log'] as Map)['capture_attachment'])
+                            as Map?) ??
+                        const {},
                   )
                 : const {},
       ),

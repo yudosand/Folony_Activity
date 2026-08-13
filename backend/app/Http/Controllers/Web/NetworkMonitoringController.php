@@ -7,8 +7,10 @@ use App\Models\NetworkFollowUp;
 use App\Models\NetworkProfile;
 use App\Models\User;
 use App\Services\Admin\AdminExportService;
+use App\Services\NetworkService;
 use App\Support\Workflow\UserRole;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -100,6 +102,39 @@ class NetworkMonitoringController extends Controller
             'profile' => $profile,
             'latestFollowUp' => $profile->followUps->sortByDesc('created_at')->first(),
         ]);
+    }
+
+    public function storeManual(Request $request, NetworkService $networkService): RedirectResponse
+    {
+        $payload = $request->validate([
+            'type' => ['required', 'in:ukm,mitra'],
+            'name' => ['required', 'string', 'max:255'],
+            'address' => ['required', 'string', 'max:500'],
+            'business_type' => ['required', 'string', 'max:255'],
+            'phone_number' => ['required', 'string', 'max:32'],
+            'status' => ['required', 'in:draft,followUp,completed,archived'],
+            'territory_province' => ['required', 'string', 'max:255'],
+            'territory_city' => ['required', 'string', 'max:255'],
+            'territory_district' => ['required', 'string', 'max:255'],
+            'territory_subdistrict' => ['required', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $networkService->create(
+            $payload + [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'reference_name' => 'Input manual HR',
+                'personality_metrics' => [],
+                'documents' => [],
+            ],
+            $request->user(),
+        );
+
+        return redirect()
+            ->route('admin.network.index')
+            ->with('status', 'Data jaringan manual berhasil ditambahkan.');
     }
 
     /**

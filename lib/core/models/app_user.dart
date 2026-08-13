@@ -1,4 +1,5 @@
 import '../enums/app_role.dart';
+import 'remote_attachment.dart';
 import 'territory_assignment.dart';
 
 class AppUser {
@@ -33,6 +34,7 @@ class AppUser {
     this.address,
     this.emergencyContactName,
     this.emergencyContactPhone,
+    this.profilePhoto,
     this.faceEnrollmentStatus = 'pending',
     this.faceSamplesCount = 0,
   });
@@ -67,11 +69,50 @@ class AppUser {
   final String? address;
   final String? emergencyContactName;
   final String? emergencyContactPhone;
+  final RemoteAttachment? profilePhoto;
   final String faceEnrollmentStatus;
   final int faceSamplesCount;
 
   bool get hasFaceEnrollment =>
       faceEnrollmentStatus == 'active' && faceSamplesCount >= 3;
+
+  AppUser withProfilePhoto(RemoteAttachment? value) {
+    return AppUser(
+      id: id,
+      fullName: fullName,
+      email: email,
+      phoneNumber: phoneNumber,
+      areaName: areaName,
+      workLocation: workLocation,
+      jobTitle: jobTitle,
+      officeLatitude: officeLatitude,
+      officeLongitude: officeLongitude,
+      attendanceRadiusMeters: attendanceRadiusMeters,
+      territoryScope: territoryScope,
+      territoryProvince: territoryProvince,
+      territoryCity: territoryCity,
+      territoryDistrict: territoryDistrict,
+      territorySubdistrict: territorySubdistrict,
+      territoryAssignments: territoryAssignments,
+      territoryLabel: territoryLabel,
+      role: role,
+      canSwitchRoles: canSwitchRoles,
+      availableRoles: availableRoles,
+      spvId: spvId,
+      spvName: spvName,
+      managementId: managementId,
+      managementName: managementName,
+      isActive: isActive,
+      leaveBalanceDays: leaveBalanceDays,
+      joinedAt: joinedAt,
+      address: address,
+      emergencyContactName: emergencyContactName,
+      emergencyContactPhone: emergencyContactPhone,
+      profilePhoto: value,
+      faceEnrollmentStatus: faceEnrollmentStatus,
+      faceSamplesCount: faceSamplesCount,
+    );
+  }
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
     return AppUser(
@@ -108,6 +149,7 @@ class AppUser {
       address: json['address'] as String?,
       emergencyContactName: json['emergency_contact_name'] as String?,
       emergencyContactPhone: json['emergency_contact_phone'] as String?,
+      profilePhoto: _attachmentFromJson(json['profile_photo']),
       faceEnrollmentStatus:
           json['face_enrollment_status'] as String? ?? 'pending',
       faceSamplesCount: (json['face_samples_count'] as num?)?.toInt() ?? 0,
@@ -147,6 +189,7 @@ class AppUser {
       'address': address,
       'emergency_contact_name': emergencyContactName,
       'emergency_contact_phone': emergencyContactPhone,
+      'profile_photo': profilePhoto?.toJson(),
       'face_enrollment_status': faceEnrollmentStatus,
       'face_samples_count': faceSamplesCount,
     };
@@ -183,6 +226,7 @@ class AppUser {
     String? address,
     String? emergencyContactName,
     String? emergencyContactPhone,
+    RemoteAttachment? profilePhoto,
     String? faceEnrollmentStatus,
     int? faceSamplesCount,
   }) {
@@ -219,6 +263,7 @@ class AppUser {
       emergencyContactName: emergencyContactName ?? this.emergencyContactName,
       emergencyContactPhone:
           emergencyContactPhone ?? this.emergencyContactPhone,
+      profilePhoto: profilePhoto ?? this.profilePhoto,
       faceEnrollmentStatus: faceEnrollmentStatus ?? this.faceEnrollmentStatus,
       faceSamplesCount: faceSamplesCount ?? this.faceSamplesCount,
     );
@@ -255,6 +300,16 @@ class AppUser {
         .map((item) =>
             TerritoryAssignment.fromJson(Map<String, dynamic>.from(item)))
         .toList(growable: false);
+  }
+
+  static RemoteAttachment? _attachmentFromJson(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return RemoteAttachment.fromJson(value);
+    }
+    if (value is Map) {
+      return RemoteAttachment.fromJson(Map<String, dynamic>.from(value));
+    }
+    return null;
   }
 
   static DateTime? _parseDateTime(Object? value) {

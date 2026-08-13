@@ -26,6 +26,79 @@
         </div>
     </div>
 
+    <div class="panel pad" style="margin-bottom:18px;">
+        <details>
+            <summary style="cursor:pointer; font-weight:800; font-size:18px;">Input Jaringan Manual HR</summary>
+            <p class="muted" style="margin-top:8px;">Gunakan form ini jika HR perlu menambahkan data UKM/Mitra langsung dari web admin.</p>
+            <form method="POST" action="{{ route('admin.network.manual.store') }}" class="grid cols-2" style="margin-top:14px;">
+                @csrf
+                <div>
+                    <label for="manual_type">Tipe</label>
+                    <select id="manual_type" name="type" required>
+                        @foreach($types as $type => $label)
+                            <option value="{{ $type }}" @selected(old('type') === $type)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="manual_status">Status</label>
+                    <select id="manual_status" name="status" required>
+                        @foreach($statuses as $status)
+                            <option value="{{ $status }}" @selected(old('status', 'draft') === $status)>{{ $status }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="manual_name">Nama UKM/Mitra</label>
+                    <input id="manual_name" name="name" value="{{ old('name') }}" required>
+                </div>
+                <div>
+                    <label for="manual_business_type">Jenis Usaha</label>
+                    <input id="manual_business_type" name="business_type" value="{{ old('business_type') }}" required>
+                </div>
+                <div>
+                    <label for="manual_phone_number">Nomor HP</label>
+                    <input id="manual_phone_number" name="phone_number" value="{{ old('phone_number') }}" required>
+                </div>
+                <div>
+                    <label for="manual_address">Alamat</label>
+                    <input id="manual_address" name="address" value="{{ old('address') }}" required>
+                </div>
+                <div>
+                    <label for="manual_province">Provinsi</label>
+                    <input id="manual_province" name="territory_province" value="{{ old('territory_province') }}" required>
+                </div>
+                <div>
+                    <label for="manual_city">Kota/Kabupaten</label>
+                    <input id="manual_city" name="territory_city" value="{{ old('territory_city') }}" required>
+                </div>
+                <div>
+                    <label for="manual_district">Kecamatan</label>
+                    <input id="manual_district" name="territory_district" value="{{ old('territory_district') }}" required>
+                </div>
+                <div>
+                    <label for="manual_subdistrict">Kelurahan</label>
+                    <input id="manual_subdistrict" name="territory_subdistrict" value="{{ old('territory_subdistrict') }}" required>
+                </div>
+                <div>
+                    <label for="manual_latitude">Latitude (opsional)</label>
+                    <input id="manual_latitude" name="latitude" type="number" step="any" inputmode="decimal" value="{{ old('latitude') }}">
+                </div>
+                <div>
+                    <label for="manual_longitude">Longitude (opsional)</label>
+                    <input id="manual_longitude" name="longitude" type="number" step="any" inputmode="decimal" value="{{ old('longitude') }}">
+                </div>
+                <div style="grid-column:1 / -1;">
+                    <label for="manual_note">Catatan</label>
+                    <textarea id="manual_note" name="note" rows="3">{{ old('note') }}</textarea>
+                </div>
+                <div style="grid-column:1 / -1;">
+                    <button class="btn primary" type="submit">Simpan Data Manual</button>
+                </div>
+            </form>
+        </details>
+    </div>
+
     <div class="panel pad">
         <div class="toolbar">
             <form method="GET" class="filters">

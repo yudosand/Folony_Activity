@@ -6,6 +6,7 @@ use App\Models\NetworkFollowUp;
 use App\Models\NetworkProfile;
 use App\Models\User;
 use App\Support\Territory\TerritoryData;
+use App\Support\Territory\TerritoryScope;
 use App\Support\Workflow\UserRole;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -16,7 +17,6 @@ class NetworkService
     public function create(array $payload, User $owner): NetworkProfile
     {
         $territory = TerritoryData::payloadTerritory($payload);
-        $this->assertWithinTerritory($owner, $territory, $payload['type']);
 
         $profileId = Arr::get($payload, 'id', (string) Str::uuid());
         $existing = NetworkProfile::query()
@@ -59,7 +59,9 @@ class NetworkService
     {
         $this->assertEditable($profile, $actor);
         $territory = TerritoryData::payloadTerritory($payload + TerritoryData::profileTerritory($profile));
-        $this->assertWithinTerritory($actor, $territory, $payload['type'] ?? $profile->type);
+        if ($profile->owner_id !== $actor->id) {
+            $this->assertWithinTerritory($actor, $territory, $payload['type'] ?? $profile->type);
+        }
 
         $profile->update([
             'owner_id' => $actor->id,
@@ -158,10 +160,32 @@ class NetworkService
             ->orderByDesc('created_at');
 
         if ($owner->role === UserRole::FGG && TerritoryData::isAssigned($owner)) {
-            $this->applyTerritoryScope($query, $owner);
+            $query
+                ->where('type', 'ukm')
+                ->where(function ($builder) use ($owner): void {
+                    $builder
+                        ->where('owner_id', $owner->id)
+                        ->orWhere(function ($territory) use ($owner): void {
+                            $this->applyTerritoryScope($territory, $owner);
+                        });
+                });
         } elseif ($owner->role === UserRole::AREA_MANAGER && TerritoryData::isAssigned($owner)) {
-            $this->applyTerritoryScope($query, $owner);
-            $query->where('owner_role', '!=', UserRole::FGG);
+            $query->where(function ($builder) use ($owner): void {
+                $builder
+                    ->where('owner_id', $owner->id)
+                    ->orWhere(function ($territory) use ($owner): void {
+                        $this->applyTerritoryScope($territory, $owner);
+                        $territory->where('owner_role', '!=', UserRole::FGG);
+                    });
+            });
+        } elseif ($owner->role === UserRole::MANAGEMENT && TerritoryData::isAssigned($owner)) {
+            $query->where(function ($builder) use ($owner): void {
+                $builder
+                    ->where('owner_id', $owner->id)
+                    ->orWhere(function ($territory) use ($owner): void {
+                        $this->applyTerritoryScope($territory, $owner);
+                    });
+            });
         } else {
             $query->where('owner_id', $owner->id);
         }
@@ -215,15 +239,19 @@ class NetworkService
     {
         $query = NetworkProfile::query()->with('followUps');
 
-        if (($actor->role === UserRole::AREA_MANAGER || $actor->role === UserRole::FGG)
+        if (($actor->role === UserRole::AREA_MANAGER || $actor->role === UserRole::FGG || $actor->role === UserRole::MANAGEMENT)
             && TerritoryData::isAssigned($actor)) {
-            $this->applyTerritoryScope($query, $actor);
-
             if ($actor->role === UserRole::FGG) {
                 $query->where('type', 'ukm');
             }
 
-            return $query;
+            return $query->where(function ($builder) use ($actor): void {
+                $builder
+                    ->where('owner_id', $actor->id)
+                    ->orWhere(function ($territory) use ($actor): void {
+                        $this->applyTerritoryScope($territory, $actor);
+                    });
+            });
         }
 
         return $query->where('owner_id', $actor->id);
@@ -261,7 +289,7 @@ class NetworkService
             return;
         }
 
-        $isAreaScope = ($actor->role === UserRole::FGG || $actor->role === UserRole::AREA_MANAGER)
+        $isAreaScope = ($actor->role === UserRole::FGG || $actor->role === UserRole::AREA_MANAGER || $actor->role === UserRole::MANAGEMENT)
             && TerritoryData::isAssigned($actor)
             && TerritoryData::coversProfile($actor, $profile);
 
@@ -287,6 +315,11 @@ class NetworkService
             return;
         }
 
+        if (collect($excludes)->contains(fn (array $assignment) => ($assignment['territory_scope'] ?? null) === TerritoryScope::ALL_AREAS)) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
         $query->where(function ($builder) use ($includes): void {
             foreach ($includes as $assignment) {
                 $this->applyAssignmentClause($builder, $assignment, 'orWhere');
@@ -306,6 +339,11 @@ class NetworkService
     {
         $scopeField = TerritoryData::scopedField($assignment['territory_scope'] ?? null);
         $legacyLabel = $scopeField === null ? null : ($assignment[$scopeField] ?? null);
+
+        if (($assignment['territory_scope'] ?? null) === TerritoryScope::ALL_AREAS) {
+            $builder->{$method === 'whereNot' ? 'whereRaw' : 'orWhereRaw'}('1 = 1');
+            return;
+        }
 
         $builder->{$method}(function ($group) use ($assignment, $scopeField, $legacyLabel): void {
             $group->where(function ($structured) use ($assignment): void {

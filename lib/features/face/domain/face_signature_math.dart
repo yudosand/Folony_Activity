@@ -7,7 +7,8 @@ class FaceSignatureMath {
     }
 
     final mean = values.reduce((left, right) => left + right) / values.length;
-    final centered = values.map((value) => value - mean).toList(growable: false);
+    final centered =
+        values.map((value) => value - mean).toList(growable: false);
     final norm = math.sqrt(
       centered.fold<double>(0, (sum, value) => sum + (value * value)),
     );
@@ -44,9 +45,8 @@ class FaceSignatureMath {
       return const [];
     }
 
-    final averages = sums
-        .map((value) => value / counted)
-        .toList(growable: false);
+    final averages =
+        sums.map((value) => value / counted).toList(growable: false);
     return normalize(averages);
   }
 

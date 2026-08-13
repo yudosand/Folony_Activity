@@ -1,4 +1,5 @@
 import '../models/app_user.dart';
+import '../models/remote_attachment.dart';
 
 abstract class AuthRepository {
   Future<AppUser> signIn({
@@ -11,6 +12,10 @@ abstract class AuthRepository {
     required String newPassword,
     required String newPasswordConfirmation,
   });
+
+  Future<AppUser> updateProfilePhoto(RemoteAttachment profilePhoto);
+
+  Future<AppUser> deleteProfilePhoto();
 
   Future<void> registerPushToken({
     required String token,

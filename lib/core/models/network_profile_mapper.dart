@@ -41,8 +41,8 @@ extension NetworkProfileUiMapper on NetworkProfile {
       statusColor: _statusColor(status),
       personalityScore: personalityMetrics.isEmpty
           ? null
-          : (personalityMetrics
-                      .fold<double>(0, (sum, item) => sum + item.score) /
+          : (personalityMetrics.fold<double>(
+                      0, (sum, item) => sum + item.score) /
                   personalityMetrics.length)
               .round(),
       personalityScores: personalityMap,

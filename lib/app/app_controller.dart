@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/enums/app_role.dart';
+import '../core/models/announcement.dart';
 import '../core/models/app_session.dart';
 import '../core/models/app_user.dart';
 import '../core/models/attendance_record.dart';
@@ -16,8 +17,10 @@ import '../core/models/performance_summary.dart';
 import '../core/models/approval_step.dart';
 import '../core/models/leave_request_record.dart' as leave_model;
 import '../core/models/remote_attachment.dart';
+import '../core/models/survey_models.dart';
 import '../core/models/territory_option.dart';
 import '../core/models/wfa_request_record.dart' as wfa_model;
+import '../core/repositories/announcement_repository.dart';
 import '../core/repositories/approval_repository.dart';
 import '../core/repositories/attendance_repository.dart';
 import '../core/repositories/auth_repository.dart';
@@ -30,15 +33,19 @@ import '../core/repositories/mock/mock_heat_map_repository.dart';
 import '../core/repositories/mock/mock_network_repository.dart';
 import '../core/repositories/mock/mock_performance_repository.dart';
 import '../core/repositories/mock/mock_approval_repository.dart';
+import '../core/repositories/mock/mock_announcement_repository.dart';
 import '../core/repositories/mock/mock_leave_repository.dart';
 import '../core/repositories/mock/mock_territory_repository.dart';
+import '../core/repositories/mock/mock_survey_repository.dart';
 import '../core/repositories/mock/mock_wfa_repository.dart';
 import '../core/repositories/mock/mock_upload_repository.dart';
 import '../core/repositories/network_repository.dart';
 import '../core/repositories/performance_repository.dart';
+import '../core/repositories/survey_repository.dart';
 import '../core/repositories/territory_repository.dart';
 import '../core/repositories/upload_repository.dart';
 import '../core/repositories/wfa_repository.dart';
+import '../core/services/attendance_policy.dart';
 import '../core/services/push_notification_service.dart';
 import '../features/face/data/face_biometric_analyzer.dart';
 
@@ -53,9 +60,11 @@ class AppController extends ChangeNotifier {
     LeaveRepository? leaveRepository,
     WfaRepository? wfaRepository,
     ApprovalRepository? approvalRepository,
+    AnnouncementRepository? announcementRepository,
     HeatMapRepository? heatMapRepository,
     UploadRepository? uploadRepository,
     PerformanceRepository? performanceRepository,
+    SurveyRepository? surveyRepository,
     TerritoryRepository? territoryRepository,
     FaceProfileRepository? faceProfileRepository,
     FaceBiometricAnalyzer? faceBiometricAnalyzer,
@@ -71,10 +80,13 @@ class AppController extends ChangeNotifier {
         _leaveRepository = leaveRepository ?? MockLeaveRepository(),
         _wfaRepository = wfaRepository ?? MockWfaRepository(),
         _approvalRepository = approvalRepository ?? MockApprovalRepository(),
+        _announcementRepository =
+            announcementRepository ?? const MockAnnouncementRepository(),
         _heatMapRepository = heatMapRepository ?? const MockHeatMapRepository(),
         _uploadRepository = uploadRepository ?? const MockUploadRepository(),
         _performanceRepository =
             performanceRepository ?? const MockPerformanceRepository(),
+        _surveyRepository = surveyRepository ?? MockSurveyRepository(),
         _territoryRepository =
             territoryRepository ?? const MockTerritoryRepository(),
         _faceProfileRepository =
@@ -105,9 +117,11 @@ class AppController extends ChangeNotifier {
   final LeaveRepository _leaveRepository;
   final WfaRepository _wfaRepository;
   final ApprovalRepository _approvalRepository;
+  final AnnouncementRepository _announcementRepository;
   final HeatMapRepository _heatMapRepository;
   final UploadRepository _uploadRepository;
   final PerformanceRepository _performanceRepository;
+  final SurveyRepository _surveyRepository;
   final TerritoryRepository _territoryRepository;
   final FaceProfileRepository _faceProfileRepository;
   final FaceBiometricAnalyzer _faceBiometricAnalyzer;
@@ -129,6 +143,8 @@ class AppController extends ChangeNotifier {
       _leaveApprovalRequestsByApprover = {};
   final Map<String, List<wfa_model.WfaRequestRecord>>
       _wfaApprovalRequestsByApprover = {};
+  List<Announcement> _announcements = const [];
+  SurveyOptions? _surveyOptions;
   final Map<String, double> _leaveBalanceByUserId = {};
   final Map<String, FaceProfile> _faceProfilesByOwner = {};
   List<TerritoryOption>? _territoryProvinceCache;
@@ -263,7 +279,9 @@ class AppController extends ChangeNotifier {
   }
 
   List<NetworkEntry> ownNetworkEntriesForSession(AppSession session) {
-    if (session.role != AppRole.fgg && session.role != AppRole.areaManager) {
+    if (session.role != AppRole.fgg &&
+        session.role != AppRole.areaManager &&
+        session.role != AppRole.management) {
       return const [];
     }
 
@@ -298,6 +316,9 @@ class AppController extends ChangeNotifier {
     return _faceProfilesByOwner[session.ownerKey] ??
         FaceProfile.empty(userId: _workflowUserIdForSession(session));
   }
+
+  List<Announcement> get announcements => List.unmodifiable(_announcements);
+  SurveyOptions get surveyOptions => _surveyOptions ?? SurveyOptions.fallback;
 
   bool hasFaceEnrollmentForSession(AppSession session) {
     final cachedProfile = _faceProfilesByOwner[session.ownerKey];
@@ -392,6 +413,12 @@ class AppController extends ChangeNotifier {
   }) async {
     final biometricTemplate =
         await _faceBiometricAnalyzer.buildEnrollmentTemplate(samplePaths);
+    if (biometricTemplate.template.length < 64) {
+      throw StateError(
+        'Template wajah belum lengkap. Ulangi scan wajah dengan pencahayaan yang lebih jelas.',
+      );
+    }
+
     final uploadedSamples = <RemoteAttachment>[];
     for (var index = 0; index < samplePaths.length; index++) {
       final samplePath = samplePaths[index];
@@ -402,6 +429,11 @@ class AppController extends ChangeNotifier {
       if (attachment != null) {
         uploadedSamples.add(attachment);
       }
+    }
+    if (uploadedSamples.length < 3) {
+      throw StateError(
+        'Minimal 3 foto wajah harus berhasil diupload. Periksa koneksi lalu ulangi daftar wajah.',
+      );
     }
 
     final profile = await _faceProfileRepository.enroll(
@@ -465,6 +497,41 @@ class AppController extends ChangeNotifier {
     return attachment;
   }
 
+  Future<void> updateProfilePhotoForSession(
+    AppSession session, {
+    required String filePath,
+  }) async {
+    final attachment = await _uploadAttachmentIfNeeded(
+      filePath: filePath,
+      label: 'Foto Profil ${session.userName}',
+    );
+    if (attachment == null) {
+      throw StateError('Foto profil tidak berhasil diunggah.');
+    }
+
+    final authRepository = _authRepository;
+    if (_useRemoteAuth && authRepository != null) {
+      final user = await authRepository.updateProfilePhoto(attachment);
+      _session = AppSession.fromUser(user);
+    } else {
+      _session = _session?.copyWith(profilePhoto: attachment);
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> deleteProfilePhotoForSession(AppSession session) async {
+    final authRepository = _authRepository;
+    if (_useRemoteAuth && authRepository != null) {
+      final user = await authRepository.deleteProfilePhoto();
+      _session = AppSession.fromUser(user);
+    } else {
+      _session = _session?.withProfilePhoto(null);
+    }
+
+    notifyListeners();
+  }
+
   Future<void> upsertNetworkEntryForSession(
     AppSession session,
     NetworkEntry entry,
@@ -499,6 +566,77 @@ class AppController extends ChangeNotifier {
     await _loadNetworkEntries(session);
   }
 
+  Future<void> refreshSurveyOptions() async {
+    _surveyOptions = await _surveyRepository.loadOptions();
+    notifyListeners();
+  }
+
+  Future<void> submitKioskSurvey({
+    required AppSession session,
+    required String photoPath,
+    required String territoryProvince,
+    required String territoryCity,
+    required String territoryDistrict,
+    required String territorySubdistrict,
+    required String kioskName,
+    required String phoneNumber,
+    required String ownerName,
+    required List<String> productIds,
+    required String otherProduct,
+    required List<String> buildingTypes,
+    required List<String> kioskSizes,
+  }) async {
+    final photo = await uploadAttachment(
+      filePath: photoPath,
+      label: 'Survey Kios $kioskName',
+    );
+
+    await _surveyRepository.submitKioskSurvey(
+      KioskSurveySubmission(
+        photo: photo,
+        territoryProvince: territoryProvince,
+        territoryCity: territoryCity,
+        territoryDistrict: territoryDistrict,
+        territorySubdistrict: territorySubdistrict,
+        kioskName: kioskName,
+        phoneNumber: phoneNumber,
+        ownerName: ownerName,
+        productIds: productIds,
+        otherProduct: otherProduct,
+        buildingTypes: buildingTypes,
+        kioskSizes: kioskSizes,
+      ),
+    );
+  }
+
+  Future<void> submitPriceSurvey({
+    required AppSession session,
+    required String photoPath,
+    required String marketName,
+    required String territoryProvince,
+    required String territoryCity,
+    required String territoryDistrict,
+    required String territorySubdistrict,
+    required List<CommodityPriceSubmission> commodityPrices,
+  }) async {
+    final photo = await uploadAttachment(
+      filePath: photoPath,
+      label: 'Survey Harga $marketName',
+    );
+
+    await _surveyRepository.submitPriceSurvey(
+      PriceSurveySubmission(
+        photo: photo,
+        marketName: marketName,
+        territoryProvince: territoryProvince,
+        territoryCity: territoryCity,
+        territoryDistrict: territoryDistrict,
+        territorySubdistrict: territorySubdistrict,
+        commodityPrices: commodityPrices,
+      ),
+    );
+  }
+
   Future<void> refreshPerformanceSummaryForSession(AppSession session) async {
     await _loadPerformanceSummary(session);
   }
@@ -529,12 +667,15 @@ class AppController extends ChangeNotifier {
   Future<void> refreshHomeDataForSession(AppSession session) async {
     await Future.wait([
       refreshCurrentUserProfile(),
-      if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
+      _loadAttendanceData(session),
+      _loadWorkflowData(session),
+      _loadAnnouncements(),
+      if (session.role == AppRole.fgg ||
+          session.role == AppRole.areaManager ||
+          session.role == AppRole.management)
         _loadNetworkEntries(session),
       if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
         _loadPerformanceSummary(session),
-      if (session.role != AppRole.fgg && session.role != AppRole.areaManager)
-        _loadWorkflowData(session),
     ]);
   }
 
@@ -549,7 +690,10 @@ class AppController extends ChangeNotifier {
       _loadAttendanceData(session),
       _loadFaceProfileData(session),
       _loadWorkflowData(session),
-      if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
+      _loadAnnouncements(),
+      if (session.role == AppRole.fgg ||
+          session.role == AppRole.areaManager ||
+          session.role == AppRole.management)
         _loadNetworkEntries(session),
       if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
         _loadPerformanceSummary(session),
@@ -561,6 +705,11 @@ class AppController extends ChangeNotifier {
         await _attendanceRepository.listByUser(
       userId: _workflowUserIdForSession(session),
     );
+    notifyListeners();
+  }
+
+  Future<void> _loadAnnouncements() async {
+    _announcements = await _announcementRepository.listActive();
     notifyListeners();
   }
 
@@ -1818,6 +1967,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> _logoutAsync() async {
     final authRepository = _authRepository;
+    await _pushNotificationService?.cancelAttendanceReminders();
     if (authRepository != null && _useRemoteAuth) {
       final token = _pushNotificationService?.currentToken;
       if (token != null && token.isNotEmpty) {
@@ -1876,13 +2026,36 @@ class AppController extends ChangeNotifier {
     await _loadAttendanceData(session);
     await _loadFaceProfileData(session);
     await _loadWorkflowData(session);
-    if (session.role == AppRole.fgg || session.role == AppRole.areaManager) {
+    if (session.role == AppRole.fgg ||
+        session.role == AppRole.areaManager ||
+        session.role == AppRole.management) {
       await _loadNetworkEntries(session);
+    }
+    if (session.role == AppRole.fgg || session.role == AppRole.areaManager) {
       await _loadPerformanceSummary(session);
     }
+    await _loadAnnouncements();
+    await _syncAttendanceReminderSchedule(session);
     if (notify) {
       notifyListeners();
     }
+  }
+
+  Future<void> _syncAttendanceReminderSchedule(AppSession session) async {
+    final pushNotificationService = _pushNotificationService;
+    if (pushNotificationService == null) {
+      return;
+    }
+
+    if (session.role == AppRole.staff) {
+      await pushNotificationService.scheduleStaffAttendanceReminders(
+        checkInTime: AttendancePolicy.officeStart,
+        checkOutTime: AttendancePolicy.officeEnd,
+      );
+      return;
+    }
+
+    await pushNotificationService.cancelAttendanceReminders();
   }
 
   NetworkProfileStatus _profileStatusFromLabel(String label) {

@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\NetworkProfile;
+use App\Models\SurveyCommodityOption;
+use App\Models\SurveyProductOption;
+use App\Models\SurveyResponse;
 use App\Models\User;
 use Database\Seeders\WorkflowDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,6 +16,72 @@ use Tests\TestCase;
 class FieldOpsApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_user_can_submit_kiosk_and_price_surveys(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        Sanctum::actingAs(User::query()->findOrFail('usr_001'));
+
+        $product = SurveyProductOption::query()->create([
+            'id' => 'prod_test_beras',
+            'name' => 'Beras test',
+            'is_active' => true,
+        ]);
+        $commodity = SurveyCommodityOption::query()->create([
+            'id' => 'cmd_test_cabai',
+            'name' => 'Cabai test',
+            'unit' => 'kg',
+            'is_active' => true,
+        ]);
+
+        $photo = [
+            'id' => 'photo_survey_test',
+            'file_name' => 'survey.jpg',
+            'mime_type' => 'image/jpeg',
+            'url' => 'https://example.test/storage/survey.jpg',
+        ];
+
+        $this->postJson('/api/surveys/kios', [
+            'photo' => $photo,
+            'territory_province' => 'Jawa Barat',
+            'territory_city' => 'Indramayu',
+            'territory_district' => 'Indramayu',
+            'territory_subdistrict' => 'Karanganyar',
+            'kiosk_name' => 'Warung Jable',
+            'phone_number' => '081200000001',
+            'owner_name' => 'Jable',
+            'product_ids' => [$product->id],
+            'other_product' => 'Kopi sachet',
+            'building_types' => ['Permanen'],
+            'kiosk_sizes' => ['5 - 10 Meter'],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.type', 'kios')
+            ->assertJsonPath('data.payload.kiosk_name', 'Warung Jable');
+
+        $this->postJson('/api/surveys/prices', [
+            'photo' => $photo,
+            'market_name' => 'Pasar Indramayu',
+            'territory_province' => 'Jawa Barat',
+            'territory_city' => 'Indramayu',
+            'territory_district' => 'Indramayu',
+            'territory_subdistrict' => 'Karanganyar',
+            'commodity_prices' => [
+                [
+                    'commodity_id' => $commodity->id,
+                    'commodity_name' => $commodity->name,
+                    'unit' => $commodity->unit,
+                    'lowest_price' => 22000,
+                    'highest_price' => 25000,
+                ],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.type', 'harga')
+            ->assertJsonPath('data.payload.market_name', 'Pasar Indramayu');
+
+        $this->assertSame(2, SurveyResponse::query()->count());
+    }
 
     public function test_fgg_can_create_network_profile(): void
     {
@@ -103,6 +172,137 @@ class FieldOpsApiTest extends TestCase
                 'name' => 'Warung Kunkun',
                 'territory_city' => 'Jakarta Barat',
                 'territory_district' => 'Taman Sari',
+            ]);
+    }
+
+    public function test_management_reads_network_profiles_by_assigned_territory(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $management = User::query()->findOrFail('usr_mgt_001');
+        $management->update([
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'province',
+                    'territory_province' => 'DKI Jakarta',
+                ],
+            ],
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_management_visible_dki',
+            'owner_id' => 'usr_area_001',
+            'owner_name' => 'Area Manager',
+            'owner_role' => 'areaManager',
+            'area_name' => 'Jakarta Selatan',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Ragunan',
+            'type' => 'mitra',
+            'name' => 'Mitra DKI Visible',
+            'address' => 'Ragunan',
+            'business_type' => 'Distribusi',
+            'phone_number' => '081300009001',
+            'status' => 'followUp',
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_management_hidden_jabar',
+            'owner_id' => 'usr_area_001',
+            'owner_name' => 'Area Manager',
+            'owner_role' => 'areaManager',
+            'area_name' => 'Bandung',
+            'territory_province' => 'Jawa Barat',
+            'territory_city' => 'Bandung',
+            'territory_district' => 'Coblong',
+            'territory_subdistrict' => 'Dago',
+            'type' => 'ukm',
+            'name' => 'UKM Jabar Hidden',
+            'address' => 'Dago',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081300009002',
+            'status' => 'draft',
+        ]);
+
+        Sanctum::actingAs($management);
+
+        $response = $this->getJson('/api/network');
+
+        $response
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_management_visible_dki',
+                'name' => 'Mitra DKI Visible',
+            ])
+            ->assertJsonMissing([
+                'id' => 'net_management_hidden_jabar',
+                'name' => 'UKM Jabar Hidden',
+            ]);
+    }
+
+    public function test_management_with_all_territory_assignment_reads_all_provinces(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $management = User::query()->findOrFail('usr_mgt_001');
+        $management->update([
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'all',
+                ],
+            ],
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_management_all_dki',
+            'owner_id' => 'usr_area_001',
+            'owner_name' => 'Area Manager',
+            'owner_role' => 'areaManager',
+            'area_name' => 'Jakarta Selatan',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Ragunan',
+            'type' => 'mitra',
+            'name' => 'Mitra All DKI',
+            'address' => 'Ragunan',
+            'business_type' => 'Distribusi',
+            'phone_number' => '081300009011',
+            'status' => 'followUp',
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_management_all_jabar',
+            'owner_id' => 'usr_area_001',
+            'owner_name' => 'Area Manager',
+            'owner_role' => 'areaManager',
+            'area_name' => 'Bandung',
+            'territory_province' => 'Jawa Barat',
+            'territory_city' => 'Bandung',
+            'territory_district' => 'Coblong',
+            'territory_subdistrict' => 'Dago',
+            'type' => 'ukm',
+            'name' => 'UKM All Jabar',
+            'address' => 'Dago',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081300009012',
+            'status' => 'draft',
+        ]);
+
+        Sanctum::actingAs($management);
+
+        $this->getJson('/api/network')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_management_all_dki',
+                'name' => 'Mitra All DKI',
+            ])
+            ->assertJsonFragment([
+                'id' => 'net_management_all_jabar',
+                'name' => 'UKM All Jabar',
             ]);
     }
 
@@ -429,24 +629,162 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonFragment(['id' => 'net_fgg_001']);
     }
 
-    public function test_fgg_cannot_create_network_profile_outside_registered_territory(): void
+    public function test_new_network_profile_is_visible_by_profile_territory_not_creator_territory(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
-        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $bandungFgg = User::query()->create([
+            'id' => 'usr_fgg_bandung_001',
+            'employee_code' => 'EMP-FGG-BDG-001',
+            'full_name' => 'Bara FGG Bandung',
+            'phone_number' => '081300009001',
+            'area_name' => 'Bandung',
+            'work_location' => 'Bandung',
+            'territory_scope' => 'city',
+            'territory_province' => 'Jawa Barat',
+            'territory_city' => 'Bandung',
+            'role' => 'fgg',
+            'job_title' => 'Field Growth Guide',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        $jakartaFgg = User::query()->create([
+            'id' => 'usr_fgg_jakarta_001',
+            'employee_code' => 'EMP-FGG-JKT-001',
+            'full_name' => 'Jaya FGG Jakarta',
+            'phone_number' => '081300009002',
+            'area_name' => 'Jakarta Selatan',
+            'work_location' => 'Jakarta Selatan',
+            'territory_scope' => 'city',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'role' => 'fgg',
+            'job_title' => 'Field Growth Guide',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        $bandungAreaManager = User::query()->create([
+            'id' => 'usr_area_bandung_001',
+            'employee_code' => 'EMP-AM-BDG-001',
+            'full_name' => 'Ayu Area Bandung',
+            'phone_number' => '081300009003',
+            'area_name' => 'Bandung',
+            'work_location' => 'Bandung',
+            'territory_scope' => 'city',
+            'territory_province' => 'Jawa Barat',
+            'territory_city' => 'Bandung',
+            'role' => 'areaManager',
+            'job_title' => 'Area Manager',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        $jakartaAreaManager = User::query()->create([
+            'id' => 'usr_area_jakarta_001',
+            'employee_code' => 'EMP-AM-JKT-001',
+            'full_name' => 'Ari Area Jakarta',
+            'phone_number' => '081300009004',
+            'area_name' => 'Jakarta Selatan',
+            'work_location' => 'Jakarta Selatan',
+            'territory_scope' => 'city',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'role' => 'areaManager',
+            'job_title' => 'Area Manager',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($jakartaFgg);
 
         $this->postJson('/api/network', [
+            'id' => 'net_ukm_bandung_created_by_jakarta_fgg',
             'type' => 'ukm',
-            'name' => 'UKM Luar Area',
-            'address' => 'Jl. Margonda Raya',
+            'name' => 'UKM Bandung dari FGG Jakarta',
+            'address' => 'Jl. Asia Afrika',
             'territory_province' => 'Jawa Barat',
-            'territory_city' => 'Depok',
-            'territory_district' => 'Pancoran Mas',
-            'territory_subdistrict' => 'Depok',
+            'territory_city' => 'Bandung',
+            'territory_district' => 'Sumur Bandung',
+            'territory_subdistrict' => 'Braga',
             'business_type' => 'Retail',
             'phone_number' => '081399999999',
             'status' => 'draft',
-        ])->assertStatus(422)
-            ->assertJsonValidationErrors(['territory']);
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.owner_id', $jakartaFgg->id)
+            ->assertJsonPath('data.territory_city', 'Bandung');
+
+        $this->getJson('/api/network?type=ukm')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_ukm_bandung_created_by_jakarta_fgg',
+                'name' => 'UKM Bandung dari FGG Jakarta',
+            ]);
+
+        Sanctum::actingAs($bandungFgg);
+
+        $this->getJson('/api/network?type=ukm')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_ukm_bandung_created_by_jakarta_fgg',
+                'name' => 'UKM Bandung dari FGG Jakarta',
+            ]);
+
+        Sanctum::actingAs($jakartaAreaManager);
+
+        $this->getJson('/api/network/team-ukm')
+            ->assertOk()
+            ->assertJsonMissing([
+                'id' => 'net_ukm_bandung_created_by_jakarta_fgg',
+                'name' => 'UKM Bandung dari FGG Jakarta',
+            ]);
+
+        Sanctum::actingAs($bandungAreaManager);
+
+        $this->getJson('/api/network/team-ukm')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_ukm_bandung_created_by_jakarta_fgg',
+                'name' => 'UKM Bandung dari FGG Jakarta',
+            ]);
+
+        Sanctum::actingAs($jakartaAreaManager);
+
+        $this->postJson('/api/network', [
+            'id' => 'net_mitra_bandung_created_by_jakarta_area',
+            'type' => 'mitra',
+            'name' => 'Mitra Bandung dari Area Jakarta',
+            'address' => 'Jl. Dago',
+            'territory_province' => 'Jawa Barat',
+            'territory_city' => 'Bandung',
+            'territory_district' => 'Coblong',
+            'territory_subdistrict' => 'Dago',
+            'business_type' => 'Mitra Distribusi',
+            'phone_number' => '081388889999',
+            'status' => 'draft',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.owner_id', $jakartaAreaManager->id)
+            ->assertJsonPath('data.type', 'mitra')
+            ->assertJsonPath('data.territory_city', 'Bandung');
+
+        $this->getJson('/api/network?type=mitra')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_mitra_bandung_created_by_jakarta_area',
+                'name' => 'Mitra Bandung dari Area Jakarta',
+            ]);
+
+        Sanctum::actingAs($bandungAreaManager);
+
+        $this->getJson('/api/network?type=mitra')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_mitra_bandung_created_by_jakarta_area',
+                'name' => 'Mitra Bandung dari Area Jakarta',
+            ]);
     }
 
     public function test_replacement_fgg_in_same_territory_inherits_existing_ukm_data(): void
@@ -604,8 +942,9 @@ class FieldOpsApiTest extends TestCase
         ])->assertCreated();
 
         $this->postJson('/api/network', [
+            'id' => 'net_cengkareng_created_by_multi_fgg',
             'type' => 'ukm',
-            'name' => 'UKM Cengkareng Ditolak',
+            'name' => 'UKM Cengkareng Luar Area',
             'address' => 'Jl. Kamal Raya',
             'territory_province' => 'DKI Jakarta',
             'territory_city' => 'Jakarta Barat',
@@ -614,8 +953,16 @@ class FieldOpsApiTest extends TestCase
             'business_type' => 'Retail',
             'phone_number' => '081355556666',
             'status' => 'draft',
-        ])->assertStatus(422)
-            ->assertJsonValidationErrors(['territory']);
+        ])->assertCreated();
+
+        $this->getJson('/api/network?type=ukm')
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'UKM Grogol Baru'])
+            ->assertJsonFragment(['name' => 'UKM Palmerah Baru'])
+            ->assertJsonFragment([
+                'id' => 'net_cengkareng_created_by_multi_fgg',
+                'name' => 'UKM Cengkareng Luar Area',
+            ]);
     }
 
     public function test_area_manager_include_and_exclude_rules_allow_large_coverage_with_small_hole(): void
@@ -772,8 +1119,9 @@ class FieldOpsApiTest extends TestCase
         ])->assertCreated();
 
         $this->postJson('/api/network', [
+            'id' => 'net_mangga_besar_created_by_exclude_fgg',
             'type' => 'ukm',
-            'name' => 'UKM Mangga Besar Ditolak',
+            'name' => 'UKM Mangga Besar Luar Rule',
             'address' => 'Jl. Mangga Besar',
             'territory_province' => 'DKI Jakarta',
             'territory_city' => 'Kota Administrasi Jakarta Barat',
@@ -782,7 +1130,36 @@ class FieldOpsApiTest extends TestCase
             'business_type' => 'Kuliner',
             'phone_number' => '081300000202',
             'status' => 'draft',
-        ])->assertStatus(422)
-            ->assertJsonValidationErrors(['territory']);
+        ])->assertCreated();
+
+        NetworkProfile::query()->create([
+            'id' => 'net_mangga_besar_other_owner',
+            'owner_id' => 'usr_fgg_001',
+            'owner_name' => 'Bima FGG',
+            'owner_role' => 'fgg',
+            'area_name' => 'Mangga Besar',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Mangga Besar',
+            'type' => 'ukm',
+            'name' => 'UKM Mangga Besar Owner Lain',
+            'address' => 'Jl. Mangga Besar Raya',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081300000203',
+            'status' => 'draft',
+        ]);
+
+        $this->getJson('/api/network?type=ukm')
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'UKM Keagungan Aman'])
+            ->assertJsonFragment([
+                'id' => 'net_mangga_besar_created_by_exclude_fgg',
+                'name' => 'UKM Mangga Besar Luar Rule',
+            ])
+            ->assertJsonMissing([
+                'id' => 'net_mangga_besar_other_owner',
+                'name' => 'UKM Mangga Besar Owner Lain',
+            ]);
     }
 }

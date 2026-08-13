@@ -22,3 +22,4 @@ backend/.phpunit.result.cache
 *firebase-adminsdk*.json
 android/hs_err_pid*.log
 android/replay_pid*.log
+android/.kotlin/

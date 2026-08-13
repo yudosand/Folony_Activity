@@ -1,5 +1,6 @@
 import 'app_user.dart';
 import '../enums/app_role.dart';
+import 'remote_attachment.dart';
 import 'territory_assignment.dart';
 
 class AppSession {
@@ -34,6 +35,7 @@ class AppSession {
     this.address,
     this.emergencyContactName,
     this.emergencyContactPhone,
+    this.profilePhoto,
     this.faceEnrollmentStatus = 'pending',
     this.faceSamplesCount = 0,
   });
@@ -68,6 +70,7 @@ class AppSession {
   final String? address;
   final String? emergencyContactName;
   final String? emergencyContactPhone;
+  final RemoteAttachment? profilePhoto;
   final String faceEnrollmentStatus;
   final int faceSamplesCount;
 
@@ -121,6 +124,7 @@ class AppSession {
       address: null,
       emergencyContactName: null,
       emergencyContactPhone: null,
+      profilePhoto: null,
       faceEnrollmentStatus: 'active',
       faceSamplesCount: 3,
     );
@@ -172,6 +176,7 @@ class AppSession {
       address: user.address,
       emergencyContactName: user.emergencyContactName,
       emergencyContactPhone: user.emergencyContactPhone,
+      profilePhoto: user.profilePhoto,
       faceEnrollmentStatus: user.faceEnrollmentStatus,
       faceSamplesCount: user.faceSamplesCount,
     );
@@ -196,6 +201,44 @@ class AppSession {
 
   String? get defaultManagement {
     return managementOptions.isEmpty ? null : managementOptions.first;
+  }
+
+  AppSession withProfilePhoto(RemoteAttachment? value) {
+    return AppSession(
+      userId: userId,
+      userName: userName,
+      email: email,
+      phoneNumber: phoneNumber,
+      areaName: areaName,
+      workLocation: workLocation,
+      jobTitle: jobTitle,
+      officeLatitude: officeLatitude,
+      officeLongitude: officeLongitude,
+      attendanceRadiusMeters: attendanceRadiusMeters,
+      territoryScope: territoryScope,
+      territoryProvince: territoryProvince,
+      territoryCity: territoryCity,
+      territoryDistrict: territoryDistrict,
+      territorySubdistrict: territorySubdistrict,
+      territoryAssignments: territoryAssignments,
+      territoryLabel: territoryLabel,
+      role: role,
+      canSwitchRoles: canSwitchRoles,
+      availableRoles: availableRoles,
+      spvId: spvId,
+      spvName: spvName,
+      managementId: managementId,
+      managementName: managementName,
+      isActive: isActive,
+      leaveBalanceDays: leaveBalanceDays,
+      joinedAt: joinedAt,
+      address: address,
+      emergencyContactName: emergencyContactName,
+      emergencyContactPhone: emergencyContactPhone,
+      profilePhoto: value,
+      faceEnrollmentStatus: faceEnrollmentStatus,
+      faceSamplesCount: faceSamplesCount,
+    );
   }
 
   AppSession copyWith({
@@ -229,6 +272,7 @@ class AppSession {
     String? address,
     String? emergencyContactName,
     String? emergencyContactPhone,
+    RemoteAttachment? profilePhoto,
     String? faceEnrollmentStatus,
     int? faceSamplesCount,
   }) {
@@ -265,6 +309,7 @@ class AppSession {
       emergencyContactName: emergencyContactName ?? this.emergencyContactName,
       emergencyContactPhone:
           emergencyContactPhone ?? this.emergencyContactPhone,
+      profilePhoto: profilePhoto ?? this.profilePhoto,
       faceEnrollmentStatus: faceEnrollmentStatus ?? this.faceEnrollmentStatus,
       faceSamplesCount: faceSamplesCount ?? this.faceSamplesCount,
     );

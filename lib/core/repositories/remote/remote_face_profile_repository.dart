@@ -23,6 +23,12 @@ class RemoteFaceProfileRepository implements FaceProfileRepository {
     required List<double> biometricTemplate,
     String? note,
   }) async {
+    if (samples.any((sample) => !sample.hasRequiredPayload)) {
+      throw StateError(
+        'Upload foto wajah belum lengkap. Ulangi daftar wajah sebelum menyimpan.',
+      );
+    }
+
     final response = await _client.post(
       '/face/profile',
       body: {

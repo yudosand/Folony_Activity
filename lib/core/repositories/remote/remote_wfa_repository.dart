@@ -35,7 +35,7 @@ class RemoteWfaRepository implements WfaRepository {
   Future<WfaRequestRecord> submit(WfaRequestRecord request) async {
     final response = await _client.post(
       '/wfa',
-      body: request.toJson(),
+      body: wfaSubmitPayloadForApi(request),
     );
     return _decodeOne(response);
   }
@@ -112,4 +112,13 @@ class RemoteWfaRepository implements WfaRepository {
     }
     return const {};
   }
+}
+
+Map<String, dynamic> wfaSubmitPayloadForApi(WfaRequestRecord request) {
+  final payload = request.toJson();
+  if (request.mode == WfaRequestMode.regular &&
+      request.compensationMode == WfaCompensationMode.normalShift) {
+    payload.remove('compensation_mode');
+  }
+  return payload;
 }

@@ -173,6 +173,10 @@ final class TerritoryData
 
     public static function displayLabel(array $territory): ?string
     {
+        if (Arr::get($territory, 'territory_scope') === TerritoryScope::ALL_AREAS) {
+            return 'Semua provinsi';
+        }
+
         foreach ([
             Arr::get($territory, 'territory_subdistrict'),
             Arr::get($territory, 'territory_district'),
@@ -191,6 +195,7 @@ final class TerritoryData
     public static function scopedField(?string $scope): ?string
     {
         return match ($scope) {
+            TerritoryScope::ALL_AREAS => null,
             TerritoryScope::PROVINCE => 'territory_province',
             TerritoryScope::CITY => 'territory_city',
             TerritoryScope::DISTRICT => 'territory_district',
@@ -233,6 +238,10 @@ final class TerritoryData
         $assignments = self::userAssignments($user);
 
         foreach (self::excludeAssignments($assignments) as $assignment) {
+            if (($assignment['territory_scope'] ?? null) === TerritoryScope::ALL_AREAS) {
+                return false;
+            }
+
             $scopeField = self::scopedField($assignment['territory_scope'] ?? null);
             if ($scopeField === null) {
                 continue;
@@ -244,6 +253,10 @@ final class TerritoryData
         }
 
         foreach (self::includeAssignments($assignments) as $assignment) {
+            if (($assignment['territory_scope'] ?? null) === TerritoryScope::ALL_AREAS) {
+                return true;
+            }
+
             $scopeField = self::scopedField($assignment['territory_scope'] ?? null);
             if ($scopeField === null) {
                 continue;
@@ -271,6 +284,7 @@ final class TerritoryData
         $label = self::displayAssignmentsLabel($assignments) ?? 'wilayah yang belum diatur HR';
 
         return match ($scope) {
+            TerritoryScope::ALL_AREAS => 'Area kerja user mencakup semua provinsi.',
             TerritoryScope::PROVINCE => 'Area kerja user berada di level provinsi: ' . $label . '.',
             TerritoryScope::CITY => 'Area kerja user berada di level kota/kabupaten: ' . $label . '.',
             TerritoryScope::DISTRICT => 'Area kerja user berada di level kecamatan: ' . $label . '.',
@@ -338,6 +352,7 @@ final class TerritoryData
         }
 
         return match ($scope) {
+            TerritoryScope::ALL_AREAS => true,
             TerritoryScope::PROVINCE => self::matchesValue(
                 $assignment['territory_province'],
                 $territory['territory_province'],
@@ -371,6 +386,13 @@ final class TerritoryData
             $scope = self::resolveScope($province, $city, $district, $subdistrict);
         }
 
+        if ($scope === TerritoryScope::ALL_AREAS) {
+            $province = null;
+            $city = null;
+            $district = null;
+            $subdistrict = null;
+        }
+
         return [
             'rule_type' => in_array(Arr::get($assignment, 'rule_type'), TerritoryRuleType::ALL, true)
                 ? Arr::get($assignment, 'rule_type')
@@ -389,6 +411,10 @@ final class TerritoryData
 
         if (! in_array($scope, TerritoryScope::ALL, true)) {
             return false;
+        }
+
+        if ($scope === TerritoryScope::ALL_AREAS) {
+            return true;
         }
 
         $field = self::scopedField($scope);

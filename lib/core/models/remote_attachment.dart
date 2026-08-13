@@ -15,6 +15,12 @@ class RemoteAttachment {
   final String? thumbnailUrl;
   final int? sizeInBytes;
 
+  bool get hasRequiredPayload =>
+      id.trim().isNotEmpty &&
+      fileName.trim().isNotEmpty &&
+      mimeType.trim().isNotEmpty &&
+      url.trim().isNotEmpty;
+
   factory RemoteAttachment.fromJson(Map<String, dynamic> json) {
     return RemoteAttachment(
       id: json['id'] as String? ?? '',

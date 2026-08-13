@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/app_controller.dart';
 import '../../../core/models/app_session.dart';
@@ -72,8 +75,10 @@ class _HeatMapPageState extends State<HeatMapPage> {
           ),
           const SizedBox(height: 12),
           _MapPreview(
-            markerCount: points.length,
+            snapshot: snapshot,
+            points: points,
             isLoading: _isLoading,
+            onPointTap: _showPointDetail,
           ),
           const SizedBox(height: 18),
           Row(
@@ -285,13 +290,9 @@ class _HeatMapPageState extends State<HeatMapPage> {
                 ),
                 const SizedBox(height: 20),
                 FilledButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Direction mock ke ${point.name}'),
-                      ),
-                    );
+                    await _openDirection(point);
                   },
                   icon: const Icon(Icons.directions_rounded),
                   label: const Text('Direction'),
@@ -302,6 +303,21 @@ class _HeatMapPageState extends State<HeatMapPage> {
         );
       },
     );
+  }
+
+  Future<void> _openDirection(HeatMapPoint point) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=${point.latitude},${point.longitude}',
+    );
+
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('Tidak bisa membuka Google Maps untuk ${point.name}.')),
+      );
+    }
   }
 
   String _radiusLabel(int radiusMeter) {
@@ -339,32 +355,85 @@ class _HeatMapPageState extends State<HeatMapPage> {
 
 class _MapPreview extends StatelessWidget {
   const _MapPreview({
-    required this.markerCount,
+    required this.snapshot,
+    required this.points,
     required this.isLoading,
+    required this.onPointTap,
   });
 
-  final int markerCount;
+  final HeatMapSnapshot? snapshot;
+  final List<HeatMapPoint> points;
   final bool isLoading;
+  final ValueChanged<HeatMapPoint> onPointTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final center = snapshot?.userLocation;
+    final tileUrl =
+        center == null ? null : _tileUrl(center.latitude, center.longitude);
 
     return Container(
-      height: 178,
+      height: 240,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE7E5E4)),
       ),
       child: Stack(
         children: [
           Positioned.fill(
-            child: CustomPaint(
-              painter: _MapGridPainter(
-                lineColor: theme.dividerColor,
-                pointColor: theme.colorScheme.primary,
+            child: tileUrl == null
+                ? ColoredBox(color: theme.colorScheme.surfaceContainerHighest)
+                : Image.network(
+                    tileUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return CustomPaint(
+                        painter: _MapFallbackPainter(
+                          lineColor: theme.dividerColor,
+                          pointColor: theme.colorScheme.primary,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.18),
+                    Colors.white.withValues(alpha: 0.02),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
               ),
             ),
+          ),
+          if (center != null)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _RadiusPainter(
+                  radiusMeters: snapshot?.radiusMeters ?? 0,
+                  centerLatitude: center.latitude,
+                  fillColor: Colors.teal.withValues(alpha: 0.18),
+                  strokeColor: Colors.teal,
+                ),
+              ),
+            ),
+          if (center != null)
+            for (final point in points)
+              _MapPin(
+                point: point,
+                offset: _offsetForPoint(center, point),
+                onTap: () => onPointTap(point),
+              ),
+          const Align(
+            alignment: Alignment.center,
+            child: _UserPin(),
           ),
           Positioned(
             left: 18,
@@ -377,19 +446,181 @@ class _MapPreview extends StatelessWidget {
           Positioned(
             left: 20,
             bottom: 16,
-            child: Text(
-              '$markerCount marker aktif',
-              style: theme.textTheme.bodyMedium,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                '${points.length} pin aktif',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  String _tileUrl(double latitude, double longitude) {
+    const zoom = 14;
+    final tile = _tilePosition(latitude, longitude, zoom);
+    return 'https://tile.openstreetmap.org/$zoom/${tile.x}/${tile.y}.png';
+  }
+
+  _TilePosition _tilePosition(double latitude, double longitude, int zoom) {
+    final latRad = latitude * math.pi / 180;
+    final n = math.pow(2, zoom).toDouble();
+    final x = ((longitude + 180) / 360 * n).floor();
+    final y =
+        ((1 - math.log(math.tan(latRad) + 1 / math.cos(latRad)) / math.pi) /
+                2 *
+                n)
+            .floor();
+    return _TilePosition(x, y);
+  }
+
+  Alignment _offsetForPoint(HeatMapUserLocation center, HeatMapPoint point) {
+    const viewMeters = 2400.0;
+    final metersPerDegreeLat = 111320.0;
+    final metersPerDegreeLng =
+        111320.0 * math.cos(center.latitude * math.pi / 180);
+    final dx = (point.longitude - center.longitude) * metersPerDegreeLng;
+    final dy = (center.latitude - point.latitude) * metersPerDegreeLat;
+    final x = (dx / (viewMeters / 2)).clamp(-0.9, 0.9);
+    final y = (dy / (viewMeters / 2)).clamp(-0.9, 0.9);
+    return Alignment(x, y);
+  }
 }
 
-class _MapGridPainter extends CustomPainter {
-  const _MapGridPainter({
+class _TilePosition {
+  const _TilePosition(this.x, this.y);
+
+  final int x;
+  final int y;
+}
+
+class _MapPin extends StatelessWidget {
+  const _MapPin({
+    required this.point,
+    required this.offset,
+    required this.onTap,
+  });
+
+  final HeatMapPoint point;
+  final Alignment offset;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: offset,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Tooltip(
+          message: point.name,
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: point.type == 'mitra' ? Colors.orange : Colors.teal,
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              point.type == 'mitra'
+                  ? Icons.storefront_rounded
+                  : Icons.location_on_rounded,
+              size: 17,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UserPin extends StatelessWidget {
+  const _UserPin();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: Colors.blue,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white, width: 4),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: const Icon(Icons.person_pin_circle_rounded, color: Colors.white),
+    );
+  }
+}
+
+class _RadiusPainter extends CustomPainter {
+  const _RadiusPainter({
+    required this.radiusMeters,
+    required this.centerLatitude,
+    required this.fillColor,
+    required this.strokeColor,
+  });
+
+  final int radiusMeters;
+  final double centerLatitude;
+  final Color fillColor;
+  final Color strokeColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (radiusMeters <= 0) {
+      return;
+    }
+
+    const viewMeters = 2400.0;
+    final radiusPx =
+        (radiusMeters / viewMeters) * math.min(size.width, size.height);
+    final center = Offset(size.width / 2, size.height / 2);
+    canvas.drawCircle(center, radiusPx, Paint()..color = fillColor);
+    canvas.drawCircle(
+      center,
+      radiusPx,
+      Paint()
+        ..color = strokeColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadiusPainter oldDelegate) {
+    return oldDelegate.radiusMeters != radiusMeters ||
+        oldDelegate.centerLatitude != centerLatitude ||
+        oldDelegate.fillColor != fillColor ||
+        oldDelegate.strokeColor != strokeColor;
+  }
+}
+
+class _MapFallbackPainter extends CustomPainter {
+  const _MapFallbackPainter({
     required this.lineColor,
     required this.pointColor,
   });
@@ -402,8 +633,6 @@ class _MapGridPainter extends CustomPainter {
     final linePaint = Paint()
       ..color = lineColor
       ..strokeWidth = 1;
-    final markerPaint = Paint()..color = pointColor;
-    final userPaint = Paint()..color = Colors.orange;
 
     for (var i = 1; i < 4; i++) {
       final dx = size.width * i / 4;
@@ -411,27 +640,10 @@ class _MapGridPainter extends CustomPainter {
       canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), linePaint);
       canvas.drawLine(Offset(0, dy), Offset(size.width, dy), linePaint);
     }
-
-    canvas.drawCircle(Offset(size.width * .5, size.height * .55), 8, userPaint);
-    canvas.drawCircle(
-      Offset(size.width * .35, size.height * .34),
-      6,
-      markerPaint,
-    );
-    canvas.drawCircle(
-      Offset(size.width * .67, size.height * .42),
-      6,
-      markerPaint,
-    );
-    canvas.drawCircle(
-      Offset(size.width * .58, size.height * .73),
-      6,
-      markerPaint,
-    );
   }
 
   @override
-  bool shouldRepaint(covariant _MapGridPainter oldDelegate) {
+  bool shouldRepaint(covariant _MapFallbackPainter oldDelegate) {
     return oldDelegate.lineColor != lineColor ||
         oldDelegate.pointColor != pointColor;
   }

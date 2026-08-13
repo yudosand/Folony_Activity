@@ -1,4 +1,5 @@
 import '../../../core/models/face_profile.dart';
+import '../../../core/network/human_readable_error.dart';
 import '../../../core/network/simple_api_client.dart';
 
 String? faceEnrollmentBlockReason(
@@ -24,9 +25,9 @@ String describeAttendanceActionError(
 
   if (error is ApiException) {
     if (error.statusCode >= 500) {
-      return 'Server sedang bermasalah saat memproses $actionLabel. ${error.message}';
+      return humanReadableError(error, action: 'memproses $actionLabel');
     }
-    return 'Proses $actionLabel gagal: ${error.message}';
+    return 'Proses $actionLabel gagal: ${humanReadableError(error, action: 'memproses $actionLabel')}';
   }
 
   if (error is StateError) {
@@ -42,5 +43,5 @@ String describeAttendanceActionError(
     return fallback;
   }
 
-  return 'Proses $actionLabel gagal: $rawMessage';
+  return 'Proses $actionLabel gagal: ${humanReadableError(error, action: 'memproses $actionLabel')}';
 }

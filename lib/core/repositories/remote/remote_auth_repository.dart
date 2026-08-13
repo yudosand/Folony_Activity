@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/app_user.dart';
+import '../../models/remote_attachment.dart';
 import '../../network/simple_api_client.dart';
 import '../auth_repository.dart';
 
@@ -86,6 +87,31 @@ class RemoteAuthRepository implements AuthRepository {
         'new_password_confirmation': newPasswordConfirmation,
       },
     );
+  }
+
+  @override
+  Future<AppUser> updateProfilePhoto(RemoteAttachment profilePhoto) async {
+    final response = await _client.post(
+      '/profile/photo',
+      body: {
+        'profile_photo': profilePhoto.toJson(),
+      },
+    );
+
+    final user = AppUser.fromJson(_unwrapMap(response));
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_userKey, jsonEncode(user.toJson()));
+    return user;
+  }
+
+  @override
+  Future<AppUser> deleteProfilePhoto() async {
+    final response = await _client.delete('/profile/photo');
+
+    final user = AppUser.fromJson(_unwrapMap(response));
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_userKey, jsonEncode(user.toJson()));
+    return user;
   }
 
   @override

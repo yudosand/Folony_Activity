@@ -9,7 +9,8 @@ class MockNetworkRepository implements NetworkRepository {
     required String userId,
     NetworkProfileType? type,
   }) async {
-    final profiles = List<NetworkProfile>.from(_profilesByOwner[userId] ?? const []);
+    final profiles =
+        List<NetworkProfile>.from(_profilesByOwner[userId] ?? const []);
     if (type == null) {
       profiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return profiles;

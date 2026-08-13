@@ -14,15 +14,29 @@ class RemoteUploadRepository implements UploadRepository {
     required String filePath,
     String? label,
   }) async {
-    final response = await _client.postMultipart(
-      '/uploads/attachments',
-      fileField: 'file',
-      filePath: filePath,
-      fields: {
-        if (label != null && label.isNotEmpty) 'label': label,
-      },
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      final response = await _client.postMultipart(
+        '/uploads/attachments',
+        fileField: 'file',
+        filePath: filePath,
+        fields: {
+          if (label != null && label.isNotEmpty) 'label': label,
+        },
+      );
+
+      final attachment = RemoteAttachment.fromJson(_unwrapMap(response));
+      if (attachment.hasRequiredPayload) {
+        return attachment;
+      }
+
+      if (attempt < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+      }
+    }
+
+    throw StateError(
+      'Foto sudah dikirim, tapi respons server belum lengkap.',
     );
-    return RemoteAttachment.fromJson(_unwrapMap(response));
   }
 
   Map<String, dynamic> _unwrapMap(dynamic response) {

@@ -5,7 +5,8 @@ import 'package:folony_activity/core/network/simple_api_client.dart';
 import 'package:folony_activity/features/attendance/presentation/attendance_feedback.dart';
 
 void main() {
-  test('face enrollment block reason requires biometric template readiness', () {
+  test('face enrollment block reason requires biometric template readiness',
+      () {
     final profile = FaceProfile(
       id: 'face-profile-legacy',
       userId: 'usr_001',
@@ -21,7 +22,8 @@ void main() {
     );
   });
 
-  test('attendance action error surfaces api message for server failure', () {
+  test('attendance action error hides technical api message for server failure',
+      () {
     final error = ApiException(
       statusCode: 500,
       message: 'Internal Server Error',
@@ -30,7 +32,7 @@ void main() {
 
     expect(
       describeAttendanceActionError(error, actionLabel: 'check-in'),
-      contains('Internal Server Error'),
+      'Server sedang bermasalah saat memproses check-in. Coba lagi beberapa saat lagi.',
     );
   });
 

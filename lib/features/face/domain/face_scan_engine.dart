@@ -149,10 +149,9 @@ class FaceScanEngine {
   FaceScanChallenge? get currentChallenge =>
       isComplete ? null : _challenges[_currentIndex];
 
-  double get livenessScore =>
-      _scenario == FaceScanScenario.verification
-          ? _livenessScore.clamp(0, 100).toDouble()
-          : 0;
+  double get livenessScore => _scenario == FaceScanScenario.verification
+      ? _livenessScore.clamp(0, 100).toDouble()
+      : 0;
 
   FaceScanFrameUpdate evaluate(FaceObservation observation) {
     final challenge = currentChallenge;
@@ -272,7 +271,8 @@ class FaceScanEngine {
       }
       return _update(
         challenge,
-        guidance: 'Tatap kamera lurus sebentar. Device ini akan lanjut otomatis jika kedipan sulit terbaca.',
+        guidance:
+            'Tatap kamera lurus sebentar. Device ini akan lanjut otomatis jika kedipan sulit terbaca.',
       );
     }
 

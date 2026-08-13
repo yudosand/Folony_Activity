@@ -16,7 +16,8 @@ class RemoteTerritoryRepository implements TerritoryRepository {
   }
 
   @override
-  Future<List<TerritoryOption>> listCities({required String provinceCode}) async {
+  Future<List<TerritoryOption>> listCities(
+      {required String provinceCode}) async {
     final response = await _client.get(
       '/territories/cities',
       queryParameters: {'province_code': provinceCode},
@@ -25,7 +26,8 @@ class RemoteTerritoryRepository implements TerritoryRepository {
   }
 
   @override
-  Future<List<TerritoryOption>> listDistricts({required String cityCode}) async {
+  Future<List<TerritoryOption>> listDistricts(
+      {required String cityCode}) async {
     final response = await _client.get(
       '/territories/districts',
       queryParameters: {'city_code': cityCode},
@@ -48,7 +50,8 @@ class RemoteTerritoryRepository implements TerritoryRepository {
     if (response is Map && response['data'] is List) {
       return (response['data'] as List)
           .whereType<Map>()
-          .map((item) => TerritoryOption.fromJson(Map<String, dynamic>.from(item)))
+          .map((item) =>
+              TerritoryOption.fromJson(Map<String, dynamic>.from(item)))
           .toList();
     }
 

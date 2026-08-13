@@ -11,12 +11,14 @@ import 'package:folony_activity/core/models/app_user.dart';
 import 'package:folony_activity/core/models/face_profile.dart';
 import 'package:folony_activity/core/models/face_verification_result.dart';
 import 'package:folony_activity/core/models/network_entry.dart';
+import 'package:folony_activity/core/models/network_profile.dart';
 import 'package:folony_activity/core/models/remote_attachment.dart';
 import 'package:folony_activity/core/repositories/attendance_repository.dart';
 import 'package:folony_activity/core/repositories/auth_repository.dart';
 import 'package:folony_activity/core/repositories/face_profile_repository.dart';
 import 'package:folony_activity/core/repositories/hybrid/fallback_attendance_repository.dart';
 import 'package:folony_activity/core/repositories/hybrid/workflow_repository_mode.dart';
+import 'package:folony_activity/core/repositories/network_repository.dart';
 import 'package:folony_activity/core/repositories/upload_repository.dart';
 import 'package:folony_activity/features/face/data/face_biometric_analyzer.dart';
 import 'package:folony_activity/core/models/leave_request_record.dart'
@@ -25,6 +27,7 @@ import 'package:folony_activity/core/models/wfa_request_record.dart'
     as wfa_model;
 import 'package:folony_activity/features/leave/presentation/leave_page.dart';
 import 'package:folony_activity/features/leave/presentation/leave_approval_page.dart';
+import 'package:folony_activity/features/network/presentation/network_page.dart';
 import 'package:folony_activity/features/profile/presentation/profile_page.dart';
 import 'package:folony_activity/features/wfh/presentation/wfh_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -265,6 +268,57 @@ void main() {
     expect(storedEntries.first.followUps.first.title, 'Kunjungan pertama');
   });
 
+  testWidgets('network page separates creator data from area data',
+      (tester) async {
+    final fggSession = AppSession.mock(AppRole.fgg, userName: 'FGG Pasar Minggu');
+    final repository = _StaticNetworkRepository([
+      _networkProfile(
+        id: 'warung-jable',
+        ownerId: fggSession.userId,
+        ownerName: fggSession.userName,
+        name: 'Warung Jable',
+        province: 'Jawa Barat',
+        city: 'Indramayu',
+      ),
+      _networkProfile(
+        id: 'ukm-area-pasar-minggu',
+        ownerId: 'usr_fgg_area_other',
+        ownerName: 'FGG Area Lain',
+        name: 'UKM Area Pasar Minggu',
+        province: 'DKI Jakarta',
+        city: 'Jakarta Selatan',
+      ),
+    ]);
+    final controller = AppController(
+      networkRepository: repository,
+      seedWorkflowDemoData: false,
+    );
+
+    await controller.refreshNetworkDataForSession(fggSession);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NetworkPage(
+          session: fggSession,
+          controller: controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('UKM Saya'), findsOneWidget);
+    expect(find.text('UKM Area Kerja'), findsOneWidget);
+    expect(find.text('Warung Jable'), findsOneWidget);
+    expect(find.text('UKM Area Pasar Minggu'), findsOneWidget);
+    expect(
+      find.textContaining('1 data UKM yang Anda buat sendiri'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('1 data UKM non-milik Anda'),
+      findsOneWidget,
+    );
+  });
+
   test(
     'remote attendance writes fail loudly instead of falling back to local data',
     () async {
@@ -447,13 +501,13 @@ void main() {
     await tester.pumpWidget(HexActivityApp(controller: controller));
     await tester.pumpAndSettle();
 
-    expect(find.text('HEX Activity'), findsOneWidget);
+    expect(find.text('Folony Activity'), findsOneWidget);
     expect(find.text('Login'), findsOneWidget);
     expect(find.text('Masuk'), findsOneWidget);
     expect(find.text('Mode demo/dev'), findsNothing);
     expect(
       find.text('Mode staging aktif. Gunakan akun backend yang valid.'),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -471,7 +525,7 @@ void main() {
     expect(find.text('Mode demo/dev'), findsNothing);
     expect(
       find.text('Mode staging aktif. Gunakan akun backend yang valid.'),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -549,6 +603,9 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Detail Akun'));
     await tester.pumpAndSettle();
 
     expect(find.text('Nonaktif'), findsOneWidget);
@@ -924,6 +981,24 @@ class _FakeAuthRepository implements AuthRepository {
   }) async {}
 
   @override
+  Future<AppUser> updateProfilePhoto(RemoteAttachment profilePhoto) async {
+    if (currentUserValue == null) {
+      throw StateError('Missing fake auth user');
+    }
+    currentUserValue = currentUserValue!.copyWith(profilePhoto: profilePhoto);
+    return currentUserValue!;
+  }
+
+  @override
+  Future<AppUser> deleteProfilePhoto() async {
+    if (currentUserValue == null) {
+      throw StateError('Missing fake auth user');
+    }
+    currentUserValue = currentUserValue!.withProfilePhoto(null);
+    return currentUserValue!;
+  }
+
+  @override
   Future<AppUser?> currentUser() async => currentUserValue;
 
   @override
@@ -952,4 +1027,107 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> unregisterPushToken({
     required String token,
   }) async {}
+}
+
+class _StaticNetworkRepository implements NetworkRepository {
+  _StaticNetworkRepository(this.profiles);
+
+  final List<NetworkProfile> profiles;
+
+  @override
+  Future<List<NetworkProfile>> listOwnedByUser({
+    required String userId,
+    NetworkProfileType? type,
+  }) async {
+    return profiles
+        .where((profile) => type == null || profile.type == type)
+        .toList();
+  }
+
+  @override
+  Future<List<NetworkProfile>> listTeamUkm({
+    required String areaManagerId,
+  }) async {
+    return const [];
+  }
+
+  @override
+  Future<NetworkProfile> upsert(NetworkProfile profile) async {
+    profiles.removeWhere((item) => item.id == profile.id);
+    profiles.add(profile);
+    return profile;
+  }
+
+  @override
+  Future<void> delete(String profileId) async {
+    profiles.removeWhere((item) => item.id == profileId);
+  }
+
+  @override
+  Future<NetworkProfile> appendFollowUp({
+    required String profileId,
+    required NetworkFollowUpRecord followUp,
+    NetworkProfileStatus? nextStatus,
+  }) async {
+    final index = profiles.indexWhere((item) => item.id == profileId);
+    if (index == -1) {
+      throw StateError('Network profile with id $profileId not found');
+    }
+
+    final current = profiles[index];
+    final updated = NetworkProfile(
+      id: current.id,
+      ownerId: current.ownerId,
+      ownerName: current.ownerName,
+      ownerRole: current.ownerRole,
+      type: current.type,
+      name: current.name,
+      address: current.address,
+      territoryProvince: current.territoryProvince,
+      territoryCity: current.territoryCity,
+      territoryDistrict: current.territoryDistrict,
+      territorySubdistrict: current.territorySubdistrict,
+      businessType: current.businessType,
+      phoneNumber: current.phoneNumber,
+      status: nextStatus ?? current.status,
+      createdAt: current.createdAt,
+      referenceName: current.referenceName,
+      note: current.note,
+      photo: current.photo,
+      personalityMetrics: current.personalityMetrics,
+      documents: current.documents,
+      followUps: [followUp, ...current.followUps],
+      latitude: current.latitude,
+      longitude: current.longitude,
+    );
+    profiles[index] = updated;
+    return updated;
+  }
+}
+
+NetworkProfile _networkProfile({
+  required String id,
+  required String ownerId,
+  required String ownerName,
+  required String name,
+  required String province,
+  required String city,
+}) {
+  return NetworkProfile(
+    id: id,
+    ownerId: ownerId,
+    ownerName: ownerName,
+    ownerRole: AppRole.fgg,
+    type: NetworkProfileType.ukm,
+    name: name,
+    address: city,
+    territoryProvince: province,
+    territoryCity: city,
+    territoryDistrict: '',
+    territorySubdistrict: '',
+    businessType: 'Kuliner',
+    phoneNumber: '081234567890',
+    status: NetworkProfileStatus.draft,
+    createdAt: DateTime(2026, 8, 12, 8),
+  );
 }

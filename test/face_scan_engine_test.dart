@@ -142,7 +142,8 @@ void main() {
     expect(engine.livenessScore, 100);
   });
 
-  test('verification can finish with fallback blink and lower liveness score', () {
+  test('verification can finish with fallback blink and lower liveness score',
+      () {
     final engine = FaceScanEngine.verification(
       actionLabel: 'check-out',
       turnChallenge: FaceScanChallengeType.right,

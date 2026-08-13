@@ -31,7 +31,8 @@ class MockPerformanceRepository implements PerformanceRepository {
             PerformanceMetricProgress(
               key: 'fgg_follow_up_visit',
               label: 'Kunjungan',
-              description: 'Jumlah follow-up baru yang disimpan FGG pada bulan aktif.',
+              description:
+                  'Jumlah follow-up baru yang disimpan FGG pada bulan aktif.',
               unit: 'kunjungan',
               actualValue: 12,
               targetValue: 20,
@@ -50,7 +51,8 @@ class MockPerformanceRepository implements PerformanceRepository {
             PerformanceMetricProgress(
               key: 'area_manager_team_new_ukm',
               label: 'UKM Baru Tim',
-              description: 'Akumulasi UKM baru dari seluruh FGG di wilayah Area Manager ditambah UKM baru buatan Area Manager sendiri.',
+              description:
+                  'Akumulasi UKM baru dari seluruh FGG di wilayah Area Manager ditambah UKM baru buatan Area Manager sendiri.',
               unit: 'UKM',
               actualValue: 15,
               targetValue: 100,
@@ -61,7 +63,8 @@ class MockPerformanceRepository implements PerformanceRepository {
             PerformanceMetricProgress(
               key: 'area_manager_new_mitra',
               label: 'Mitra Baru',
-              description: 'Jumlah mitra baru yang dibuat langsung oleh Area Manager pada bulan aktif.',
+              description:
+                  'Jumlah mitra baru yang dibuat langsung oleh Area Manager pada bulan aktif.',
               unit: 'mitra',
               actualValue: 10,
               targetValue: 20,
@@ -72,7 +75,8 @@ class MockPerformanceRepository implements PerformanceRepository {
             PerformanceMetricProgress(
               key: 'area_manager_team_follow_up_visit',
               label: 'Kunjungan Tim',
-              description: 'Akumulasi follow-up baru dari seluruh FGG di wilayah Area Manager pada bulan aktif.',
+              description:
+                  'Akumulasi follow-up baru dari seluruh FGG di wilayah Area Manager pada bulan aktif.',
               unit: 'kunjungan',
               actualValue: 50,
               targetValue: 100,

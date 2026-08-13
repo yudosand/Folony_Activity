@@ -43,7 +43,8 @@ class FaceProfile {
     final samples = samplesJson is List
         ? samplesJson
             .whereType<Map>()
-            .map((item) => RemoteAttachment.fromJson(Map<String, dynamic>.from(item)))
+            .map((item) =>
+                RemoteAttachment.fromJson(Map<String, dynamic>.from(item)))
             .toList(growable: false)
         : const <RemoteAttachment>[];
 

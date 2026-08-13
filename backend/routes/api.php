@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ApprovalController;
+use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceTokenController;
@@ -11,6 +12,8 @@ use App\Http\Controllers\Api\LeaveController;
 use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\NetworkController;
 use App\Http\Controllers\Api\PerformanceController;
+use App\Http\Controllers\Api\ProfilePhotoController;
+use App\Http\Controllers\Api\SurveyController;
 use App\Http\Controllers\Api\TerritoryController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\WfaController;
@@ -30,6 +33,9 @@ Route::middleware(['auth:sanctum', EnsureActiveApiUser::class])->group(function 
     Route::post('/devices/push-token', [DeviceTokenController::class, 'store']);
     Route::delete('/devices/push-token', [DeviceTokenController::class, 'destroy']);
     Route::get('/me', MeController::class);
+    Route::get('/announcements', AnnouncementController::class);
+    Route::post('/profile/photo', [ProfilePhotoController::class, 'store']);
+    Route::delete('/profile/photo', [ProfilePhotoController::class, 'destroy']);
 
     Route::get('/leave', [LeaveController::class, 'index']);
     Route::get('/leave/approvals', [LeaveController::class, 'approvals']);
@@ -65,6 +71,10 @@ Route::middleware(['auth:sanctum', EnsureActiveApiUser::class])->group(function 
 
     Route::get('/heat-map', HeatMapController::class);
     Route::post('/uploads/attachments', [UploadController::class, 'store']);
+
+    Route::get('/surveys/options', [SurveyController::class, 'options']);
+    Route::post('/surveys/kios', [SurveyController::class, 'storeKios']);
+    Route::post('/surveys/prices', [SurveyController::class, 'storePrices']);
 
     Route::get('/approvals/inbox', [ApprovalController::class, 'index']);
     Route::post('/approvals/{approvalIdentifier}/approve', [ApprovalController::class, 'approve'])->where('approvalIdentifier', '.*');

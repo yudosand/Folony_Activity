@@ -53,6 +53,7 @@ class User extends Authenticatable
         'address',
         'emergency_contact_name',
         'emergency_contact_phone',
+        'profile_photo_attachment',
         'email',
         'password',
     ];
@@ -83,6 +84,7 @@ class User extends Authenticatable
             'attendance_radius_meters' => 'integer',
             'joined_at' => 'date',
             'territory_assignments' => 'array',
+            'profile_photo_attachment' => 'array',
             'password' => 'hashed',
         ];
     }

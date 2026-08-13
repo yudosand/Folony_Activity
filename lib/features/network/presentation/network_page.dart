@@ -9,8 +9,8 @@ import '../../../app/app_controller.dart';
 import '../../../core/enums/app_role.dart';
 import '../../../core/models/app_session.dart';
 import '../../../core/models/network_entry.dart';
-import '../../../core/models/territory_assignment.dart';
 import '../../../core/models/territory_option.dart';
+import '../../../core/network/human_readable_error.dart';
 import '../../../core/widgets/adaptive_image.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -38,6 +38,8 @@ class _NetworkPageState extends State<NetworkPage> {
   bool _isSaving = false;
 
   bool get _isAreaManager => widget.session.role == AppRole.areaManager;
+  bool get _isManagement => widget.session.role == AppRole.management;
+  bool get _canCreateData => !_isManagement;
 
   List<NetworkEntryType> get _allowedTypes {
     if (_isAreaManager) {
@@ -69,28 +71,43 @@ class _NetworkPageState extends State<NetworkPage> {
       builder: (context, _) {
         final theme = Theme.of(context);
         final query = _searchController.text.trim().toLowerCase();
-        final ownEntries = widget.controller.ownNetworkEntriesForSession(
+        final visibleEntries = widget.controller.ownNetworkEntriesForSession(
           widget.session,
         );
-        final ownUkmEntries = ownEntries
+        final myUkmEntries = visibleEntries
             .where((entry) => entry.type == NetworkEntryType.ukm)
+            .where(_isOwnedByCurrentUser)
             .where((entry) => _matchesSearch(entry, query))
             .toList();
-        final ownMitraEntries = ownEntries
+        final areaUkmEntries = visibleEntries
+            .where((entry) => entry.type == NetworkEntryType.ukm)
+            .where((entry) => _isManagement || !_isOwnedByCurrentUser(entry))
+            .where((entry) => _matchesSearch(entry, query))
+            .toList();
+        final myMitraEntries = visibleEntries
             .where((entry) => entry.type == NetworkEntryType.mitraHub)
+            .where(_isOwnedByCurrentUser)
+            .where((entry) => _matchesSearch(entry, query))
+            .toList();
+        final areaMitraEntries = visibleEntries
+            .where((entry) => entry.type == NetworkEntryType.mitraHub)
+            .where((entry) => _isManagement || !_isOwnedByCurrentUser(entry))
             .where((entry) => _matchesSearch(entry, query))
             .toList();
         final teamUkmEntries = _isAreaManager
-            ? widget.controller.teamUkmEntriesForAreaManager(widget.session)
+            ? widget.controller
+                .teamUkmEntriesForAreaManager(widget.session)
                 .where((entry) => _matchesSearch(entry, query))
                 .toList()
             : const <NetworkEntry>[];
 
         return Scaffold(
-          floatingActionButton: FloatingActionButton(
-            onPressed: _isSaving ? null : _openCreateMenu,
-            child: const Icon(Icons.add_rounded),
-          ),
+          floatingActionButton: _canCreateData
+              ? FloatingActionButton(
+                  onPressed: _isSaving ? null : _openCreateMenu,
+                  child: const Icon(Icons.add_rounded),
+                )
+              : null,
           body: RefreshIndicator(
             onRefresh: _refreshEntries,
             child: ListView(
@@ -109,14 +126,18 @@ class _NetworkPageState extends State<NetworkPage> {
                       Text(
                         _isAreaManager
                             ? 'Monitoring Area dan Jaringan'
-                            : 'Pengembangan UKM Saya',
+                            : _isManagement
+                                ? 'Monitoring Jaringan Management'
+                                : 'Pengembangan UKM Saya',
                         style: theme.textTheme.titleMedium,
                       ),
                       const SizedBox(height: 6),
                       Text(
                         _isAreaManager
-                            ? 'Area Manager bisa menambah data di wilayah kerja yang ditetapkan HR, sekaligus memantau seluruh UKM FGG di wilayah tersebut.'
-                            : 'FGG hanya bisa menambah UKM di wilayah kerja yang ditetapkan HR. Data UKM akan mengikuti wilayah kerja, bukan orangnya.',
+                            ? 'Area Manager bisa menambah data di area mana saja. Data yang tampil tetap mengikuti wilayah kerja yang ditetapkan HR.'
+                            : _isManagement
+                                ? 'Management melihat UKM dan mitra sesuai wilayah kerja yang ditetapkan HR.'
+                                : 'FGG bisa menambah UKM di area mana saja. Data yang tampil mengikuti wilayah UKM, bukan orang pembuatnya.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -148,26 +169,55 @@ class _NetworkPageState extends State<NetworkPage> {
                   const SizedBox(height: 24),
                 ],
                 _NetworkSection(
-                  title: _isAreaManager ? 'UKM Milik Area Manager' : 'UKM Area Kerja',
-                  subtitle: _isAreaManager
-                      ? '${ownUkmEntries.length} data UKM yang Anda buat sendiri di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.'
-                      : '${ownUkmEntries.length} data UKM yang berada di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
-                  entries: ownUkmEntries,
-                  emptyMessage: _isAreaManager
-                      ? 'Belum ada UKM yang dibuat langsung oleh Area Manager.'
+                  title: _isManagement ? 'UKM Area Kerja' : 'UKM Saya',
+                  subtitle: _isManagement
+                      ? '${areaUkmEntries.length} data UKM di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.'
+                      : '${myUkmEntries.length} data UKM yang Anda buat sendiri, termasuk data di luar area kerja.',
+                  entries: _isManagement ? areaUkmEntries : myUkmEntries,
+                  emptyMessage: _isManagement
+                      ? 'Belum ada data UKM di wilayah kerja management.'
                       : 'Tekan tombol tambah untuk membuat data UKM baru.',
-                  onTap: (entry) => _showDetail(entry, canEdit: true),
+                  onTap: (entry) => _showDetail(entry, canEdit: !_isManagement),
                 ),
-                if (_isAreaManager) ...[
+                if (!_isManagement) ...[
                   const SizedBox(height: 24),
                   _NetworkSection(
-                    title: 'Mitra Area Kerja',
+                    title: 'UKM Area Kerja',
                     subtitle:
-                      '${ownMitraEntries.length} data mitra non-FGG di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
-                    entries: ownMitraEntries,
+                        '${areaUkmEntries.length} data UKM non-milik Anda yang berada di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
+                    entries: areaUkmEntries,
                     emptyMessage:
-                        'Tekan tombol tambah untuk membuat data mitra baru.',
-                    onTap: (entry) => _showDetail(entry, canEdit: true),
+                        'Data UKM area kerja dari user lain akan muncul di sini.',
+                    onTap: (entry) =>
+                        _showDetail(entry, canEdit: !_isManagement),
+                  ),
+                ],
+                if (_isAreaManager || _isManagement) ...[
+                  const SizedBox(height: 24),
+                  if (!_isManagement) ...[
+                    _NetworkSection(
+                      title: 'Mitra Saya',
+                      subtitle:
+                          '${myMitraEntries.length} data mitra yang Anda buat sendiri, termasuk data di luar area kerja.',
+                      entries: myMitraEntries,
+                      emptyMessage:
+                          'Tekan tombol tambah untuk membuat data mitra baru.',
+                      onTap: (entry) =>
+                          _showDetail(entry, canEdit: !_isManagement),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                  _NetworkSection(
+                    title: 'Mitra Area Kerja',
+                    subtitle: _isManagement
+                        ? '${areaMitraEntries.length} data mitra di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.'
+                        : '${areaMitraEntries.length} data mitra non-milik Anda di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
+                    entries: areaMitraEntries,
+                    emptyMessage: _isManagement
+                        ? 'Belum ada data mitra di wilayah kerja management.'
+                        : 'Data mitra area kerja dari user lain akan muncul di sini.',
+                    onTap: (entry) =>
+                        _showDetail(entry, canEdit: !_isManagement),
                   ),
                 ],
                 const SizedBox(height: 80),
@@ -230,9 +280,7 @@ class _NetworkPageState extends State<NetworkPage> {
     await _openForm(type: selectedType);
   }
 
-  Future<void> _refreshEntries({
-    bool showFeedback = false,
-  }) async {
+  Future<void> _refreshEntries({bool showFeedback = false}) async {
     try {
       await widget.controller.refreshNetworkDataForSession(widget.session);
     } catch (error) {
@@ -246,7 +294,9 @@ class _NetworkPageState extends State<NetworkPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Muat data jaringan gagal: $error'),
+          content: Text(
+            'Muat data jaringan gagal: ${humanReadableError(error, action: 'memuat data jaringan')}',
+          ),
         ),
       );
     }
@@ -273,7 +323,10 @@ class _NetworkPageState extends State<NetworkPage> {
 
     setState(() => _isSaving = true);
     try {
-      await widget.controller.upsertNetworkEntryForSession(widget.session, result);
+      await widget.controller.upsertNetworkEntryForSession(
+        widget.session,
+        result,
+      );
 
       if (!mounted) {
         return;
@@ -283,7 +336,7 @@ class _NetworkPageState extends State<NetworkPage> {
         SnackBar(
           content: Text(
             existingEntry == null
-                ? 'Data berhasil masuk ke wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName} dengan titik ${result.latitude?.toStringAsFixed(5)}, ${result.longitude?.toStringAsFixed(5)}'
+                ? 'Data berhasil masuk ke area ${result.territorySummary} dengan titik ${result.latitude?.toStringAsFixed(5)}, ${result.longitude?.toStringAsFixed(5)}'
                 : 'Data wilayah kerja berhasil diperbarui di titik ${result.latitude?.toStringAsFixed(5)}, ${result.longitude?.toStringAsFixed(5)}',
           ),
         ),
@@ -293,7 +346,11 @@ class _NetworkPageState extends State<NetworkPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Simpan data jaringan gagal: $error')),
+        SnackBar(
+          content: Text(
+            'Simpan data jaringan gagal: ${humanReadableError(error, action: 'menyimpan data jaringan')}',
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -302,10 +359,7 @@ class _NetworkPageState extends State<NetworkPage> {
     }
   }
 
-  void _showDetail(
-    NetworkEntry entry, {
-    required bool canEdit,
-  }) {
+  void _showDetail(NetworkEntry entry, {required bool canEdit}) {
     final theme = Theme.of(context);
 
     showModalBottomSheet<void>(
@@ -361,7 +415,10 @@ class _NetworkPageState extends State<NetworkPage> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _DetailLine(label: 'Pemilik', value: refreshedEntry.ownerName),
+                  _DetailLine(
+                    label: 'Pemilik',
+                    value: refreshedEntry.ownerName,
+                  ),
                   const Divider(height: 24),
                   _DetailLine(
                     label: 'Dibuat',
@@ -396,7 +453,9 @@ class _NetworkPageState extends State<NetworkPage> {
                     ),
                     if (refreshedEntry.personalityScores.isNotEmpty) ...[
                       const SizedBox(height: 10),
-                      _CompactScoreList(scores: refreshedEntry.personalityScores),
+                      _CompactScoreList(
+                        scores: refreshedEntry.personalityScores,
+                      ),
                     ],
                     const Divider(height: 24),
                     _DetailLine(
@@ -412,8 +471,9 @@ class _NetworkPageState extends State<NetworkPage> {
                   const Divider(height: 24),
                   _DetailLine(
                     label: 'Catatan',
-                    value:
-                        refreshedEntry.notes.isEmpty ? '-' : refreshedEntry.notes,
+                    value: refreshedEntry.notes.isEmpty
+                        ? '-'
+                        : refreshedEntry.notes,
                   ),
                   const SizedBox(height: 20),
                   Text('Histori Follow-up', style: theme.textTheme.titleMedium),
@@ -433,7 +493,9 @@ class _NetworkPageState extends State<NetworkPage> {
                           'Tambahkan follow-up untuk menyimpan catatan kunjungan dan update status.',
                     )
                   else
-                    for (var i = 0; i < refreshedEntry.followUps.length; i++) ...[
+                    for (var i = 0;
+                        i < refreshedEntry.followUps.length;
+                        i++) ...[
                       _FollowUpTile(followUp: refreshedEntry.followUps[i]),
                       if (i != refreshedEntry.followUps.length - 1)
                         const Divider(height: 24),
@@ -488,7 +550,8 @@ class _NetworkPageState extends State<NetworkPage> {
   Future<void> _openFollowUpDialog(NetworkEntry entry) async {
     _followUpTitleController.clear();
     _followUpNoteController.clear();
-    _selectedFollowUpStatus = entry.status == 'Draft' ? 'Follow-up' : entry.status;
+    _selectedFollowUpStatus =
+        entry.status == 'Draft' ? 'Follow-up' : entry.status;
     var selectedStatus = _selectedFollowUpStatus;
     var isSubmitting = false;
     String? pendingFollowUpId;
@@ -557,63 +620,67 @@ class _NetworkPageState extends State<NetworkPage> {
                   onPressed: isSubmitting
                       ? null
                       : () async {
-                    final dialogContext = context;
-                    final rootMessenger = ScaffoldMessenger.of(this.context);
-                    final title = _followUpTitleController.text.trim();
-                    final note = _followUpNoteController.text.trim();
-                    if (title.isEmpty || note.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text('Judul dan catatan follow-up wajib diisi'),
-                        ),
-                      );
-                      return;
-                    }
+                          final dialogContext = context;
+                          final rootMessenger = ScaffoldMessenger.of(
+                            this.context,
+                          );
+                          final title = _followUpTitleController.text.trim();
+                          final note = _followUpNoteController.text.trim();
+                          if (title.isEmpty || note.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Judul dan catatan follow-up wajib diisi',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
 
-                    final createdAt =
-                        pendingFollowUpCreatedAt ??= DateTime.now();
-                    final followUpId =
-                        pendingFollowUpId ??=
-                            '${entry.id}-${createdAt.microsecondsSinceEpoch}';
-                    setLocalState(() => isSubmitting = true);
-                    try {
-                      await widget.controller.addFollowUpToEntry(
-                        entry: entry,
-                        status: selectedStatus,
-                        statusColor: _statusColorFor(selectedStatus),
-                        followUp: NetworkFollowUp(
-                          id: followUpId,
-                          title: title,
-                          note: note,
-                          actorName: widget.session.userName,
-                          createdAt: createdAt,
-                        ),
-                      );
+                          final createdAt =
+                              pendingFollowUpCreatedAt ??= DateTime.now();
+                          final followUpId = pendingFollowUpId ??=
+                              '${entry.id}-${createdAt.microsecondsSinceEpoch}';
+                          setLocalState(() => isSubmitting = true);
+                          try {
+                            await widget.controller.addFollowUpToEntry(
+                              entry: entry,
+                              status: selectedStatus,
+                              statusColor: _statusColorFor(selectedStatus),
+                              followUp: NetworkFollowUp(
+                                id: followUpId,
+                                title: title,
+                                note: note,
+                                actorName: widget.session.userName,
+                                createdAt: createdAt,
+                              ),
+                            );
 
-                      _selectedFollowUpStatus = selectedStatus;
-                      if (dialogContext.mounted) {
-                        Navigator.pop(dialogContext);
-                      }
-                      _showDetail(
-                        _resolveEntry(entry) ?? entry,
-                        canEdit: _canEdit(entry),
-                      );
-                    } catch (error) {
-                      if (!mounted) {
-                        return;
-                      }
-                      rootMessenger.showSnackBar(
-                        SnackBar(
-                          content: Text('Follow-up gagal disimpan: $error'),
-                        ),
-                      );
-                    } finally {
-                      if (dialogContext.mounted) {
-                        setLocalState(() => isSubmitting = false);
-                      }
-                    }
-                  },
+                            _selectedFollowUpStatus = selectedStatus;
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                            _showDetail(
+                              _resolveEntry(entry) ?? entry,
+                              canEdit: _canEdit(entry),
+                            );
+                          } catch (error) {
+                            if (!mounted) {
+                              return;
+                            }
+                            rootMessenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Follow-up gagal disimpan: ${humanReadableError(error, action: 'menyimpan follow-up')}',
+                                ),
+                              ),
+                            );
+                          } finally {
+                            if (dialogContext.mounted) {
+                              setLocalState(() => isSubmitting = false);
+                            }
+                          }
+                        },
                   child: const Text('Simpan'),
                 ),
               ],
@@ -626,7 +693,10 @@ class _NetworkPageState extends State<NetworkPage> {
 
   Future<void> _deleteEntry(NetworkEntry entry) async {
     try {
-      await widget.controller.deleteNetworkEntryForSession(widget.session, entry.id);
+      await widget.controller.deleteNetworkEntryForSession(
+        widget.session,
+        entry.id,
+      );
       if (!mounted) {
         return;
       }
@@ -640,7 +710,11 @@ class _NetworkPageState extends State<NetworkPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hapus data jaringan gagal: $error')),
+        SnackBar(
+          content: Text(
+            'Hapus data jaringan gagal: ${humanReadableError(error, action: 'menghapus data jaringan')}',
+          ),
+        ),
       );
     }
   }
@@ -656,18 +730,27 @@ class _NetworkPageState extends State<NetworkPage> {
   }
 
   bool _canEdit(NetworkEntry entry) {
-    return entry.ownerKey == widget.session.ownerKey;
+    return _isOwnedByCurrentUser(entry);
+  }
+
+  bool _isOwnedByCurrentUser(NetworkEntry entry) {
+    return entry.ownerKey == widget.session.ownerKey ||
+        entry.ownerKey == widget.session.userId;
   }
 
   NetworkEntry? _resolveEntry(NetworkEntry entry) {
-    final ownEntries = widget.controller.ownNetworkEntriesForSession(widget.session);
+    final ownEntries = widget.controller.ownNetworkEntriesForSession(
+      widget.session,
+    );
     for (final ownEntry in ownEntries) {
       if (ownEntry.id == entry.id) {
         return ownEntry;
       }
     }
 
-    final teamEntries = widget.controller.teamUkmEntriesForAreaManager(widget.session);
+    final teamEntries = widget.controller.teamUkmEntriesForAreaManager(
+      widget.session,
+    );
     for (final teamEntry in teamEntries) {
       if (teamEntry.id == entry.id) {
         return teamEntry;
@@ -769,19 +852,15 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       _phoneController.text = existingEntry.phone;
       _referenceController.text = existingEntry.reference;
       _notesController.text = existingEntry.notes;
-      _photo = existingEntry.photoPath == null ? null : XFile(existingEntry.photoPath!);
+      _photo = existingEntry.photoPath == null
+          ? null
+          : XFile(existingEntry.photoPath!);
       for (final item in existingEntry.personalityScores.entries) {
         _personalityScores[item.key] = item.value;
       }
       for (final item in existingEntry.documents.entries) {
         _partnerDocuments[item.key] = item.value;
       }
-    } else {
-      _territoryProvinceController.text = widget.session.territoryProvince ?? '';
-      _territoryCityController.text = widget.session.territoryCity ?? '';
-      _territoryDistrictController.text = widget.session.territoryDistrict ?? '';
-      _territorySubdistrictController.text =
-          widget.session.territorySubdistrict ?? '';
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
@@ -810,12 +889,8 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     setState(() => _isLoadingTerritories = true);
     try {
       final provinces = await widget.controller.territoryProvinces();
-      final allowedProvinces = _filterProvinces(provinces);
-      final selectedProvince = _findByName(
-            allowedProvinces,
-            _territoryProvinceController.text,
-          ) ??
-          _autoPickSingle(allowedProvinces);
+      final selectedProvince =
+          _findByName(provinces, _territoryProvinceController.text);
 
       List<TerritoryOption> cities = const [];
       List<TerritoryOption> districts = const [];
@@ -825,34 +900,26 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       TerritoryOption? selectedSubdistrict;
 
       if (selectedProvince != null) {
-        cities = _filterCities(
-          await widget.controller.territoryCities(selectedProvince.code),
-          selectedProvince,
-        );
-        selectedCity = _findByName(cities, _territoryCityController.text) ??
-            _autoPickSingle(cities);
+        cities = await widget.controller.territoryCities(selectedProvince.code);
+        selectedCity = _findByName(cities, _territoryCityController.text);
       }
 
       if (selectedCity != null) {
-        districts = _filterDistricts(
-          await widget.controller.territoryDistricts(selectedCity.code),
-          selectedCity,
+        districts = await widget.controller.territoryDistricts(
+          selectedCity.code,
         );
         selectedDistrict =
-            _findByName(districts, _territoryDistrictController.text) ??
-                _autoPickSingle(districts);
+            _findByName(districts, _territoryDistrictController.text);
       }
 
       if (selectedDistrict != null) {
-        subdistricts = _filterSubdistricts(
-          await widget.controller.territorySubdistricts(selectedDistrict.code),
-          selectedDistrict,
+        subdistricts = await widget.controller.territorySubdistricts(
+          selectedDistrict.code,
         );
         selectedSubdistrict = _findByName(
-              subdistricts,
-              _territorySubdistrictController.text,
-            ) ??
-            _autoPickSingle(subdistricts);
+          subdistricts,
+          _territorySubdistrictController.text,
+        );
       }
 
       if (!mounted) {
@@ -860,7 +927,7 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       }
 
       setState(() {
-        _provinceOptions = allowedProvinces;
+        _provinceOptions = provinces;
         _cityOptions = cities;
         _districtOptions = districts;
         _subdistrictOptions = subdistricts;
@@ -877,149 +944,16 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       }
       setState(() => _isLoadingTerritories = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Master wilayah gagal dimuat: $error')),
+        SnackBar(
+          content: Text(
+            'Master wilayah gagal dimuat: ${humanReadableError(error, action: 'memuat pilihan wilayah')}',
+          ),
+        ),
       );
     }
   }
 
-  List<TerritoryAssignment> get _effectiveAssignments {
-    if (widget.session.territoryAssignments.isNotEmpty) {
-      return widget.session.territoryAssignments;
-    }
-
-    return [
-      TerritoryAssignment(
-        ruleType: 'include',
-        scope: widget.session.territoryScope,
-        province: widget.session.territoryProvince,
-        city: widget.session.territoryCity,
-        district: widget.session.territoryDistrict,
-        subdistrict: widget.session.territorySubdistrict,
-      ),
-    ];
-  }
-
-  List<TerritoryOption> _filterProvinces(List<TerritoryOption> options) {
-    final allowedNames = _effectiveAssignments
-        .map((item) => item.province?.trim())
-        .whereType<String>()
-        .where((item) => item.isNotEmpty)
-        .map(_normalize)
-        .toSet();
-
-    if (allowedNames.isEmpty) {
-      return options;
-    }
-
-    return options
-        .where((option) => allowedNames.contains(_normalize(option.name)))
-        .toList();
-  }
-
-  List<TerritoryOption> _filterCities(
-    List<TerritoryOption> options,
-    TerritoryOption province,
-  ) {
-    final relevantAssignments = _matchingAssignments(
-      provinceName: province.name,
-    );
-    final allowedNames = relevantAssignments
-        .map((item) => item.city?.trim())
-        .whereType<String>()
-        .where((item) => item.isNotEmpty)
-        .map(_normalize)
-        .toSet();
-
-    if (allowedNames.isEmpty) {
-      return options;
-    }
-
-    return options
-        .where((option) => allowedNames.contains(_normalize(option.name)))
-        .toList();
-  }
-
-  List<TerritoryOption> _filterDistricts(
-    List<TerritoryOption> options,
-    TerritoryOption city,
-  ) {
-    final relevantAssignments = _matchingAssignments(
-      provinceName: _selectedProvince?.name,
-      cityName: city.name,
-    );
-    final allowedNames = relevantAssignments
-        .map((item) => item.district?.trim())
-        .whereType<String>()
-        .where((item) => item.isNotEmpty)
-        .map(_normalize)
-        .toSet();
-
-    if (allowedNames.isEmpty) {
-      return options;
-    }
-
-    return options
-        .where((option) => allowedNames.contains(_normalize(option.name)))
-        .toList();
-  }
-
-  List<TerritoryOption> _filterSubdistricts(
-    List<TerritoryOption> options,
-    TerritoryOption district,
-  ) {
-    final relevantAssignments = _matchingAssignments(
-      provinceName: _selectedProvince?.name,
-      cityName: _selectedCity?.name,
-      districtName: district.name,
-    );
-    final allowedNames = relevantAssignments
-        .map((item) => item.subdistrict?.trim())
-        .whereType<String>()
-        .where((item) => item.isNotEmpty)
-        .map(_normalize)
-        .toSet();
-
-    if (allowedNames.isEmpty) {
-      return options;
-    }
-
-    return options
-        .where((option) => allowedNames.contains(_normalize(option.name)))
-        .toList();
-  }
-
-  List<TerritoryAssignment> _matchingAssignments({
-    String? provinceName,
-    String? cityName,
-    String? districtName,
-  }) {
-    return _effectiveAssignments.where((assignment) {
-      if (!_matchesTerritoryName(assignment.province, provinceName)) {
-        return false;
-      }
-      if (!_matchesTerritoryName(assignment.city, cityName)) {
-        return false;
-      }
-      if (!_matchesTerritoryName(assignment.district, districtName)) {
-        return false;
-      }
-      return true;
-    }).toList();
-  }
-
-  bool _matchesTerritoryName(String? assignmentValue, String? actualValue) {
-    final normalizedAssignment = _normalizeNullable(assignmentValue);
-    if (normalizedAssignment == null) {
-      return true;
-    }
-
-    return normalizedAssignment == _normalizeNullable(actualValue);
-  }
-
-  TerritoryOption? _findByName(
-    List<TerritoryOption> options,
-    String rawName,
-  ) {
+  TerritoryOption? _findByName(List<TerritoryOption> options, String rawName) {
     final normalizedTarget = _normalizeNullable(rawName);
     if (normalizedTarget == null) {
       return null;
@@ -1032,10 +966,6 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     }
 
     return null;
-  }
-
-  TerritoryOption? _autoPickSingle(List<TerritoryOption> options) {
-    return options.length == 1 ? options.first : null;
   }
 
   String _normalize(String value) {
@@ -1075,10 +1005,7 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       return;
     }
 
-    final cities = _filterCities(
-      await widget.controller.territoryCities(province.code),
-      province,
-    );
+    final cities = await widget.controller.territoryCities(province.code);
 
     if (!mounted) {
       return;
@@ -1086,14 +1013,9 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
 
     setState(() {
       _cityOptions = cities;
-      _selectedCity = _autoPickSingle(cities);
       _applySelectedTerritoryTexts();
       _isLoadingTerritories = false;
     });
-
-    if (_selectedCity != null) {
-      await _onCityChanged(_selectedCity);
-    }
   }
 
   Future<void> _onCityChanged(TerritoryOption? city) async {
@@ -1112,10 +1034,7 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       return;
     }
 
-    final districts = _filterDistricts(
-      await widget.controller.territoryDistricts(city.code),
-      city,
-    );
+    final districts = await widget.controller.territoryDistricts(city.code);
 
     if (!mounted) {
       return;
@@ -1123,14 +1042,9 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
 
     setState(() {
       _districtOptions = districts;
-      _selectedDistrict = _autoPickSingle(districts);
       _applySelectedTerritoryTexts();
       _isLoadingTerritories = false;
     });
-
-    if (_selectedDistrict != null) {
-      await _onDistrictChanged(_selectedDistrict);
-    }
   }
 
   Future<void> _onDistrictChanged(TerritoryOption? district) async {
@@ -1147,10 +1061,8 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       return;
     }
 
-    final subdistricts = _filterSubdistricts(
-      await widget.controller.territorySubdistricts(district.code),
-      district,
-    );
+    final subdistricts =
+        await widget.controller.territorySubdistricts(district.code);
 
     if (!mounted) {
       return;
@@ -1158,7 +1070,6 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
 
     setState(() {
       _subdistrictOptions = subdistricts;
-      _selectedSubdistrict = _autoPickSingle(subdistricts);
       _applySelectedTerritoryTexts();
       _isLoadingTerritories = false;
     });
@@ -1191,7 +1102,7 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Wilayah kerja aktif: ${widget.session.territoryLabel ?? widget.session.areaName}. Data di luar wilayah ini akan ditolak.',
+              'Wilayah kerja aktif: ${widget.session.territoryLabel ?? widget.session.areaName}. Anda tetap bisa tambah data di area lain; data akan tampil untuk user yang wilayah kerjanya sesuai area data tersebut.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -1206,7 +1117,6 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
             _PhotoPickerLine(
               photo: _photo,
               onCamera: () => _pickPhoto(ImageSource.camera),
-              onGallery: () => _pickPhoto(ImageSource.gallery),
               onRemove: () => setState(() => _photo = null),
             ),
             const Divider(height: 24),
@@ -1236,49 +1146,77 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
               onChanged: _onProvinceChanged,
             ),
             const Divider(height: 24),
-            _TerritoryDropdownField(
-              label: 'Kota/Kabupaten',
-              value: _selectedCity,
-              items: _cityOptions,
-              enabled: !_isCityLocked && _selectedProvince != null,
-              hint: _selectedProvince == null
-                  ? 'Pilih provinsi dulu'
-                  : _cityOptions.isEmpty
-                      ? 'Tidak ada kota/kabupaten yang sesuai'
-                      : 'Pilih kota/kabupaten',
-              onChanged: _onCityChanged,
-            ),
+            if (_selectedProvince != null && _cityOptions.isEmpty)
+              _TextInput(
+                controller: _territoryCityController,
+                label: 'Kota/Kabupaten',
+                hint: 'Ketik kota/kabupaten',
+                required: true,
+              )
+            else
+              _TerritoryDropdownField(
+                label: 'Kota/Kabupaten',
+                value: _selectedCity,
+                items: _cityOptions,
+                enabled: !_isCityLocked && _selectedProvince != null,
+                hint: _selectedProvince == null
+                    ? 'Pilih provinsi dulu'
+                    : _cityOptions.isEmpty
+                        ? 'Tidak ada kota/kabupaten yang sesuai'
+                        : 'Pilih kota/kabupaten',
+                onChanged: _onCityChanged,
+              ),
             const Divider(height: 24),
-            _TerritoryDropdownField(
-              label: 'Kecamatan',
-              value: _selectedDistrict,
-              items: _districtOptions,
-              enabled: !_isDistrictLocked && _selectedCity != null,
-              hint: _selectedCity == null
-                  ? 'Pilih kota/kabupaten dulu'
-                  : _districtOptions.isEmpty
-                      ? 'Tidak ada kecamatan yang sesuai'
-                      : 'Pilih kecamatan',
-              onChanged: _onDistrictChanged,
-            ),
+            if ((_selectedCity != null ||
+                    _territoryCityController.text.trim().isNotEmpty) &&
+                _districtOptions.isEmpty)
+              _TextInput(
+                controller: _territoryDistrictController,
+                label: 'Kecamatan',
+                hint: 'Ketik kecamatan',
+                required: true,
+              )
+            else
+              _TerritoryDropdownField(
+                label: 'Kecamatan',
+                value: _selectedDistrict,
+                items: _districtOptions,
+                enabled: !_isDistrictLocked && _selectedCity != null,
+                hint: _selectedCity == null
+                    ? 'Pilih kota/kabupaten dulu'
+                    : _districtOptions.isEmpty
+                        ? 'Tidak ada kecamatan yang sesuai'
+                        : 'Pilih kecamatan',
+                onChanged: _onDistrictChanged,
+              ),
             const Divider(height: 24),
-            _TerritoryDropdownField(
-              label: 'Kelurahan',
-              value: _selectedSubdistrict,
-              items: _subdistrictOptions,
-              enabled: !_isSubdistrictLocked && _selectedDistrict != null,
-              hint: _selectedDistrict == null
-                  ? 'Pilih kecamatan dulu'
-                  : _subdistrictOptions.isEmpty
-                      ? 'Tidak ada kelurahan yang sesuai'
-                      : 'Pilih kelurahan',
-              onChanged: (value) {
-                setState(() {
-                  _selectedSubdistrict = value;
-                  _applySelectedTerritoryTexts();
-                });
-              },
-            ),
+            if ((_selectedDistrict != null ||
+                    _territoryDistrictController.text.trim().isNotEmpty) &&
+                _subdistrictOptions.isEmpty)
+              _TextInput(
+                controller: _territorySubdistrictController,
+                label: 'Kelurahan',
+                hint: 'Ketik kelurahan',
+                required: true,
+              )
+            else
+              _TerritoryDropdownField(
+                label: 'Kelurahan',
+                value: _selectedSubdistrict,
+                items: _subdistrictOptions,
+                enabled: !_isSubdistrictLocked && _selectedDistrict != null,
+                hint: _selectedDistrict == null
+                    ? 'Pilih kecamatan dulu'
+                    : _subdistrictOptions.isEmpty
+                        ? 'Tidak ada kelurahan yang sesuai'
+                        : 'Pilih kelurahan',
+                onChanged: (value) {
+                  setState(() {
+                    _selectedSubdistrict = value;
+                    _applySelectedTerritoryTexts();
+                  });
+                },
+              ),
             const Divider(height: 24),
             _TextInput(
               controller: _businessTypeController,
@@ -1381,9 +1319,9 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       return;
     }
     if (_selectedProvince == null ||
-        _selectedCity == null ||
-        _selectedDistrict == null ||
-        _selectedSubdistrict == null) {
+        _territoryCityController.text.trim().isEmpty ||
+        _territoryDistrictController.text.trim().isEmpty ||
+        _territorySubdistrictController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Pilih wilayah sampai level kelurahan terlebih dahulu'),
@@ -1393,9 +1331,7 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     }
     if (_photo == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Foto wajib dipilih dari kamera atau gallery'),
-        ),
+        const SnackBar(content: Text('Foto wajib diambil dari kamera HP')),
       );
       return;
     }
@@ -1414,13 +1350,16 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
       final status = switch (widget.type) {
         NetworkEntryType.ukm => existingEntry?.status ?? 'Draft',
         NetworkEntryType.mitraHub =>
-          documentComplete == _partnerDocuments.length ? 'Lengkap' : 'Follow-up',
+          documentComplete == _partnerDocuments.length
+              ? 'Lengkap'
+              : 'Follow-up',
       };
 
       Navigator.pop(
         context,
         NetworkEntry(
-          id: existingEntry?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          id: existingEntry?.id ??
+              DateTime.now().microsecondsSinceEpoch.toString(),
           ownerKey: widget.session.ownerKey,
           ownerName: widget.session.userName,
           ownerRole: widget.session.role,
@@ -1438,8 +1377,9 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
           photoPath: _photo?.path,
           status: status,
           statusColor: _statusColorFor(status),
-          personalityScore:
-              widget.type == NetworkEntryType.mitraHub ? personalityScore : null,
+          personalityScore: widget.type == NetworkEntryType.mitraHub
+              ? personalityScore
+              : null,
           personalityScores: widget.type == NetworkEntryType.mitraHub
               ? Map<String, double>.from(_personalityScores)
               : const {},
@@ -1459,7 +1399,8 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     }
   }
 
-  Future<({double latitude, double longitude})?> _captureCurrentLocation() async {
+  Future<({double latitude, double longitude})?>
+      _captureCurrentLocation() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
@@ -1499,66 +1440,35 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   double get _personalityAverage {
-    final total =
-        _personalityScores.values.fold<double>(0, (sum, value) => sum + value);
+    final total = _personalityScores.values.fold<double>(
+      0,
+      (sum, value) => sum + value,
+    );
     return total / _personalityScores.length;
   }
 
-  int _distinctAssignmentCount(String? Function(TerritoryAssignment) pick) {
-    return _effectiveAssignments
-        .map(pick)
-        .whereType<String>()
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .map(_normalize)
-        .toSet()
-        .length;
-  }
-
   bool get _isProvinceLocked {
-    if ((widget.session.territoryProvince ?? '').trim().isEmpty) {
-      return false;
-    }
-    return _distinctAssignmentCount((item) => item.province) <= 1;
+    return false;
   }
 
   bool get _isCityLocked {
-    final scope = widget.session.territoryScope;
-    if ((widget.session.territoryCity ?? '').trim().isEmpty) {
-      return false;
-    }
-    if (!(scope == 'city' || scope == 'district' || scope == 'subdistrict')) {
-      return false;
-    }
-    return _distinctAssignmentCount((item) => item.city) <= 1;
+    // Kota/kecamatan/kelurahan tetap bisa dibuka agar FGG dapat memilih
+    // alamat UKM/Mitra secara lengkap di dalam area kerja yang sudah difilter.
+    return false;
   }
 
   bool get _isDistrictLocked {
-    final scope = widget.session.territoryScope;
-    if ((widget.session.territoryDistrict ?? '').trim().isEmpty) {
-      return false;
-    }
-    if (!(scope == 'district' || scope == 'subdistrict')) {
-      return false;
-    }
-    return _distinctAssignmentCount((item) => item.district) <= 1;
+    return false;
   }
 
   bool get _isSubdistrictLocked {
-    final scope = widget.session.territoryScope;
-    if ((widget.session.territorySubdistrict ?? '').trim().isEmpty) {
-      return false;
-    }
-    if (scope != 'subdistrict') {
-      return false;
-    }
-    return _distinctAssignmentCount((item) => item.subdistrict) <= 1;
+    return false;
   }
 
   Color _statusColorFor(String status) {
@@ -1612,8 +1522,8 @@ class _NetworkSection extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-        const SizedBox(height: 12),
-        if (entries.isEmpty)
+          const SizedBox(height: 12),
+          if (entries.isEmpty)
             EmptyState(
               icon: Icons.folder_open_rounded,
               title: '$title masih kosong',
@@ -1621,10 +1531,7 @@ class _NetworkSection extends StatelessWidget {
             )
           else
             for (var i = 0; i < entries.length; i++) ...[
-              _NetworkItem(
-                entry: entries[i],
-                onTap: () => onTap(entries[i]),
-              ),
+              _NetworkItem(entry: entries[i], onTap: () => onTap(entries[i])),
               if (i != entries.length - 1) const SizedBox(height: 12),
             ],
         ],
@@ -1634,10 +1541,7 @@ class _NetworkSection extends StatelessWidget {
 }
 
 class _DetailLine extends StatelessWidget {
-  const _DetailLine({
-    required this.label,
-    required this.value,
-  });
+  const _DetailLine({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1666,9 +1570,7 @@ class _DetailLine extends StatelessWidget {
 }
 
 class _FollowUpTile extends StatelessWidget {
-  const _FollowUpTile({
-    required this.followUp,
-  });
+  const _FollowUpTile({required this.followUp});
 
   final NetworkFollowUp followUp;
 
@@ -1709,9 +1611,7 @@ class _FollowUpTile extends StatelessWidget {
 }
 
 class _CompactScoreList extends StatelessWidget {
-  const _CompactScoreList({
-    required this.scores,
-  });
+  const _CompactScoreList({required this.scores});
 
   final Map<String, double> scores;
 
@@ -1726,10 +1626,7 @@ class _CompactScoreList extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  entry.key,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                child: Text(entry.key, style: theme.textTheme.bodyMedium),
               ),
               Text(
                 '${entry.value.round()}',
@@ -1746,9 +1643,7 @@ class _CompactScoreList extends StatelessWidget {
 }
 
 class _CompactDocumentList extends StatelessWidget {
-  const _CompactDocumentList({
-    required this.documents,
-  });
+  const _CompactDocumentList({required this.documents});
 
   final Map<String, PartnerDocumentState> documents;
 
@@ -1774,10 +1669,7 @@ class _CompactDocumentList extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  entry.key,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                child: Text(entry.key, style: theme.textTheme.bodyMedium),
               ),
               StatusBadge(label: label, color: color),
             ],
@@ -1827,7 +1719,9 @@ class _TerritoryDropdownField extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: DropdownButtonFormField<TerritoryOption>(
-            key: ValueKey('${label}_${value?.code ?? 'none'}_${items.length}_$enabled'),
+            key: ValueKey(
+              '${label}_${value?.code ?? 'none'}_${items.length}_$enabled',
+            ),
             initialValue: value,
             isExpanded: true,
             decoration: InputDecoration(hintText: hint),
@@ -1916,13 +1810,11 @@ class _PhotoPickerLine extends StatelessWidget {
   const _PhotoPickerLine({
     required this.photo,
     required this.onCamera,
-    required this.onGallery,
     required this.onRemove,
   });
 
   final XFile? photo;
   final VoidCallback onCamera;
-  final VoidCallback onGallery;
   final VoidCallback onRemove;
 
   @override
@@ -1977,8 +1869,10 @@ class _PhotoPickerLine extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Foto dipilih',
-                              style: theme.textTheme.bodyMedium),
+                          Text(
+                            'Foto dipilih',
+                            style: theme.textTheme.bodyMedium,
+                          ),
                           const SizedBox(height: 2),
                           Text(
                             selectedPhoto.name,
@@ -1991,10 +1885,7 @@ class _PhotoPickerLine extends StatelessWidget {
                         ],
                       ),
                     ),
-                    TextButton(
-                      onPressed: onRemove,
-                      child: const Text('Hapus'),
-                    ),
+                    TextButton(onPressed: onRemove, child: const Text('Hapus')),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -2003,13 +1894,10 @@ class _PhotoPickerLine extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  OutlinedButton(
+                  FilledButton.icon(
                     onPressed: onCamera,
-                    child: const Text('Kamera'),
-                  ),
-                  OutlinedButton(
-                    onPressed: onGallery,
-                    child: const Text('Gallery'),
+                    icon: const Icon(Icons.photo_camera_rounded),
+                    label: const Text('Ambil dari kamera'),
                   ),
                 ],
               ),
@@ -2022,10 +1910,7 @@ class _PhotoPickerLine extends StatelessWidget {
 }
 
 class _PersonalityScoring extends StatelessWidget {
-  const _PersonalityScoring({
-    required this.scores,
-    required this.onChanged,
-  });
+  const _PersonalityScoring({required this.scores, required this.onChanged});
 
   final Map<String, double> scores;
   final void Function(String label, double value) onChanged;
@@ -2178,9 +2063,8 @@ class _PartnerDocumentRow extends StatelessWidget {
             ChoiceChip(
               label: const Text('Tidak Ada'),
               selected: !state.exists,
-              onSelected: (selected) => onChanged(
-                state.copyWith(exists: !selected, isValid: false),
-              ),
+              onSelected: (selected) =>
+                  onChanged(state.copyWith(exists: !selected, isValid: false)),
             ),
             ChoiceChip(
               label: const Text('Valid'),
@@ -2204,10 +2088,7 @@ class _PartnerDocumentRow extends StatelessWidget {
 }
 
 class _NetworkItem extends StatelessWidget {
-  const _NetworkItem({
-    required this.entry,
-    required this.onTap,
-  });
+  const _NetworkItem({required this.entry, required this.onTap});
 
   final NetworkEntry entry;
   final VoidCallback onTap;
@@ -2226,7 +2107,9 @@ class _NetworkItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.32),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.32,
+          ),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -2258,7 +2141,10 @@ class _NetworkItem extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(entry.name, style: theme.textTheme.titleMedium),
+                        child: Text(
+                          entry.name,
+                          style: theme.textTheme.titleMedium,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -2283,7 +2169,10 @@ class _NetworkItem extends StatelessWidget {
                     runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      StatusBadge(label: entry.status, color: entry.statusColor),
+                      StatusBadge(
+                        label: entry.status,
+                        color: entry.statusColor,
+                      ),
                       Text(
                         'Follow-up: ${entry.latestFollowUpLabel}',
                         style: theme.textTheme.bodySmall?.copyWith(

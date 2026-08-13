@@ -329,11 +329,6 @@ class EmployeeController extends Controller
             $payload['work_location'] = $attendanceWorkArea->name;
         }
 
-        $requiresTerritory = in_array($payload['role'], [UserRole::FGG, UserRole::AREA_MANAGER], true);
-        if (! $requiresTerritory) {
-            return $payload;
-        }
-
         $districts = array_values(array_filter(array_map(
             fn ($value) => is_scalar($value) ? trim((string) $value) : '',
             Arr::wrap($payload['territory_districts'] ?? []),
@@ -342,10 +337,17 @@ class EmployeeController extends Controller
             fn ($value) => is_scalar($value) ? trim((string) $value) : '',
             Arr::wrap($payload['territory_subdistricts'] ?? []),
         )));
-        $usesRulePayload = is_string($payload['territory_rules_payload'] ?? null)
-            && trim((string) $payload['territory_rules_payload']) !== '';
+        $rawTerritoryRules = is_string($payload['territory_rules_payload'] ?? null)
+            ? trim((string) $payload['territory_rules_payload'])
+            : '';
+        $usesRulePayload = $rawTerritoryRules !== '' && $rawTerritoryRules !== '[]';
+        $requiresTerritory = in_array($payload['role'], [UserRole::FGG, UserRole::AREA_MANAGER], true);
 
-        if (! $usesRulePayload && blank($payload['territory_province'] ?? null)) {
+        if (! $requiresTerritory && ! $usesRulePayload) {
+            return $payload;
+        }
+
+        if ($requiresTerritory && ! $usesRulePayload && blank($payload['territory_province'] ?? null)) {
             throw ValidationException::withMessages([
                 'territory_province' => 'Provinsi area kerja wajib dipilih untuk FGG dan Area Manager.',
             ]);
@@ -381,13 +383,13 @@ class EmployeeController extends Controller
             $districts,
             $subdistricts,
         );
-        if ($assignments === []) {
+        if ($requiresTerritory && $assignments === []) {
             throw ValidationException::withMessages([
                 'territory_province' => 'Wilayah kerja wajib dipilih minimal sampai provinsi.',
             ]);
         }
 
-        if (TerritoryData::includeAssignments($assignments) === []) {
+        if (($requiresTerritory || $usesRulePayload) && TerritoryData::includeAssignments($assignments) === []) {
             throw ValidationException::withMessages([
                 'territory_rules_payload' => 'Minimal harus ada satu rule include untuk area kerja.',
             ]);

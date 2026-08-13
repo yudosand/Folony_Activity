@@ -27,7 +27,8 @@ class _FieldDashboardPageState extends State<FieldDashboardPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(widget.controller.refreshPerformanceSummaryForSession(widget.session));
+      unawaited(widget.controller
+          .refreshPerformanceSummaryForSession(widget.session));
     });
   }
 
@@ -39,12 +40,14 @@ class _FieldDashboardPageState extends State<FieldDashboardPage> {
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
-        final summary = widget.controller.performanceSummaryForSession(widget.session);
+        final summary =
+            widget.controller.performanceSummaryForSession(widget.session);
         final metrics = summary?.metrics ?? const <PerformanceMetricProgress>[];
         final hasTargets = summary?.hasTargets ?? false;
 
         return RefreshIndicator(
-          onRefresh: () => widget.controller.refreshPerformanceSummaryForSession(widget.session),
+          onRefresh: () => widget.controller
+              .refreshPerformanceSummaryForSession(widget.session),
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
@@ -52,7 +55,9 @@ class _FieldDashboardPageState extends State<FieldDashboardPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      isAreaManager ? 'Target Area Bulan Ini' : 'Target FGG Bulan Ini',
+                      isAreaManager
+                          ? 'Target Area Bulan Ini'
+                          : 'Target FGG Bulan Ini',
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
@@ -75,12 +80,14 @@ class _FieldDashboardPageState extends State<FieldDashboardPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_month_rounded, color: theme.colorScheme.primary),
+                    Icon(Icons.calendar_month_rounded,
+                        color: theme.colorScheme.primary),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -107,27 +114,32 @@ class _FieldDashboardPageState extends State<FieldDashboardPage> {
                 if (isAreaManager) ...const [
                   _FeedItem(
                     title: 'UKM Baru Tim',
-                    subtitle: 'Menggabungkan UKM baru dari semua FGG di wilayah Anda dan UKM baru yang Anda buat sendiri.',
+                    subtitle:
+                        'Menggabungkan UKM baru dari semua FGG di wilayah Anda dan UKM baru yang Anda buat sendiri.',
                   ),
                   Divider(height: 24),
                   _FeedItem(
                     title: 'Mitra Baru',
-                    subtitle: 'Hanya menghitung mitra baru yang Anda tambahkan sendiri pada bulan aktif.',
+                    subtitle:
+                        'Hanya menghitung mitra baru yang Anda tambahkan sendiri pada bulan aktif.',
                   ),
                   Divider(height: 24),
                   _FeedItem(
                     title: 'Kunjungan Tim',
-                    subtitle: 'Setiap follow-up baru dari FGG di wilayah Anda dihitung 1 kunjungan, tanpa membedakan status draft, follow-up, atau lengkap.',
+                    subtitle:
+                        'Setiap follow-up baru dari FGG di wilayah Anda dihitung 1 kunjungan, tanpa membedakan status draft, follow-up, atau lengkap.',
                   ),
                 ] else ...const [
                   _FeedItem(
                     title: 'UKM Baru',
-                    subtitle: 'Hanya UKM yang benar-benar dibuat pada bulan aktif yang masuk progres target.',
+                    subtitle:
+                        'Hanya UKM yang benar-benar dibuat pada bulan aktif yang masuk progres target.',
                   ),
                   Divider(height: 24),
                   _FeedItem(
                     title: 'Kunjungan',
-                    subtitle: 'Setiap follow-up baru yang Anda simpan dihitung 1 kunjungan, untuk UKM maupun mitra, di semua status.',
+                    subtitle:
+                        'Setiap follow-up baru yang Anda simpan dihitung 1 kunjungan, untuk UKM maupun mitra, di semua status.',
                   ),
                 ],
               ],
@@ -149,9 +161,8 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final percent = metric.targetValue > 0
-        ? (metric.progressRatio * 100).round()
-        : 0;
+    final percent =
+        metric.targetValue > 0 ? (metric.progressRatio * 100).round() : 0;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -190,7 +201,8 @@ class _MetricCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           LinearProgressIndicator(
-            value: metric.targetValue > 0 ? metric.progressRatio.clamp(0, 1) : 0,
+            value:
+                metric.targetValue > 0 ? metric.progressRatio.clamp(0, 1) : 0,
             minHeight: 12,
             borderRadius: BorderRadius.circular(999),
           ),
@@ -235,7 +247,8 @@ class _MiniInfo extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        color:
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(

@@ -80,12 +80,14 @@ class MockTerritoryRepository implements TerritoryRepository {
   Future<List<TerritoryOption>> listProvinces() async => _provinces;
 
   @override
-  Future<List<TerritoryOption>> listCities({required String provinceCode}) async {
+  Future<List<TerritoryOption>> listCities(
+      {required String provinceCode}) async {
     return _cities.where((item) => item.provinceCode == provinceCode).toList();
   }
 
   @override
-  Future<List<TerritoryOption>> listDistricts({required String cityCode}) async {
+  Future<List<TerritoryOption>> listDistricts(
+      {required String cityCode}) async {
     return _districts.where((item) => item.cityCode == cityCode).toList();
   }
 

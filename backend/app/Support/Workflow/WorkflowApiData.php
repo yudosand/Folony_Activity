@@ -52,6 +52,7 @@ class WorkflowApiData
             'address' => $user->address,
             'emergency_contact_name' => $user->emergency_contact_name,
             'emergency_contact_phone' => $user->emergency_contact_phone,
+            'profile_photo' => $user->profile_photo_attachment,
             'face_enrollment_status' => $user->faceProfile?->status ?? 'pending',
             'face_samples_count' => count($user->faceProfile?->samples ?? []),
         ];
