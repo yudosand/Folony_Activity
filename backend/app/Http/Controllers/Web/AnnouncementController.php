@@ -49,8 +49,9 @@ class AnnouncementController extends Controller
             'published_at' => now(),
         ]);
 
+        $pushSummary = null;
         if ($announcement->is_active) {
-            $this->pushNotificationService->sendToUsers(
+            $pushSummary = $this->pushNotificationService->sendToUsers(
                 $this->targetUserIds($targetRoles),
                 title: 'Announcement HR: ' . $announcement->title,
                 body: Str::limit($announcement->body, 120),
@@ -63,7 +64,7 @@ class AnnouncementController extends Controller
 
         return redirect()
             ->route('admin.announcements.index')
-            ->with('status', 'Announcement berhasil dipublikasikan.');
+            ->with('status', $this->statusMessage($announcement->is_active, $pushSummary));
     }
 
     public function destroy(Announcement $announcement): RedirectResponse
@@ -91,5 +92,32 @@ class AnnouncementController extends Controller
             ->pluck('id')
             ->values()
             ->all();
+    }
+
+    /**
+     * @param array{target_users:int,tokens:int,sent:int,failed:int,skipped_reason:string|null}|null $pushSummary
+     */
+    private function statusMessage(bool $isActive, ?array $pushSummary): string
+    {
+        if (! $isActive) {
+            return 'Announcement disimpan sebagai nonaktif. Push notification tidak dikirim.';
+        }
+
+        if ($pushSummary === null) {
+            return 'Announcement berhasil dipublikasikan.';
+        }
+
+        if ($pushSummary['skipped_reason'] !== null) {
+            return 'Announcement berhasil dipublikasikan, tetapi push notification belum terkirim: '
+                . $pushSummary['skipped_reason'];
+        }
+
+        return sprintf(
+            'Announcement berhasil dipublikasikan. Push notification: %d terkirim, %d gagal, dari %d token untuk %d user target.',
+            $pushSummary['sent'],
+            $pushSummary['failed'],
+            $pushSummary['tokens'],
+            $pushSummary['target_users'],
+        );
     }
 }

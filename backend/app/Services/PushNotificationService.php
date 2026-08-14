@@ -133,18 +133,26 @@ class PushNotificationService
     /**
      * @param array<int, string> $userIds
      * @param array<string, scalar|null> $data
+     * @return array{target_users:int,tokens:int,sent:int,failed:int,skipped_reason:string|null}
      */
-    public function sendToUsers(array $userIds, string $title, string $body, array $data = []): void
+    public function sendToUsers(array $userIds, string $title, string $body, array $data = []): array
     {
+        $uniqueUserIds = array_values(array_unique(array_filter($userIds)));
         $tokens = PushDeviceToken::query()
-            ->whereIn('user_id', array_values(array_unique(array_filter($userIds))))
+            ->whereIn('user_id', $uniqueUserIds)
             ->pluck('token')
             ->filter()
             ->unique()
             ->values();
 
         if ($tokens->isEmpty()) {
-            return;
+            return [
+                'target_users' => count($uniqueUserIds),
+                'tokens' => 0,
+                'sent' => 0,
+                'failed' => 0,
+                'skipped_reason' => 'Tidak ada device token aktif untuk target user.',
+            ];
         }
 
         $projectId = (string) config('services.firebase.project_id');
@@ -157,8 +165,17 @@ class PushNotificationService
                 'title' => $title,
             ]);
 
-            return;
+            return [
+                'target_users' => count($uniqueUserIds),
+                'tokens' => $tokens->count(),
+                'sent' => 0,
+                'failed' => 0,
+                'skipped_reason' => 'Firebase credential production belum lengkap.',
+            ];
         }
+
+        $sent = 0;
+        $failed = 0;
 
         foreach ($tokens as $token) {
             $response = Http::withToken($accessToken)
@@ -183,12 +200,25 @@ class PushNotificationService
                 );
 
             if (! $response->successful()) {
+                $failed++;
                 Log::warning('Firebase push send failed.', [
                     'status' => $response->status(),
                     'body' => $response->json() ?? $response->body(),
                 ]);
+
+                continue;
             }
+
+            $sent++;
         }
+
+        return [
+            'target_users' => count($uniqueUserIds),
+            'tokens' => $tokens->count(),
+            'sent' => $sent,
+            'failed' => $failed,
+            'skipped_reason' => null,
+        ];
     }
 
     private function firebaseAccessToken(): ?string

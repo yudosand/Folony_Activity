@@ -312,7 +312,14 @@ class AdminWebTest extends TestCase
                     'Isi announcement staff.',
                     Mockery::on(fn (array $data): bool => ($data['type'] ?? null) === 'announcement'
                         && ! empty($data['announcement_id'])),
-                );
+                )
+                ->andReturn([
+                    'target_users' => count($staffIds),
+                    'tokens' => 1,
+                    'sent' => 1,
+                    'failed' => 0,
+                    'skipped_reason' => null,
+                ]);
         });
 
         $this->actingAs($hr)->post(route('admin.announcements.store'), [
@@ -320,7 +327,9 @@ class AdminWebTest extends TestCase
             'body' => 'Isi announcement staff.',
             'target_roles' => [UserRole::STAFF],
             'is_active' => 1,
-        ])->assertRedirect(route('admin.announcements.index'));
+        ])
+            ->assertRedirect(route('admin.announcements.index'))
+            ->assertSessionHas('status', 'Announcement berhasil dipublikasikan. Push notification: 1 terkirim, 0 gagal, dari 1 token untuk ' . count($staffIds) . ' user target.');
     }
 
     public function test_inactive_announcement_does_not_send_push(): void
