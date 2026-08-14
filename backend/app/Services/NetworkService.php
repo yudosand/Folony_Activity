@@ -160,15 +160,13 @@ class NetworkService
             ->orderByDesc('created_at');
 
         if ($owner->role === UserRole::FGG && TerritoryData::isAssigned($owner)) {
-            $query
-                ->where('type', 'ukm')
-                ->where(function ($builder) use ($owner): void {
-                    $builder
-                        ->where('owner_id', $owner->id)
-                        ->orWhere(function ($territory) use ($owner): void {
-                            $this->applyTerritoryScope($territory, $owner);
-                        });
-                });
+            $query->where(function ($builder) use ($owner): void {
+                $builder
+                    ->where('owner_id', $owner->id)
+                    ->orWhere(function ($territory) use ($owner): void {
+                        $this->applyTerritoryScope($territory, $owner);
+                    });
+            });
         } elseif ($owner->role === UserRole::AREA_MANAGER && TerritoryData::isAssigned($owner)) {
             $query->where(function ($builder) use ($owner): void {
                 $builder
@@ -241,10 +239,6 @@ class NetworkService
 
         if (($actor->role === UserRole::AREA_MANAGER || $actor->role === UserRole::FGG || $actor->role === UserRole::MANAGEMENT)
             && TerritoryData::isAssigned($actor)) {
-            if ($actor->role === UserRole::FGG) {
-                $query->where('type', 'ukm');
-            }
-
             return $query->where(function ($builder) use ($actor): void {
                 $builder
                     ->where('owner_id', $actor->id)
@@ -273,10 +267,6 @@ class NetworkService
         if (($actor->role === UserRole::FGG || $actor->role === UserRole::AREA_MANAGER)
             && TerritoryData::isAssigned($actor)
             && TerritoryData::coversProfile($actor, $profile)) {
-            if ($actor->role === UserRole::FGG && $profile->type !== 'ukm') {
-                abort(403, 'FGG hanya bisa mengelola data UKM di area kerjanya.');
-            }
-
             return;
         }
 
@@ -294,10 +284,6 @@ class NetworkService
             && TerritoryData::coversProfile($actor, $profile);
 
         if ($isAreaScope) {
-            if ($actor->role === UserRole::FGG && $profile->type !== 'ukm') {
-                abort(403, 'FGG hanya bisa membuka data UKM di area kerjanya.');
-            }
-
             return;
         }
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Announcement;
 use App\Models\NetworkProfile;
 use App\Models\SurveyCommodityOption;
 use App\Models\SurveyProductOption;
@@ -43,11 +44,12 @@ class FieldOpsApiTest extends TestCase
 
         $this->postJson('/api/surveys/kios', [
             'photo' => $photo,
-            'territory_province' => 'Jawa Barat',
-            'territory_city' => 'Indramayu',
-            'territory_district' => 'Indramayu',
-            'territory_subdistrict' => 'Karanganyar',
+            'latitude' => -6.3271000,
+            'longitude' => 108.3219000,
+            'location_accuracy_meters' => 12,
+            'location_address' => 'Jalan Indramayu, Jawa Barat',
             'kiosk_name' => 'Warung Jable',
+            'kiosk_address' => 'Jalan Pasar Indramayu Blok A',
             'phone_number' => '081200000001',
             'owner_name' => 'Jable',
             'product_ids' => [$product->id],
@@ -57,15 +59,16 @@ class FieldOpsApiTest extends TestCase
         ])
             ->assertCreated()
             ->assertJsonPath('data.type', 'kios')
-            ->assertJsonPath('data.payload.kiosk_name', 'Warung Jable');
+            ->assertJsonPath('data.payload.kiosk_name', 'Warung Jable')
+            ->assertJsonPath('data.latitude', -6.3271);
 
         $this->postJson('/api/surveys/prices', [
             'photo' => $photo,
             'market_name' => 'Pasar Indramayu',
-            'territory_province' => 'Jawa Barat',
-            'territory_city' => 'Indramayu',
-            'territory_district' => 'Indramayu',
-            'territory_subdistrict' => 'Karanganyar',
+            'latitude' => -6.3271000,
+            'longitude' => 108.3219000,
+            'location_accuracy_meters' => 12,
+            'location_address' => 'Jalan Indramayu, Jawa Barat',
             'commodity_prices' => [
                 [
                     'commodity_id' => $commodity->id,
@@ -81,6 +84,47 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonPath('data.payload.market_name', 'Pasar Indramayu');
 
         $this->assertSame(2, SurveyResponse::query()->count());
+    }
+
+    public function test_announcements_are_filtered_by_target_role(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        Announcement::query()->create([
+            'title' => 'Untuk Semua',
+            'body' => 'Pesan semua role',
+            'target_roles' => null,
+            'is_active' => true,
+            'published_at' => now(),
+        ]);
+        Announcement::query()->create([
+            'title' => 'Untuk Staff',
+            'body' => 'Pesan staff',
+            'target_roles' => ['staff'],
+            'is_active' => true,
+            'published_at' => now(),
+        ]);
+        Announcement::query()->create([
+            'title' => 'Untuk FGG',
+            'body' => 'Pesan FGG',
+            'target_roles' => ['fgg'],
+            'is_active' => true,
+            'published_at' => now(),
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_001'));
+        $this->getJson('/api/announcements')
+            ->assertOk()
+            ->assertJsonFragment(['title' => 'Untuk Semua'])
+            ->assertJsonFragment(['title' => 'Untuk Staff'])
+            ->assertJsonMissing(['title' => 'Untuk FGG']);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+        $this->getJson('/api/announcements')
+            ->assertOk()
+            ->assertJsonFragment(['title' => 'Untuk Semua'])
+            ->assertJsonFragment(['title' => 'Untuk FGG'])
+            ->assertJsonMissing(['title' => 'Untuk Staff']);
     }
 
     public function test_fgg_can_create_network_profile(): void
@@ -107,8 +151,36 @@ class FieldOpsApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('data.owner_id', 'usr_fgg_001')
-            ->assertJsonPath('data.type', 'ukm')
-            ->assertJsonPath('data.name', 'UKM Sinar Jaya');
+              ->assertJsonPath('data.type', 'ukm')
+              ->assertJsonPath('data.name', 'UKM Sinar Jaya');
+    }
+
+    public function test_fgg_can_create_mitra_network_profile(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $response = $this->postJson('/api/network', [
+            'type' => 'mitra',
+            'name' => 'Mitra Sinar Jaya',
+            'address' => 'Jl. Raya Ragunan No. 14',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Ragunan',
+            'business_type' => 'Distributor',
+            'phone_number' => '081300000002',
+            'status' => 'draft',
+            'note' => 'Input mitra dari FGG.',
+            'latitude' => -6.3902000,
+            'longitude' => 106.8113000,
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.owner_id', 'usr_fgg_001')
+            ->assertJsonPath('data.type', 'mitra')
+            ->assertJsonPath('data.name', 'Mitra Sinar Jaya');
     }
 
     public function test_area_manager_can_read_team_ukm(): void

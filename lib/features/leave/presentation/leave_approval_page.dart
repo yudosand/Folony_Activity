@@ -54,13 +54,6 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
         .length;
   }
 
-  bool get _allResolved {
-    return _leaveRequests
-            .every((request) => request.status != ApprovalStatus.pending) &&
-        _wfaRequests
-            .every((request) => request.status != ApprovalStatus.pending);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -180,13 +173,6 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
               ),
               if (i != requests.length - 1) const Divider(height: 24),
             ],
-          if (_allResolved && widget.session.role != AppRole.management) ...[
-            const SizedBox(height: 20),
-            OutlinedButton(
-              onPressed: _resetMocks,
-              child: const Text('Reset Mock Approval'),
-            ),
-          ],
         ],
       ),
     );
@@ -229,13 +215,6 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
               ),
               if (i != requests.length - 1) const Divider(height: 24),
             ],
-          if (_allResolved && widget.session.role != AppRole.management) ...[
-            const SizedBox(height: 20),
-            OutlinedButton(
-              onPressed: _resetMocks,
-              child: const Text('Reset Mock Approval'),
-            ),
-          ],
         ],
       ),
     );
@@ -295,10 +274,6 @@ class _LeaveApprovalPageState extends State<LeaveApprovalPage>
           content:
               Text('Pengajuan WFA ${request.name} ${status.snackbarLabel}')),
     );
-  }
-
-  Future<void> _resetMocks() async {
-    await widget.controller.resetWorkflowMocksForSession(widget.session);
   }
 
   Future<void> _handleLeaveDecision(

@@ -22,6 +22,9 @@ class SurveyResponse extends Model
         'territory_city',
         'territory_district',
         'territory_subdistrict',
+        'latitude',
+        'longitude',
+        'location_accuracy_meters',
         'photo_attachment',
         'payload',
         'submitted_at',
@@ -32,6 +35,9 @@ class SurveyResponse extends Model
         return [
             'photo_attachment' => 'array',
             'payload' => 'array',
+            'latitude' => 'float',
+            'longitude' => 'float',
+            'location_accuracy_meters' => 'float',
             'submitted_at' => 'datetime',
         ];
     }

@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/app_controller.dart';
+import '../../../core/enums/app_role.dart';
 import '../../../core/models/app_session.dart';
 import '../../../core/models/attendance_record.dart';
 import '../../../core/models/face_verification_result.dart';
@@ -129,6 +130,8 @@ class _AttendancePageState extends State<AttendancePage> {
   bool get _isCheckedIn => _sessionState.activeRegularCheckIn != null;
   bool get _hasActiveOutsideOffice =>
       _sessionState.activeOutsideOfficeStart != null;
+  bool get _canUseOutsideOfficeAttendance =>
+      widget.session.role != AppRole.staff;
   bool get _isFinished =>
       !_isCheckedIn &&
       !_hasActiveOutsideOffice &&
@@ -263,7 +266,9 @@ class _AttendancePageState extends State<AttendancePage> {
                   ),
                 ],
               ),
-              if (!_isCheckedIn && !_hasActiveOutsideOffice) ...[
+              if (_canUseOutsideOfficeAttendance &&
+                  !_isCheckedIn &&
+                  !_hasActiveOutsideOffice) ...[
                 const SizedBox(height: 12),
                 FilledButton.tonalIcon(
                   onPressed: _isOutsideOfficeSubmitting

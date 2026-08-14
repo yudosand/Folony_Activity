@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -38,11 +39,13 @@ class _NetworkPageState extends State<NetworkPage> {
   bool _isSaving = false;
 
   bool get _isAreaManager => widget.session.role == AppRole.areaManager;
+  bool get _isFgg => widget.session.role == AppRole.fgg;
   bool get _isManagement => widget.session.role == AppRole.management;
   bool get _canCreateData => !_isManagement;
+  bool get _canManageMitra => _isAreaManager || _isFgg;
 
   List<NetworkEntryType> get _allowedTypes {
-    if (_isAreaManager) {
+    if (_canManageMitra) {
       return const [NetworkEntryType.ukm, NetworkEntryType.mitraHub];
     }
     return const [NetworkEntryType.ukm];
@@ -137,7 +140,7 @@ class _NetworkPageState extends State<NetworkPage> {
                             ? 'Area Manager bisa menambah data di area mana saja. Data yang tampil tetap mengikuti wilayah kerja yang ditetapkan HR.'
                             : _isManagement
                                 ? 'Management melihat UKM dan mitra sesuai wilayah kerja yang ditetapkan HR.'
-                                : 'FGG bisa menambah UKM di area mana saja. Data yang tampil mengikuti wilayah UKM, bukan orang pembuatnya.',
+                                : 'FGG bisa menambah UKM dan mitra di area mana saja. Data pribadi tetap tampil di menu Saya, sedangkan data area mengikuti wilayah kerja yang ditetapkan HR.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -192,7 +195,7 @@ class _NetworkPageState extends State<NetworkPage> {
                         _showDetail(entry, canEdit: !_isManagement),
                   ),
                 ],
-                if (_isAreaManager || _isManagement) ...[
+                if (_canManageMitra || _isManagement) ...[
                   const SizedBox(height: 24),
                   if (!_isManagement) ...[
                     _NetworkSection(
@@ -807,7 +810,12 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
   final _territorySubdistrictController = TextEditingController();
   final _imagePicker = ImagePicker();
   bool _isLoadingTerritories = false;
+  bool _isCapturingGpsTerritory = false;
   bool _isSubmitting = false;
+  bool _isManualTerritory = false;
+  Position? _gpsTerritoryPosition;
+  String? _gpsTerritoryAddress;
+  String? _gpsTerritoryError;
   List<TerritoryOption> _provinceOptions = const [];
   List<TerritoryOption> _cityOptions = const [];
   List<TerritoryOption> _districtOptions = const [];
@@ -842,6 +850,7 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     super.initState();
     final existingEntry = widget.existingEntry;
     if (existingEntry != null) {
+      _isManualTerritory = true;
       _nameController.text = existingEntry.name;
       _addressController.text = existingEntry.address;
       _territoryProvinceController.text = existingEntry.territoryProvince;
@@ -938,6 +947,10 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
         _applySelectedTerritoryTexts();
         _isLoadingTerritories = false;
       });
+
+      if (!widget.isEditing && !_isManualTerritory) {
+        unawaited(_captureGpsTerritory());
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -985,6 +998,17 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     _territoryCityController.text = _selectedCity?.name ?? '';
     _territoryDistrictController.text = _selectedDistrict?.name ?? '';
     _territorySubdistrictController.text = _selectedSubdistrict?.name ?? '';
+  }
+
+  String _displayTerritoryText() {
+    final parts = [
+      _territorySubdistrictController.text,
+      _territoryDistrictController.text,
+      _territoryCityController.text,
+      _territoryProvinceController.text,
+    ].map((item) => item.trim()).where((item) => item.isNotEmpty).toList();
+
+    return parts.isEmpty ? 'Belum ada wilayah terbaca' : parts.join(', ');
   }
 
   Future<void> _onProvinceChanged(TerritoryOption? province) async {
@@ -1120,6 +1144,7 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
               onRemove: () => setState(() => _photo = null),
             ),
             const Divider(height: 24),
+            ..._buildTerritoryFields(),
             _TextInput(
               controller: _nameController,
               label: widget.type.nameLabel,
@@ -1134,89 +1159,6 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
               required: true,
               maxLines: 2,
             ),
-            const Divider(height: 24),
-            _TerritoryDropdownField(
-              label: 'Provinsi',
-              value: _selectedProvince,
-              items: _provinceOptions,
-              enabled: !_isProvinceLocked && _provinceOptions.isNotEmpty,
-              hint: _provinceOptions.isEmpty
-                  ? 'Wilayah provinsi tidak tersedia'
-                  : 'Pilih provinsi',
-              onChanged: _onProvinceChanged,
-            ),
-            const Divider(height: 24),
-            if (_selectedProvince != null && _cityOptions.isEmpty)
-              _TextInput(
-                controller: _territoryCityController,
-                label: 'Kota/Kabupaten',
-                hint: 'Ketik kota/kabupaten',
-                required: true,
-              )
-            else
-              _TerritoryDropdownField(
-                label: 'Kota/Kabupaten',
-                value: _selectedCity,
-                items: _cityOptions,
-                enabled: !_isCityLocked && _selectedProvince != null,
-                hint: _selectedProvince == null
-                    ? 'Pilih provinsi dulu'
-                    : _cityOptions.isEmpty
-                        ? 'Tidak ada kota/kabupaten yang sesuai'
-                        : 'Pilih kota/kabupaten',
-                onChanged: _onCityChanged,
-              ),
-            const Divider(height: 24),
-            if ((_selectedCity != null ||
-                    _territoryCityController.text.trim().isNotEmpty) &&
-                _districtOptions.isEmpty)
-              _TextInput(
-                controller: _territoryDistrictController,
-                label: 'Kecamatan',
-                hint: 'Ketik kecamatan',
-                required: true,
-              )
-            else
-              _TerritoryDropdownField(
-                label: 'Kecamatan',
-                value: _selectedDistrict,
-                items: _districtOptions,
-                enabled: !_isDistrictLocked && _selectedCity != null,
-                hint: _selectedCity == null
-                    ? 'Pilih kota/kabupaten dulu'
-                    : _districtOptions.isEmpty
-                        ? 'Tidak ada kecamatan yang sesuai'
-                        : 'Pilih kecamatan',
-                onChanged: _onDistrictChanged,
-              ),
-            const Divider(height: 24),
-            if ((_selectedDistrict != null ||
-                    _territoryDistrictController.text.trim().isNotEmpty) &&
-                _subdistrictOptions.isEmpty)
-              _TextInput(
-                controller: _territorySubdistrictController,
-                label: 'Kelurahan',
-                hint: 'Ketik kelurahan',
-                required: true,
-              )
-            else
-              _TerritoryDropdownField(
-                label: 'Kelurahan',
-                value: _selectedSubdistrict,
-                items: _subdistrictOptions,
-                enabled: !_isSubdistrictLocked && _selectedDistrict != null,
-                hint: _selectedDistrict == null
-                    ? 'Pilih kecamatan dulu'
-                    : _subdistrictOptions.isEmpty
-                        ? 'Tidak ada kelurahan yang sesuai'
-                        : 'Pilih kelurahan',
-                onChanged: (value) {
-                  setState(() {
-                    _selectedSubdistrict = value;
-                    _applySelectedTerritoryTexts();
-                  });
-                },
-              ),
             const Divider(height: 24),
             _TextInput(
               controller: _businessTypeController,
@@ -1286,6 +1228,330 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     );
   }
 
+  List<Widget> _buildTerritoryFields() {
+    return [
+      _GpsTerritoryCard(
+        isManual: _isManualTerritory,
+        isLoading: _isCapturingGpsTerritory,
+        position: _gpsTerritoryPosition,
+        address: _gpsTerritoryAddress,
+        errorText: _gpsTerritoryError,
+        territoryText: _displayTerritoryText(),
+        onRefresh: _captureGpsTerritory,
+        onUseManual: () => setState(() => _isManualTerritory = true),
+        onUseGps: () {
+          setState(() => _isManualTerritory = false);
+          unawaited(_captureGpsTerritory());
+        },
+      ),
+      if (_isManualTerritory) ...[
+        const Divider(height: 24),
+        _TerritoryDropdownField(
+          label: 'Provinsi',
+          value: _selectedProvince,
+          items: _provinceOptions,
+          enabled: !_isProvinceLocked && _provinceOptions.isNotEmpty,
+          hint: _provinceOptions.isEmpty
+              ? 'Wilayah provinsi tidak tersedia'
+              : 'Pilih provinsi',
+          onChanged: _onProvinceChanged,
+        ),
+        const Divider(height: 24),
+        if (_selectedProvince != null && _cityOptions.isEmpty)
+          _TextInput(
+            controller: _territoryCityController,
+            label: 'Kota/Kabupaten',
+            hint: 'Ketik kota/kabupaten',
+            required: true,
+          )
+        else
+          _TerritoryDropdownField(
+            label: 'Kota/Kabupaten',
+            value: _selectedCity,
+            items: _cityOptions,
+            enabled: !_isCityLocked && _selectedProvince != null,
+            hint: _selectedProvince == null
+                ? 'Pilih provinsi dulu'
+                : _cityOptions.isEmpty
+                    ? 'Tidak ada kota/kabupaten yang sesuai'
+                    : 'Pilih kota/kabupaten',
+            onChanged: _onCityChanged,
+          ),
+        const Divider(height: 24),
+        if ((_selectedCity != null ||
+                _territoryCityController.text.trim().isNotEmpty) &&
+            _districtOptions.isEmpty)
+          _TextInput(
+            controller: _territoryDistrictController,
+            label: 'Kecamatan',
+            hint: 'Ketik kecamatan',
+            required: true,
+          )
+        else
+          _TerritoryDropdownField(
+            label: 'Kecamatan',
+            value: _selectedDistrict,
+            items: _districtOptions,
+            enabled: !_isDistrictLocked && _selectedCity != null,
+            hint: _selectedCity == null
+                ? 'Pilih kota/kabupaten dulu'
+                : _districtOptions.isEmpty
+                    ? 'Tidak ada kecamatan yang sesuai'
+                    : 'Pilih kecamatan',
+            onChanged: _onDistrictChanged,
+          ),
+        const Divider(height: 24),
+        if ((_selectedDistrict != null ||
+                _territoryDistrictController.text.trim().isNotEmpty) &&
+            _subdistrictOptions.isEmpty)
+          _TextInput(
+            controller: _territorySubdistrictController,
+            label: 'Kelurahan',
+            hint: 'Ketik kelurahan',
+            required: true,
+          )
+        else
+          _TerritoryDropdownField(
+            label: 'Kelurahan',
+            value: _selectedSubdistrict,
+            items: _subdistrictOptions,
+            enabled: !_isSubdistrictLocked && _selectedDistrict != null,
+            hint: _selectedDistrict == null
+                ? 'Pilih kecamatan dulu'
+                : _subdistrictOptions.isEmpty
+                    ? 'Tidak ada kelurahan yang sesuai'
+                    : 'Pilih kelurahan',
+            onChanged: (value) {
+              setState(() {
+                _selectedSubdistrict = value;
+                _applySelectedTerritoryTexts();
+              });
+            },
+          ),
+      ],
+      const Divider(height: 24),
+    ];
+  }
+
+  Future<void> _captureGpsTerritory() async {
+    setState(() {
+      _isCapturingGpsTerritory = true;
+      _gpsTerritoryError = null;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw const _NetworkLocationException(
+          'GPS belum aktif. Aktifkan lokasi device atau isi alamat manual.',
+        );
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw const _NetworkLocationException(
+          'Izin lokasi dibutuhkan untuk membaca wilayah otomatis. Anda tetap bisa isi manual.',
+        );
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      ).timeout(const Duration(seconds: 5));
+      final place = placemarks.isEmpty ? null : placemarks.first;
+
+      if (place == null) {
+        throw const _NetworkLocationException(
+          'Alamat GPS belum berhasil dibaca. Silakan isi manual jika perlu.',
+        );
+      }
+
+      await _applyTerritoryFromPlacemark(place);
+
+      if (!mounted) {
+        return;
+      }
+
+      final address = _formatPlacemarkAddress(place);
+      final hasCompleteTerritory =
+          _territoryProvinceController.text.trim().isNotEmpty &&
+              _territoryCityController.text.trim().isNotEmpty &&
+              _territoryDistrictController.text.trim().isNotEmpty &&
+              _territorySubdistrictController.text.trim().isNotEmpty;
+
+      setState(() {
+        _gpsTerritoryPosition = position;
+        _gpsTerritoryAddress = address;
+        _gpsTerritoryError = hasCompleteTerritory
+            ? null
+            : 'Wilayah GPS belum lengkap. Cek hasilnya atau isi manual.';
+      });
+    } on _NetworkLocationException catch (error) {
+      if (mounted) {
+        setState(() {
+          _gpsTerritoryPosition = null;
+          _gpsTerritoryAddress = null;
+          _gpsTerritoryError = error.message;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _gpsTerritoryPosition = null;
+          _gpsTerritoryAddress = null;
+          _gpsTerritoryError =
+              'Lokasi belum berhasil dibaca. Coba refresh atau isi manual.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCapturingGpsTerritory = false);
+      }
+    }
+  }
+
+  Future<void> _applyTerritoryFromPlacemark(Placemark place) async {
+    final provinceCandidates = [
+      place.administrativeArea,
+      place.country,
+    ];
+    final cityCandidates = [
+      place.subAdministrativeArea,
+      place.locality,
+    ];
+    final districtCandidates = [
+      place.locality,
+      place.subLocality,
+    ];
+    final subdistrictCandidates = [
+      place.subLocality,
+      place.thoroughfare,
+    ];
+
+    final selectedProvince =
+        _findBestTerritoryMatch(_provinceOptions, provinceCandidates);
+    var cities = _cityOptions;
+    TerritoryOption? selectedCity;
+    var districts = _districtOptions;
+    TerritoryOption? selectedDistrict;
+    var subdistricts = _subdistrictOptions;
+    TerritoryOption? selectedSubdistrict;
+
+    if (selectedProvince != null) {
+      cities = await widget.controller.territoryCities(selectedProvince.code);
+      selectedCity = _findBestTerritoryMatch(cities, cityCandidates);
+    }
+
+    if (selectedCity != null) {
+      districts = await widget.controller.territoryDistricts(selectedCity.code);
+      selectedDistrict = _findBestTerritoryMatch(districts, districtCandidates);
+    }
+
+    if (selectedDistrict != null) {
+      subdistricts =
+          await widget.controller.territorySubdistricts(selectedDistrict.code);
+      selectedSubdistrict =
+          _findBestTerritoryMatch(subdistricts, subdistrictCandidates);
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _cityOptions = cities;
+      _districtOptions = districts;
+      _subdistrictOptions = subdistricts;
+      _selectedProvince = selectedProvince;
+      _selectedCity = selectedCity;
+      _selectedDistrict = selectedDistrict;
+      _selectedSubdistrict = selectedSubdistrict;
+      _territoryProvinceController.text =
+          selectedProvince?.name ?? _firstReadable(provinceCandidates);
+      _territoryCityController.text =
+          selectedCity?.name ?? _firstReadable(cityCandidates);
+      _territoryDistrictController.text =
+          selectedDistrict?.name ?? _firstReadable(districtCandidates);
+      _territorySubdistrictController.text =
+          selectedSubdistrict?.name ?? _firstReadable(subdistrictCandidates);
+    });
+  }
+
+  TerritoryOption? _findBestTerritoryMatch(
+    List<TerritoryOption> options,
+    List<String?> candidates,
+  ) {
+    final normalizedCandidates = candidates
+        .whereType<String>()
+        .map(_normalizeTerritoryName)
+        .where((item) => item.isNotEmpty)
+        .toList();
+
+    if (normalizedCandidates.isEmpty) {
+      return null;
+    }
+
+    for (final option in options) {
+      final normalizedOption = _normalizeTerritoryName(option.name);
+      for (final candidate in normalizedCandidates) {
+        if (normalizedOption == candidate ||
+            normalizedOption.contains(candidate) ||
+            candidate.contains(normalizedOption)) {
+          return option;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  String _normalizeTerritoryName(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'\b(provinsi|province|kabupaten|kab|kota|city|administrasi|kecamatan|kelurahan|desa|daerah|khusus|ibukota|dki)\b'), ' ')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String _firstReadable(List<String?> values) {
+    for (final value in values) {
+      final trimmed = value?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return '';
+  }
+
+  String _formatPlacemarkAddress(Placemark place) {
+    final parts = [
+      place.street,
+      place.subLocality,
+      place.locality,
+      place.subAdministrativeArea,
+      place.administrativeArea,
+      place.postalCode,
+    ]
+        .whereType<String>()
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList();
+
+    return parts.join(', ');
+  }
+
   Future<void> _pickPhoto(ImageSource source) async {
     final photo = await _imagePicker.pickImage(
       source: source,
@@ -1318,13 +1584,15 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    if (_selectedProvince == null ||
+    if (_territoryProvinceController.text.trim().isEmpty ||
         _territoryCityController.text.trim().isEmpty ||
         _territoryDistrictController.text.trim().isEmpty ||
         _territorySubdistrictController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Pilih wilayah sampai level kelurahan terlebih dahulu'),
+          content: Text(
+            'Wilayah sampai level kelurahan wajib terisi. Gunakan GPS atau isi manual.',
+          ),
         ),
       );
       return;
@@ -1337,8 +1605,19 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
     }
     setState(() => _isSubmitting = true);
     try {
-      final location = await _captureCurrentLocation();
-      if (!mounted || location == null) {
+      if (!_isManualTerritory && _gpsTerritoryPosition == null) {
+        await _captureGpsTerritory();
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      final location = _gpsTerritoryPosition;
+      if (!_isManualTerritory && location == null) {
+        _showLocationError(
+          'Lokasi GPS belum siap. Refresh lokasi atau isi manual jika GPS bermasalah.',
+        );
         return;
       }
 
@@ -1388,51 +1667,14 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
               : const {},
           followUps: existingEntry?.followUps ?? const [],
           createdAt: existingEntry?.createdAt ?? DateTime.now(),
-          latitude: location.latitude,
-          longitude: location.longitude,
+          latitude: location?.latitude,
+          longitude: location?.longitude,
         ),
       );
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
-    }
-  }
-
-  Future<({double latitude, double longitude})?>
-      _captureCurrentLocation() async {
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showLocationError('Layanan lokasi device sedang nonaktif.');
-        return null;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _showLocationError(
-          'Izin lokasi dibutuhkan agar data jaringan menyimpan koordinat.',
-        );
-        return null;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-
-      return (latitude: position.latitude, longitude: position.longitude);
-    } catch (_) {
-      _showLocationError(
-        'Lokasi belum berhasil didapatkan. Pastikan sinyal GPS stabil lalu coba lagi.',
-      );
-      return null;
     }
   }
 
@@ -1485,6 +1727,12 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
   }
 }
 
+class _NetworkLocationException implements Exception {
+  const _NetworkLocationException(this.message);
+
+  final String message;
+}
+
 class _NetworkSection extends StatelessWidget {
   const _NetworkSection({
     required this.title,
@@ -1505,24 +1753,29 @@ class _NetworkSection extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE7E5E4)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Text(
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        collapsedShape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(title, style: theme.textTheme.titleMedium),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
             subtitle,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 12),
+        ),
+        children: [
           if (entries.isEmpty)
             EmptyState(
               icon: Icons.folder_open_rounded,
@@ -1676,6 +1929,179 @@ class _CompactDocumentList extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+class _GpsTerritoryCard extends StatelessWidget {
+  const _GpsTerritoryCard({
+    required this.isManual,
+    required this.isLoading,
+    required this.position,
+    required this.address,
+    required this.errorText,
+    required this.territoryText,
+    required this.onRefresh,
+    required this.onUseManual,
+    required this.onUseGps,
+  });
+
+  final bool isManual;
+  final bool isLoading;
+  final Position? position;
+  final String? address;
+  final String? errorText;
+  final String territoryText;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onUseManual;
+  final VoidCallback onUseGps;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasPosition = position != null;
+    final coordinates = hasPosition
+        ? '${position!.latitude.toStringAsFixed(6)}, ${position!.longitude.toStringAsFixed(6)}'
+        : 'Belum ada titik GPS';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isManual ? const Color(0xFFFFFBEB) : const Color(0xFFEFFAF4),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isManual ? const Color(0xFFFDE68A) : const Color(0xFFBBE7C7),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor:
+                    isManual ? const Color(0xFFFEF3C7) : Colors.white,
+                foregroundColor:
+                    isManual ? const Color(0xFFB45309) : Colors.teal,
+                child: Icon(
+                  isManual
+                      ? Icons.edit_location_alt_rounded
+                      : Icons.my_location_rounded,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isManual ? 'Wilayah manual' : 'Wilayah otomatis dari GPS',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isManual
+                          ? 'Isi wilayah seperti form lama jika GPS/alamat tidak sesuai.'
+                          : 'Aplikasi membaca GPS lalu mengisi area data otomatis.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: isLoading ? null : onRefresh,
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _GpsInfoLine(label: 'Area data', value: territoryText),
+          const SizedBox(height: 8),
+          _GpsInfoLine(label: 'Koordinat', value: coordinates),
+          if (address != null && address!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _GpsInfoLine(label: 'Alamat GPS', value: address!),
+          ],
+          if (errorText != null && errorText!.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              errorText!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (isManual)
+                FilledButton.tonalIcon(
+                  onPressed: isLoading ? null : onUseGps,
+                  icon: const Icon(Icons.my_location_rounded),
+                  label: const Text('Gunakan GPS'),
+                )
+              else
+                FilledButton.tonalIcon(
+                  onPressed: onUseManual,
+                  icon: const Icon(Icons.edit_location_alt_rounded),
+                  label: const Text('Isi manual'),
+                ),
+              TextButton.icon(
+                onPressed: isLoading ? null : onRefresh,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Refresh lokasi'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GpsInfoLine extends StatelessWidget {
+  const _GpsInfoLine({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(value, style: theme.textTheme.bodyMedium),
+        ],
+      ),
     );
   }
 }

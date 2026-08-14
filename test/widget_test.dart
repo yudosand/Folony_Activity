@@ -307,7 +307,12 @@ void main() {
 
     expect(find.text('UKM Saya'), findsOneWidget);
     expect(find.text('UKM Area Kerja'), findsOneWidget);
+    await tester.tap(find.text('UKM Saya'));
+    await tester.pumpAndSettle();
     expect(find.text('Warung Jable'), findsOneWidget);
+
+    await tester.tap(find.text('UKM Area Kerja'));
+    await tester.pumpAndSettle();
     expect(find.text('UKM Area Pasar Minggu'), findsOneWidget);
     expect(
       find.textContaining('1 data UKM yang Anda buat sendiri'),

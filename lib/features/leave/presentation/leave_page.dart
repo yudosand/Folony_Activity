@@ -248,23 +248,31 @@ class _LeavePageState extends State<LeavePage> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                Text('Riwayat Pengajuan', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 12),
-                if (requests.isEmpty)
-                  const EmptyState(
-                    icon: Icons.event_busy_rounded,
-                    title: 'Belum ada riwayat',
-                    message:
-                        'Pengajuan cuti atau izin yang dibuat user akan tampil di sini.',
-                  )
-                else
-                  for (var i = 0; i < requests.length; i++) ...[
-                    _LeaveHistoryItem(
-                      request: requests[i],
-                      onTap: () => _showRequestDetail(requests[i]),
-                    ),
-                    if (i != requests.length - 1) const Divider(height: 24),
-                  ],
+                _LeaveSectionCard(
+                  title: 'Riwayat Pengajuan',
+                  subtitle:
+                      '${requests.length} pengajuan cuti/izin tersimpan untuk user ini.',
+                  initiallyExpanded: false,
+                  child: requests.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.event_busy_rounded,
+                          title: 'Belum ada riwayat',
+                          message:
+                              'Pengajuan cuti atau izin yang dibuat user akan tampil di sini.',
+                        )
+                      : Column(
+                          children: [
+                            for (var i = 0; i < requests.length; i++) ...[
+                              _LeaveHistoryItem(
+                                request: requests[i],
+                                onTap: () => _showRequestDetail(requests[i]),
+                              ),
+                              if (i != requests.length - 1)
+                                const Divider(height: 24),
+                            ],
+                          ],
+                        ),
+                ),
               ],
             ),
           ),
@@ -760,6 +768,52 @@ class _SelectionLine<T> extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LeaveSectionCard extends StatelessWidget {
+  const _LeaveSectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+    this.initiallyExpanded = true,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+  final bool initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE7E5E4)),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        collapsedShape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(title, style: theme.textTheme.titleMedium),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        children: [child],
+      ),
     );
   }
 }

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
+use App\Support\Workflow\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class AnnouncementController extends Controller
@@ -17,6 +19,7 @@ class AnnouncementController extends Controller
                 ->orderByDesc('published_at')
                 ->orderByDesc('created_at')
                 ->paginate(20),
+            'roleOptions' => UserRole::adminOptions(),
         ]);
     }
 
@@ -25,12 +28,16 @@ class AnnouncementController extends Controller
         $payload = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string', 'max:2000'],
+            'target_roles' => ['nullable', 'array'],
+            'target_roles.*' => ['string', Rule::in(array_keys(UserRole::adminOptions()))],
             'is_active' => ['nullable', 'boolean'],
         ]);
+        $targetRoles = array_values(array_unique($payload['target_roles'] ?? []));
 
         Announcement::query()->create([
             'title' => $payload['title'],
             'body' => $payload['body'],
+            'target_roles' => $targetRoles === [] ? null : $targetRoles,
             'is_active' => (bool) ($payload['is_active'] ?? false),
             'published_at' => now(),
         ]);

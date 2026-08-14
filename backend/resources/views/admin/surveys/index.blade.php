@@ -102,7 +102,7 @@
         </div>
 
         <form method="GET" class="filters" style="margin-bottom: 16px;">
-            <input name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Cari user / kota / kecamatan / kelurahan">
+            <input name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Cari user / alamat GPS / area / kios / pasar">
             <select name="type">
                 <option value="">Semua survey</option>
                 @foreach($types as $value => $label)
@@ -129,6 +129,12 @@
                             $payload = $response->payload ?? [];
                             $photo = $response->photo_attachment ?? [];
                             $photoUrl = $photo['url'] ?? null;
+                            $hasCoordinates = $response->latitude !== null && $response->longitude !== null;
+                            $coordinateText = $hasCoordinates
+                                ? number_format((float) $response->latitude, 6, '.', '') . ', ' . number_format((float) $response->longitude, 6, '.', '')
+                                : null;
+                            $mapsUrl = $hasCoordinates ? 'https://www.google.com/maps?q=' . $coordinateText : null;
+                            $locationAddress = trim((string) ($payload['location_address'] ?? ''));
                         @endphp
                         <tr>
                             <td class="stack">
@@ -140,15 +146,30 @@
                                 <span class="muted">{{ $roleLabels[$response->user_role] ?? $response->user_role }} · {{ $response->area_name ?: '-' }}</span>
                             </td>
                             <td>
-                                {{ $response->territory_subdistrict }},
-                                {{ $response->territory_district }},
-                                {{ $response->territory_city }},
-                                {{ $response->territory_province }}
+                                @if($hasCoordinates)
+                                    <div class="stack">
+                                        <strong>{{ $locationAddress !== '' ? 'Alamat GPS' : 'Koordinat GPS' }}</strong>
+                                        @if($locationAddress !== '')
+                                            <span>{{ $locationAddress }}</span>
+                                        @endif
+                                        <span>{{ $coordinateText }}</span>
+                                        @if($response->location_accuracy_meters !== null)
+                                            <span class="muted">Akurasi sekitar {{ number_format((float) $response->location_accuracy_meters, 0, ',', '.') }} meter</span>
+                                        @endif
+                                        <a class="attachment-link" href="{{ $mapsUrl }}" target="_blank" rel="noreferrer">Buka di Google Maps</a>
+                                    </div>
+                                @else
+                                    {{ $response->territory_subdistrict }},
+                                    {{ $response->territory_district }},
+                                    {{ $response->territory_city }},
+                                    {{ $response->territory_province }}
+                                @endif
                             </td>
                             <td>
                                 @if($response->type === 'kios')
                                     <div class="stack">
                                         <strong>{{ $payload['kiosk_name'] ?? '-' }}</strong>
+                                        <span>Alamat kios: {{ $payload['kiosk_address'] ?? '-' }}</span>
                                         <span>Pemilik: {{ $payload['owner_name'] ?? '-' }}</span>
                                         <span>HP: {{ $payload['phone_number'] ?? '-' }}</span>
                                         <span>Produk: {{ collect($payload['products'] ?? [])->pluck('name')->join(', ') ?: '-' }}</span>

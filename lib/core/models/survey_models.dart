@@ -96,25 +96,35 @@ class SurveyOptions {
 class KioskSurveySubmission {
   const KioskSurveySubmission({
     required this.photo,
-    required this.territoryProvince,
-    required this.territoryCity,
-    required this.territoryDistrict,
-    required this.territorySubdistrict,
+    required this.latitude,
+    required this.longitude,
     required this.kioskName,
+    required this.kioskAddress,
     required this.phoneNumber,
     required this.ownerName,
     required this.productIds,
     required this.otherProduct,
     required this.buildingTypes,
     required this.kioskSizes,
+    this.locationAccuracyMeters,
+    this.territoryProvince = '',
+    this.territoryCity = '',
+    this.territoryDistrict = '',
+    this.territorySubdistrict = '',
+    this.locationAddress = '',
   });
 
   final RemoteAttachment photo;
+  final double latitude;
+  final double longitude;
+  final double? locationAccuracyMeters;
   final String territoryProvince;
   final String territoryCity;
   final String territoryDistrict;
   final String territorySubdistrict;
+  final String locationAddress;
   final String kioskName;
+  final String kioskAddress;
   final String phoneNumber;
   final String ownerName;
   final List<String> productIds;
@@ -129,7 +139,12 @@ class KioskSurveySubmission {
       'territory_city': territoryCity,
       'territory_district': territoryDistrict,
       'territory_subdistrict': territorySubdistrict,
+      'latitude': latitude,
+      'longitude': longitude,
+      'location_accuracy_meters': locationAccuracyMeters,
+      'location_address': locationAddress,
       'kiosk_name': kioskName,
+      'kiosk_address': kioskAddress,
       'phone_number': phoneNumber,
       'owner_name': ownerName,
       'product_ids': productIds,
@@ -170,19 +185,27 @@ class PriceSurveySubmission {
   const PriceSurveySubmission({
     required this.photo,
     required this.marketName,
-    required this.territoryProvince,
-    required this.territoryCity,
-    required this.territoryDistrict,
-    required this.territorySubdistrict,
+    required this.latitude,
+    required this.longitude,
     required this.commodityPrices,
+    this.locationAccuracyMeters,
+    this.territoryProvince = '',
+    this.territoryCity = '',
+    this.territoryDistrict = '',
+    this.territorySubdistrict = '',
+    this.locationAddress = '',
   });
 
   final RemoteAttachment photo;
   final String marketName;
+  final double latitude;
+  final double longitude;
+  final double? locationAccuracyMeters;
   final String territoryProvince;
   final String territoryCity;
   final String territoryDistrict;
   final String territorySubdistrict;
+  final String locationAddress;
   final List<CommodityPriceSubmission> commodityPrices;
 
   Map<String, dynamic> toJson() {
@@ -193,6 +216,10 @@ class PriceSurveySubmission {
       'territory_city': territoryCity,
       'territory_district': territoryDistrict,
       'territory_subdistrict': territorySubdistrict,
+      'latitude': latitude,
+      'longitude': longitude,
+      'location_accuracy_meters': locationAccuracyMeters,
+      'location_address': locationAddress,
       'commodity_prices': commodityPrices.map((item) => item.toJson()).toList(),
     };
   }

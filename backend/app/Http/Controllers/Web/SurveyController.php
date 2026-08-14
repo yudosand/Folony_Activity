@@ -27,9 +27,15 @@ class SurveyController extends Controller
             ->when($filters['search'] ?? null, function ($query, string $search): void {
                 $query->where(function ($inner) use ($search): void {
                     $inner->where('user_name', 'like', '%' . $search . '%')
+                        ->orWhere('area_name', 'like', '%' . $search . '%')
+                        ->orWhere('territory_province', 'like', '%' . $search . '%')
                         ->orWhere('territory_city', 'like', '%' . $search . '%')
                         ->orWhere('territory_district', 'like', '%' . $search . '%')
-                        ->orWhere('territory_subdistrict', 'like', '%' . $search . '%');
+                        ->orWhere('territory_subdistrict', 'like', '%' . $search . '%')
+                        ->orWhere('payload->kiosk_name', 'like', '%' . $search . '%')
+                        ->orWhere('payload->kiosk_address', 'like', '%' . $search . '%')
+                        ->orWhere('payload->market_name', 'like', '%' . $search . '%')
+                        ->orWhere('payload->location_address', 'like', '%' . $search . '%');
                 });
             })
             ->latest('submitted_at')

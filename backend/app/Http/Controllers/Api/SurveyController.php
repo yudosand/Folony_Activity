@@ -34,11 +34,16 @@ class SurveyController extends Controller
             'photo.url' => ['required', 'string'],
             'photo.thumbnail_url' => ['nullable', 'string'],
             'photo.size_in_bytes' => ['nullable', 'integer'],
-            'territory_province' => ['required', 'string', 'max:255'],
-            'territory_city' => ['required', 'string', 'max:255'],
-            'territory_district' => ['required', 'string', 'max:255'],
-            'territory_subdistrict' => ['required', 'string', 'max:255'],
+            'territory_province' => ['nullable', 'string', 'max:255'],
+            'territory_city' => ['nullable', 'string', 'max:255'],
+            'territory_district' => ['nullable', 'string', 'max:255'],
+            'territory_subdistrict' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'location_accuracy_meters' => ['nullable', 'numeric', 'min:0'],
+            'location_address' => ['nullable', 'string', 'max:1000'],
             'kiosk_name' => ['required', 'string', 'max:255'],
+            'kiosk_address' => ['required', 'string', 'max:1000'],
             'phone_number' => ['required', 'string', 'max:32'],
             'owner_name' => ['required', 'string', 'max:255'],
             'product_ids' => ['nullable', 'array'],
@@ -63,6 +68,7 @@ class SurveyController extends Controller
 
         $response = $this->createResponse($request, SurveyType::KIOS, $payload, [
             'kiosk_name' => $payload['kiosk_name'],
+            'kiosk_address' => $payload['kiosk_address'],
             'phone_number' => $payload['phone_number'],
             'owner_name' => $payload['owner_name'],
             'products' => $selectedProducts,
@@ -87,10 +93,14 @@ class SurveyController extends Controller
             'photo.thumbnail_url' => ['nullable', 'string'],
             'photo.size_in_bytes' => ['nullable', 'integer'],
             'market_name' => ['required', 'string', 'max:255'],
-            'territory_province' => ['required', 'string', 'max:255'],
-            'territory_city' => ['required', 'string', 'max:255'],
-            'territory_district' => ['required', 'string', 'max:255'],
-            'territory_subdistrict' => ['required', 'string', 'max:255'],
+            'territory_province' => ['nullable', 'string', 'max:255'],
+            'territory_city' => ['nullable', 'string', 'max:255'],
+            'territory_district' => ['nullable', 'string', 'max:255'],
+            'territory_subdistrict' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'location_accuracy_meters' => ['nullable', 'numeric', 'min:0'],
+            'location_address' => ['nullable', 'string', 'max:1000'],
             'commodity_prices' => ['required', 'array', 'min:1'],
             'commodity_prices.*.commodity_id' => [
                 'required',
@@ -137,6 +147,11 @@ class SurveyController extends Controller
         array $surveyPayload,
     ): SurveyResponse {
         $user = $request->user();
+        $latitude = (float) $payload['latitude'];
+        $longitude = (float) $payload['longitude'];
+        $coordinateLabel = number_format($latitude, 6, '.', '') . ', ' . number_format($longitude, 6, '.', '');
+        $locationAddress = trim((string) ($payload['location_address'] ?? ''));
+        $readableArea = $locationAddress !== '' ? $locationAddress : $coordinateLabel;
 
         return SurveyResponse::query()->create([
             'id' => (string) Str::uuid(),
@@ -145,12 +160,25 @@ class SurveyController extends Controller
             'user_name' => $user->full_name,
             'user_role' => $user->role,
             'area_name' => $user->area_name,
-            'territory_province' => $payload['territory_province'],
-            'territory_city' => $payload['territory_city'],
-            'territory_district' => $payload['territory_district'],
-            'territory_subdistrict' => $payload['territory_subdistrict'],
+            'territory_province' => filled($payload['territory_province'] ?? null)
+                ? $payload['territory_province']
+                : 'Lokasi GPS',
+            'territory_city' => filled($payload['territory_city'] ?? null)
+                ? $payload['territory_city']
+                : $readableArea,
+            'territory_district' => filled($payload['territory_district'] ?? null)
+                ? $payload['territory_district']
+                : ($locationAddress !== '' ? 'Alamat GPS' : 'Koordinat Survey'),
+            'territory_subdistrict' => filled($payload['territory_subdistrict'] ?? null)
+                ? $payload['territory_subdistrict']
+                : 'GPS',
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'location_accuracy_meters' => Arr::get($payload, 'location_accuracy_meters'),
             'photo_attachment' => Arr::get($payload, 'photo', []),
-            'payload' => $surveyPayload,
+            'payload' => array_merge($surveyPayload, [
+                'location_address' => $locationAddress,
+            ]),
             'submitted_at' => now(),
         ]);
     }

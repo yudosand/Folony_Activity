@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/app_controller.dart';
 import '../../../core/models/app_session.dart';
 import '../../../core/models/survey_models.dart';
-import '../../../core/models/territory_option.dart';
 import '../../../core/network/human_readable_error.dart';
 
 enum _SurveyMode { kios, harga }
@@ -145,35 +147,38 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
   final _formKey = GlobalKey<FormState>();
   final _imagePicker = ImagePicker();
   final _kioskNameController = TextEditingController();
+  final _kioskAddressController = TextEditingController();
   final _phoneController = TextEditingController();
   final _ownerNameController = TextEditingController();
   final _otherProductController = TextEditingController();
   final _marketNameController = TextEditingController();
   final Map<String, TextEditingController> _lowestPriceControllers = {};
   final Map<String, TextEditingController> _highestPriceControllers = {};
-  final _territory = _SurveyTerritoryState();
 
   XFile? _photo;
-  bool _isLoadingTerritories = true;
+  Position? _surveyPosition;
+  String? _surveyAddress;
+  String? _locationError;
+  bool _isCapturingLocation = true;
   bool _isSubmitting = false;
   final Set<String> _selectedProductIds = {};
-  final Set<String> _selectedBuildingTypes = {};
-  final Set<String> _selectedKioskSizes = {};
+  String? _selectedBuildingType;
+  String? _selectedKioskSize;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadProvinces());
+    unawaited(_captureSurveyLocation());
   }
 
   @override
   void dispose() {
     _kioskNameController.dispose();
+    _kioskAddressController.dispose();
     _phoneController.dispose();
     _ownerNameController.dispose();
     _otherProductController.dispose();
     _marketNameController.dispose();
-    _territory.dispose();
     for (final controller in _lowestPriceControllers.values) {
       controller.dispose();
     }
@@ -216,18 +221,12 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
             onRemove: () => setState(() => _photo = null),
           ),
           const SizedBox(height: 16),
-          _TerritorySection(
-            state: _territory,
-            isLoading: _isLoadingTerritories,
-            onProvinceChanged: _onProvinceChanged,
-            onCityChanged: _onCityChanged,
-            onDistrictChanged: _onDistrictChanged,
-            onSubdistrictChanged: (value) {
-              setState(() {
-                _territory.selectedSubdistrict = value;
-                _territory.applySelectedTexts();
-              });
-            },
+          _GpsSurveyLocationCard(
+            position: _surveyPosition,
+            address: _surveyAddress,
+            isLoading: _isCapturingLocation,
+            errorText: _locationError,
+            onRefresh: _captureSurveyLocation,
           ),
           const SizedBox(height: 16),
           if (isKios) ..._buildKioskFields() else ..._buildPriceFields(),
@@ -259,6 +258,13 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
             label: 'Nama kios',
             hint: 'Contoh: Kios Makmur',
             required: true,
+          ),
+          _TextInput(
+            controller: _kioskAddressController,
+            label: 'Alamat kios',
+            hint: 'Contoh: Jl. Pasar Baru No. 12',
+            required: true,
+            maxLines: 2,
           ),
           _TextInput(
             controller: _phoneController,
@@ -303,34 +309,18 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
         ),
       ),
       const SizedBox(height: 16),
-      _ChecklistCard(
+      _RadioChoiceCard(
         title: 'Bangunan',
         options: widget.options.buildingTypes,
-        selectedLabels: _selectedBuildingTypes,
-        onChanged: (label, selected) {
-          setState(() {
-            if (selected) {
-              _selectedBuildingTypes.add(label);
-            } else {
-              _selectedBuildingTypes.remove(label);
-            }
-          });
-        },
+        selectedLabel: _selectedBuildingType,
+        onChanged: (label) => setState(() => _selectedBuildingType = label),
       ),
       const SizedBox(height: 16),
-      _ChecklistCard(
+      _RadioChoiceCard(
         title: 'Luas Kios',
         options: widget.options.kioskSizes,
-        selectedLabels: _selectedKioskSizes,
-        onChanged: (label, selected) {
-          setState(() {
-            if (selected) {
-              _selectedKioskSizes.add(label);
-            } else {
-              _selectedKioskSizes.remove(label);
-            }
-          });
-        },
+        selectedLabel: _selectedKioskSize,
+        onChanged: (label) => setState(() => _selectedKioskSize = label),
       ),
     ];
   }
@@ -392,79 +382,76 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
     setState(() => _photo = photo);
   }
 
-  Future<void> _loadProvinces() async {
+  Future<void> _captureSurveyLocation() async {
+      setState(() {
+        _isCapturingLocation = true;
+        _locationError = null;
+        _surveyAddress = null;
+      });
+
     try {
-      final provinces = await widget.controller.territoryProvinces();
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _surveyPosition = null;
+          _surveyAddress = null;
+          _locationError =
+              'GPS belum aktif. Aktifkan lokasi device terlebih dahulu.';
+        });
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _surveyPosition = null;
+          _surveyAddress = null;
+          _locationError =
+              'Izin lokasi dibutuhkan untuk menyimpan titik survey.';
+        });
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      final address = await _resolveAddress(position);
+
       if (!mounted) {
         return;
       }
       setState(() {
-        _territory.provinceOptions = provinces;
-        _isLoadingTerritories = false;
+        _surveyPosition = position;
+        _surveyAddress = address;
+        _locationError = null;
       });
     } catch (_) {
       if (mounted) {
-        setState(() => _isLoadingTerritories = false);
+        setState(() {
+          _surveyPosition = null;
+          _locationError =
+              'Lokasi belum berhasil dibaca. Pastikan GPS stabil lalu coba lagi.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCapturingLocation = false);
       }
     }
-  }
-
-  Future<void> _onProvinceChanged(TerritoryOption? province) async {
-    setState(() {
-      _isLoadingTerritories = true;
-      _territory.selectProvince(province);
-    });
-    if (province == null) {
-      setState(() => _isLoadingTerritories = false);
-      return;
-    }
-    final cities = await widget.controller.territoryCities(province.code);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _territory.cityOptions = cities;
-      _isLoadingTerritories = false;
-    });
-  }
-
-  Future<void> _onCityChanged(TerritoryOption? city) async {
-    setState(() {
-      _isLoadingTerritories = true;
-      _territory.selectCity(city);
-    });
-    if (city == null) {
-      setState(() => _isLoadingTerritories = false);
-      return;
-    }
-    final districts = await widget.controller.territoryDistricts(city.code);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _territory.districtOptions = districts;
-      _isLoadingTerritories = false;
-    });
-  }
-
-  Future<void> _onDistrictChanged(TerritoryOption? district) async {
-    setState(() {
-      _isLoadingTerritories = true;
-      _territory.selectDistrict(district);
-    });
-    if (district == null) {
-      setState(() => _isLoadingTerritories = false);
-      return;
-    }
-    final subdistricts =
-        await widget.controller.territorySubdistricts(district.code);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _territory.subdistrictOptions = subdistricts;
-      _isLoadingTerritories = false;
-    });
   }
 
   Future<void> _submit() async {
@@ -475,8 +462,8 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
       _showMessage('Foto survey wajib diambil dari kamera HP.');
       return;
     }
-    if (!_territory.isComplete) {
-      _showMessage('Pilih wilayah sampai level kelurahan terlebih dahulu.');
+    if (_surveyPosition == null) {
+      _showMessage('Ambil lokasi GPS survey terlebih dahulu.');
       return;
     }
     if (widget.mode == _SurveyMode.kios) {
@@ -485,8 +472,8 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
         _showMessage('Pilih minimal satu produk atau isi produk lainnya.');
         return;
       }
-      if (_selectedBuildingTypes.isEmpty || _selectedKioskSizes.isEmpty) {
-        _showMessage('Checklist bangunan dan luas kios wajib diisi.');
+      if (_selectedBuildingType == null || _selectedKioskSize == null) {
+        _showMessage('Pilih bangunan dan luas kios terlebih dahulu.');
         return;
       }
     } else if (_collectPriceSubmissions() == null) {
@@ -523,17 +510,18 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
     await widget.controller.submitKioskSurvey(
       session: widget.session,
       photoPath: _photo!.path,
-      territoryProvince: _territory.provinceController.text.trim(),
-      territoryCity: _territory.cityController.text.trim(),
-      territoryDistrict: _territory.districtController.text.trim(),
-      territorySubdistrict: _territory.subdistrictController.text.trim(),
+      latitude: _surveyPosition!.latitude,
+      longitude: _surveyPosition!.longitude,
+      locationAccuracyMeters: _surveyPosition!.accuracy,
+      locationAddress: _surveyAddress ?? '',
       kioskName: _kioskNameController.text.trim(),
+      kioskAddress: _kioskAddressController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
       ownerName: _ownerNameController.text.trim(),
       productIds: _selectedProductIds.toList(),
       otherProduct: _otherProductController.text.trim(),
-      buildingTypes: _selectedBuildingTypes.toList(),
-      kioskSizes: _selectedKioskSizes.toList(),
+      buildingTypes: [_selectedBuildingType!],
+      kioskSizes: [_selectedKioskSize!],
     );
   }
 
@@ -547,12 +535,38 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
       session: widget.session,
       photoPath: _photo!.path,
       marketName: _marketNameController.text.trim(),
-      territoryProvince: _territory.provinceController.text.trim(),
-      territoryCity: _territory.cityController.text.trim(),
-      territoryDistrict: _territory.districtController.text.trim(),
-      territorySubdistrict: _territory.subdistrictController.text.trim(),
+      latitude: _surveyPosition!.latitude,
+      longitude: _surveyPosition!.longitude,
+      locationAccuracyMeters: _surveyPosition!.accuracy,
+      locationAddress: _surveyAddress ?? '',
       commodityPrices: prices,
     );
+  }
+
+  Future<String?> _resolveAddress(Position position) async {
+    try {
+      final places = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      ).timeout(const Duration(seconds: 5));
+      if (places.isEmpty) {
+        return null;
+      }
+      final place = places.first;
+      final parts = [
+        place.street,
+        place.subLocality,
+        place.locality,
+        place.subAdministrativeArea,
+        place.administrativeArea,
+        place.postalCode,
+      ].whereType<String>().map((item) => item.trim()).where((item) {
+        return item.isNotEmpty;
+      }).toSet();
+      return parts.join(', ');
+    } catch (_) {
+      return null;
+    }
   }
 
   List<CommodityPriceSubmission>? _collectPriceSubmissions() {
@@ -610,70 +624,6 @@ class _SurveyFormViewState extends State<_SurveyFormView> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
-  }
-}
-
-class _SurveyTerritoryState {
-  final provinceController = TextEditingController();
-  final cityController = TextEditingController();
-  final districtController = TextEditingController();
-  final subdistrictController = TextEditingController();
-
-  List<TerritoryOption> provinceOptions = const [];
-  List<TerritoryOption> cityOptions = const [];
-  List<TerritoryOption> districtOptions = const [];
-  List<TerritoryOption> subdistrictOptions = const [];
-  TerritoryOption? selectedProvince;
-  TerritoryOption? selectedCity;
-  TerritoryOption? selectedDistrict;
-  TerritoryOption? selectedSubdistrict;
-
-  bool get isComplete {
-    return provinceController.text.trim().isNotEmpty &&
-        cityController.text.trim().isNotEmpty &&
-        districtController.text.trim().isNotEmpty &&
-        subdistrictController.text.trim().isNotEmpty;
-  }
-
-  void selectProvince(TerritoryOption? province) {
-    selectedProvince = province;
-    selectedCity = null;
-    selectedDistrict = null;
-    selectedSubdistrict = null;
-    cityOptions = const [];
-    districtOptions = const [];
-    subdistrictOptions = const [];
-    applySelectedTexts();
-  }
-
-  void selectCity(TerritoryOption? city) {
-    selectedCity = city;
-    selectedDistrict = null;
-    selectedSubdistrict = null;
-    districtOptions = const [];
-    subdistrictOptions = const [];
-    applySelectedTexts();
-  }
-
-  void selectDistrict(TerritoryOption? district) {
-    selectedDistrict = district;
-    selectedSubdistrict = null;
-    subdistrictOptions = const [];
-    applySelectedTexts();
-  }
-
-  void applySelectedTexts() {
-    provinceController.text = selectedProvince?.name ?? '';
-    cityController.text = selectedCity?.name ?? '';
-    districtController.text = selectedDistrict?.name ?? '';
-    subdistrictController.text = selectedSubdistrict?.name ?? '';
-  }
-
-  void dispose() {
-    provinceController.dispose();
-    cityController.dispose();
-    districtController.dispose();
-    subdistrictController.dispose();
   }
 }
 
@@ -857,6 +807,51 @@ class _ChecklistCard extends StatelessWidget {
   }
 }
 
+class _RadioChoiceCard extends StatelessWidget {
+  const _RadioChoiceCard({
+    required this.title,
+    required this.options,
+    required this.selectedLabel,
+    required this.onChanged,
+  });
+
+  final String title;
+  final List<String> options;
+  final String? selectedLabel;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: title,
+      children: options.map((option) {
+        final selected = selectedLabel == option;
+        return InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => onChanged(option),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(option)),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
 class _CommodityPriceInput extends StatelessWidget {
   const _CommodityPriceInput({
     required this.commodityName,
@@ -895,8 +890,9 @@ class _CommodityPriceInput extends StatelessWidget {
               child: _TextInput(
                 controller: lowestController,
                 label: 'Harga terendah',
-                hint: 'Contoh: 12000',
+                hint: 'Contoh: Rp 12.000',
                 keyboardType: TextInputType.number,
+                inputFormatters: const [_RupiahInputFormatter()],
               ),
             ),
             const SizedBox(width: 10),
@@ -904,8 +900,9 @@ class _CommodityPriceInput extends StatelessWidget {
               child: _TextInput(
                 controller: highestController,
                 label: 'Harga tertinggi',
-                hint: 'Contoh: 15000',
+                hint: 'Contoh: Rp 15.000',
                 keyboardType: TextInputType.number,
+                inputFormatters: const [_RupiahInputFormatter()],
               ),
             ),
           ],
@@ -915,104 +912,129 @@ class _CommodityPriceInput extends StatelessWidget {
   }
 }
 
-class _TerritorySection extends StatelessWidget {
-  const _TerritorySection({
-    required this.state,
+class _GpsSurveyLocationCard extends StatelessWidget {
+  const _GpsSurveyLocationCard({
+    required this.position,
+    required this.address,
     required this.isLoading,
-    required this.onProvinceChanged,
-    required this.onCityChanged,
-    required this.onDistrictChanged,
-    required this.onSubdistrictChanged,
+    required this.errorText,
+    required this.onRefresh,
   });
 
-  final _SurveyTerritoryState state;
+  final Position? position;
+  final String? address;
   final bool isLoading;
-  final ValueChanged<TerritoryOption?> onProvinceChanged;
-  final ValueChanged<TerritoryOption?> onCityChanged;
-  final ValueChanged<TerritoryOption?> onDistrictChanged;
-  final ValueChanged<TerritoryOption?> onSubdistrictChanged;
+  final String? errorText;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'Wilayah Survey',
-      children: [
-        if (isLoading) const LinearProgressIndicator(minHeight: 3),
-        _TerritoryDropdown(
-          label: 'Provinsi',
-          value: state.selectedProvince,
-          items: state.provinceOptions,
-          hint: 'Pilih provinsi',
-          enabled: state.provinceOptions.isNotEmpty,
-          onChanged: onProvinceChanged,
-        ),
-        _TerritoryDropdown(
-          label: 'Kota/Kabupaten',
-          value: state.selectedCity,
-          items: state.cityOptions,
-          hint: state.selectedProvince == null
-              ? 'Pilih provinsi dulu'
-              : 'Pilih kota/kabupaten',
-          enabled: state.selectedProvince != null,
-          onChanged: onCityChanged,
-        ),
-        _TerritoryDropdown(
-          label: 'Kecamatan',
-          value: state.selectedDistrict,
-          items: state.districtOptions,
-          hint: state.selectedCity == null
-              ? 'Pilih kota/kabupaten dulu'
-              : 'Pilih kecamatan',
-          enabled: state.selectedCity != null,
-          onChanged: onDistrictChanged,
-        ),
-        _TerritoryDropdown(
-          label: 'Kelurahan',
-          value: state.selectedSubdistrict,
-          items: state.subdistrictOptions,
-          hint: state.selectedDistrict == null
-              ? 'Pilih kecamatan dulu'
-              : 'Pilih kelurahan',
-          enabled: state.selectedDistrict != null,
-          onChanged: onSubdistrictChanged,
-        ),
-      ],
-    );
-  }
-}
+    final theme = Theme.of(context);
+    final hasPosition = position != null;
+    final coordinateText = hasPosition
+        ? '${position!.latitude.toStringAsFixed(6)}, ${position!.longitude.toStringAsFixed(6)}'
+        : 'Belum ada lokasi';
 
-class _TerritoryDropdown extends StatelessWidget {
-  const _TerritoryDropdown({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.hint,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final String label;
-  final TerritoryOption? value;
-  final List<TerritoryOption> items;
-  final String hint;
-  final bool enabled;
-  final ValueChanged<TerritoryOption?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<TerritoryOption>(
-      key: ValueKey('$label-${value?.code ?? 'empty'}-${items.length}'),
-      initialValue: value,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: '$label *', hintText: hint),
-      items: items
-          .map((item) => DropdownMenuItem(
-                value: item,
-                child: Text(item.name),
-              ))
-          .toList(),
-      onChanged: enabled ? onChanged : null,
-      validator: (selected) => selected == null ? '$label wajib dipilih' : null,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: hasPosition
+                      ? const Color(0xFFE4F6EA)
+                      : const Color(0xFFFFF1D6),
+                  foregroundColor: hasPosition
+                      ? const Color(0xFF18803A)
+                      : const Color(0xFFB45309),
+                  child: Icon(
+                    hasPosition
+                        ? Icons.my_location_rounded
+                        : Icons.location_searching_rounded,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Wilayah Survey dari GPS',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Aplikasi otomatis menyimpan titik lokasi survey. User tidak perlu pilih provinsi/kota manual.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: isLoading ? null : onRefresh,
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Koordinat', style: theme.textTheme.labelMedium),
+                  const SizedBox(height: 4),
+                  Text(coordinateText, style: theme.textTheme.titleMedium),
+                  if (hasPosition) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Akurasi sekitar ${position!.accuracy.toStringAsFixed(0)} meter',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (address != null && address!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text('Alamat terbaca',
+                          style: theme.textTheme.labelMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        address!,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+            if (errorText != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                errorText!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1023,20 +1045,26 @@ class _TextInput extends StatelessWidget {
     required this.label,
     required this.hint,
     this.required = false,
+    this.maxLines = 1,
     this.keyboardType,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
   final String label;
   final String hint;
   final bool required;
+  final int maxLines;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      maxLines: maxLines,
       decoration: InputDecoration(
         labelText: required ? '$label *' : label,
         hintText: hint,
@@ -1050,5 +1078,41 @@ class _TextInput extends StatelessWidget {
             }
           : null,
     );
+  }
+}
+
+class _RupiahInputFormatter extends TextInputFormatter {
+  const _RupiahInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) {
+      return const TextEditingValue(
+        text: '',
+        selection: TextSelection.collapsed(offset: 0),
+      );
+    }
+
+    final formatted = 'Rp ${_formatThousands(digits)}';
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  static String _formatThousands(String digits) {
+    final buffer = StringBuffer();
+    for (var index = 0; index < digits.length; index += 1) {
+      final reverseIndex = digits.length - index;
+      buffer.write(digits[index]);
+      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
+        buffer.write('.');
+      }
+    }
+    return buffer.toString();
   }
 }

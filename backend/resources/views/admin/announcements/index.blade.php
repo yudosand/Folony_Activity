@@ -29,6 +29,24 @@
                     <label for="body">Isi pengumuman</label>
                     <textarea id="body" name="body" rows="6" placeholder="Tulis pesan singkat untuk tim..." required>{{ old('body') }}</textarea>
                 </div>
+                <div>
+                    <label>Tujuan Announcement</label>
+                    <p class="muted" style="margin:4px 0 10px;">Kosongkan pilihan jika announcement berlaku untuk semua role.</p>
+                    <div class="grid cols-2" style="gap:8px;">
+                        @foreach($roleOptions as $roleValue => $roleLabel)
+                            <label style="display:flex;align-items:center;gap:10px;margin:0;">
+                                <input
+                                    type="checkbox"
+                                    name="target_roles[]"
+                                    value="{{ $roleValue }}"
+                                    @checked(in_array($roleValue, old('target_roles', []), true))
+                                    style="width:auto;"
+                                >
+                                {{ $roleLabel }}
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
                 <label style="display:flex;align-items:center;gap:10px;margin:0;">
                     <input type="checkbox" name="is_active" value="1" checked style="width:auto;">
                     Aktif dan tampil di aplikasi
@@ -46,6 +64,7 @@
                     <thead>
                         <tr>
                             <th>Judul</th>
+                            <th>Tujuan</th>
                             <th>Status</th>
                             <th>Tanggal</th>
                             <th>Aksi</th>
@@ -57,6 +76,10 @@
                                 <td>
                                     <strong>{{ $announcement->title }}</strong>
                                     <div class="muted" style="margin-top:4px;">{{ \Illuminate\Support\Str::limit($announcement->body, 110) }}</div>
+                                </td>
+                                <td>
+                                    @php($targets = $announcement->target_roles ?? [])
+                                    {{ $targets === [] ? 'Semua role' : collect($targets)->map(fn ($role) => $roleOptions[$role] ?? $role)->join(', ') }}
                                 </td>
                                 <td>
                                     <span class="pill {{ $announcement->is_active ? 'success' : 'warning' }}">
@@ -74,7 +97,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="muted">Belum ada announcement.</td>
+                                <td colspan="5" class="muted">Belum ada announcement.</td>
                             </tr>
                         @endforelse
                     </tbody>

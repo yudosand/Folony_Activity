@@ -5,13 +5,22 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class AnnouncementController extends Controller
 {
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
+        $role = $request->user()?->role;
         $announcements = Announcement::query()
             ->where('is_active', true)
+            ->where(function ($query) use ($role): void {
+                $query->whereNull('target_roles');
+
+                if ($role !== null && $role !== '') {
+                    $query->orWhereJsonContains('target_roles', $role);
+                }
+            })
             ->where(function ($query): void {
                 $query
                     ->whereNull('published_at')

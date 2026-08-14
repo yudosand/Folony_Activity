@@ -9,6 +9,7 @@ class Announcement extends Model
     protected $fillable = [
         'title',
         'body',
+        'target_roles',
         'is_active',
         'published_at',
     ];
@@ -17,6 +18,7 @@ class Announcement extends Model
     {
         return [
             'is_active' => 'boolean',
+            'target_roles' => 'array',
             'published_at' => 'datetime',
         ];
     }

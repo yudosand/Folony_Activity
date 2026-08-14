@@ -439,6 +439,8 @@ class _WfhPageState extends State<WfhPage> {
                   title: 'Riwayat Pengajuan',
                   subtitle:
                       'Semua request WFA reguler dan overtime tersimpan di sini lengkap dengan status, kompensasi, dan detailnya.',
+                  collapsible: true,
+                  initiallyExpanded: false,
                   child: requests.isEmpty
                       ? const EmptyState(
                           icon: Icons.history_rounded,

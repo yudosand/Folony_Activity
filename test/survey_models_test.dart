@@ -34,11 +34,12 @@ void main() {
     await repository.submitKioskSurvey(
       const KioskSurveySubmission(
         photo: attachment,
-        territoryProvince: 'Jawa Barat',
-        territoryCity: 'Indramayu',
-        territoryDistrict: 'Indramayu',
-        territorySubdistrict: 'Karanganyar',
+        latitude: -6.327100,
+        longitude: 108.321900,
+        locationAccuracyMeters: 12,
+        locationAddress: 'Jalan Indramayu, Jawa Barat',
         kioskName: 'Warung Jable',
+        kioskAddress: 'Jalan Pasar Indramayu Blok A',
         phoneNumber: '081200000000',
         ownerName: 'Jable',
         productIds: ['prod_1'],
@@ -52,10 +53,10 @@ void main() {
       const PriceSurveySubmission(
         photo: attachment,
         marketName: 'Pasar Indramayu',
-        territoryProvince: 'Jawa Barat',
-        territoryCity: 'Indramayu',
-        territoryDistrict: 'Indramayu',
-        territorySubdistrict: 'Karanganyar',
+        latitude: -6.327100,
+        longitude: 108.321900,
+        locationAccuracyMeters: 12,
+        locationAddress: 'Jalan Indramayu, Jawa Barat',
         commodityPrices: [
           CommodityPriceSubmission(
             commodityId: 'cmd_1',
