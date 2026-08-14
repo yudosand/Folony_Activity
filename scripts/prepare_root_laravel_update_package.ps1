@@ -81,6 +81,11 @@ if (Test-Path -LiteralPath $clearCacheHelper) {
     Copy-Item -LiteralPath $clearCacheHelper -Destination (Join-Path $tempPackageRoot 'public\clear-cache-once.php') -Force
 }
 
+$productionArtisanHelper = Join-Path $projectRoot 'deploy\production-artisan-once-20260814.php'
+if (Test-Path -LiteralPath $productionArtisanHelper) {
+    Copy-Item -LiteralPath $productionArtisanHelper -Destination (Join-Path $tempPackageRoot 'public\production-artisan-once-20260814.php') -Force
+}
+
 $cleanupTestUserHelper = Join-Path $projectRoot 'deploy\cleanup-test-user-once.php'
 if (Test-Path -LiteralPath $cleanupTestUserHelper) {
     Copy-Item -LiteralPath $cleanupTestUserHelper -Destination (Join-Path $tempPackageRoot 'public\cleanup-test-user-once.php') -Force
@@ -124,6 +129,8 @@ Langkah di server:
    php artisan migrate --force
 
 Jika tidak ada akses SSH:
+- buka https://absent.folony.co.id/production-artisan-once-20260814.php?token=folony-production-artisan-20260814 setelah extract selesai
+- helper ini menjalankan migrate --force, storage:link, optimize:clear, lalu mencoba menghapus dirinya otomatis
 - buka https://absent.folony.co.id/clear-cache-once.php?token=folony-clear-20260804-b63a91 setelah extract selesai
 - helper ini menjalankan optimize:clear dan mencoba menghapus dirinya otomatis
 
