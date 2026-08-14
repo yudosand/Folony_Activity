@@ -6,9 +6,11 @@ use App\Models\ApprovalStep;
 use App\Models\Announcement;
 use App\Models\NetworkProfile;
 use App\Models\User;
+use App\Services\PushNotificationService;
 use App\Support\Workflow\UserRole;
 use Database\Seeders\WorkflowDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
 use Tests\TestCase;
 
 class AdminWebTest extends TestCase
@@ -288,5 +290,52 @@ class AdminWebTest extends TestCase
             ->get(route('admin.announcements.index'))
             ->assertOk()
             ->assertSee('Reminder Absensi');
+    }
+
+    public function test_active_announcement_sends_push_to_target_roles(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        $hr = User::query()->findOrFail('usr_hr_001');
+        $staffIds = User::query()
+            ->where('role', UserRole::STAFF)
+            ->where('is_active', true)
+            ->pluck('id')
+            ->values()
+            ->all();
+
+        $this->mock(PushNotificationService::class, function ($mock) use ($staffIds): void {
+            $mock->shouldReceive('sendToUsers')
+                ->once()
+                ->with(
+                    Mockery::on(fn (array $userIds): bool => $userIds === $staffIds),
+                    'Announcement HR: Reminder Staff',
+                    'Isi announcement staff.',
+                    Mockery::on(fn (array $data): bool => ($data['type'] ?? null) === 'announcement'
+                        && ! empty($data['announcement_id'])),
+                );
+        });
+
+        $this->actingAs($hr)->post(route('admin.announcements.store'), [
+            'title' => 'Reminder Staff',
+            'body' => 'Isi announcement staff.',
+            'target_roles' => [UserRole::STAFF],
+            'is_active' => 1,
+        ])->assertRedirect(route('admin.announcements.index'));
+    }
+
+    public function test_inactive_announcement_does_not_send_push(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        $hr = User::query()->findOrFail('usr_hr_001');
+
+        $this->mock(PushNotificationService::class, function ($mock): void {
+            $mock->shouldNotReceive('sendToUsers');
+        });
+
+        $this->actingAs($hr)->post(route('admin.announcements.store'), [
+            'title' => 'Draft Announcement',
+            'body' => 'Belum perlu dikirim.',
+            'target_roles' => [UserRole::STAFF],
+        ])->assertRedirect(route('admin.announcements.index'));
     }
 }
