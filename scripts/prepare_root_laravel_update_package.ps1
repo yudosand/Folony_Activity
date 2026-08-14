@@ -62,6 +62,11 @@ foreach ($directory in $copyDirectories) {
     Copy-Item -LiteralPath (Join-Path $backendRoot $directory) -Destination (Join-Path $tempPackageRoot $directory) -Recurse -Force
 }
 
+$publicStoragePath = Join-Path $tempPackageRoot 'public\storage'
+if (Test-Path -LiteralPath $publicStoragePath) {
+    Remove-Item -LiteralPath $publicStoragePath -Recurse -Force
+}
+
 $bootstrapCacheRoot = Join-Path $tempPackageRoot 'bootstrap\cache'
 if (Test-Path -LiteralPath $bootstrapCacheRoot) {
     Get-ChildItem -LiteralPath $bootstrapCacheRoot -File -Filter '*.php' | Remove-Item -Force
@@ -93,11 +98,12 @@ if (Test-Path -LiteralPath $emergencyRepairHelper) {
 
 $readmePath = Join-Path $tempPackageRoot 'UPLOAD_README.txt'
 @"
-Paket update root Laravel untuk /www/wwwroot/activity.foodcolony.com
+Paket update root Laravel untuk production absent.folony.co.id
 
 Paket ini TIDAK membawa:
 - .env
 - storage/
+- public/storage dari lokal
 - database/database.sqlite
 - node_modules/
 - bootstrap/cache/*.php
@@ -107,7 +113,7 @@ Tujuan:
 
 Langkah di server:
 1. backup file public/index.php bila perlu
-2. upload file zip ini ke /www/wwwroot/activity.foodcolony.com
+2. upload file zip ini ke root Laravel production
 3. extract isinya ke root yang sama
 4. pilih overwrite untuk file code
 5. JANGAN ganti .env server
