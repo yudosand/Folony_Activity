@@ -3,212 +3,59 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folony_activity/features/face/domain/face_scan_engine.dart';
 
 void main() {
-  test('enrollment flow completes front and left poses in order', () {
+  test('enrollment flow completes three stable front scans', () {
     final engine = FaceScanEngine.enrollment();
 
-    final frontUpdate = engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-      ),
-    );
-    expect(frontUpdate.shouldCaptureFrame, isFalse);
-    expect(engine.currentChallenge?.type, FaceScanChallengeType.front);
+    for (var scanIndex = 1; scanIndex <= 3; scanIndex += 1) {
+      FaceScanFrameUpdate? update;
+      for (var frame = 1; frame <= 3; frame += 1) {
+        update = engine.evaluate(
+          const FaceObservation(
+            faceCount: 1,
+            isCentered: true,
+            hasAcceptableSize: true,
+            faceWidthRatio: 0.3,
+            faceHeightRatio: 0.36,
+            yaw: 1,
+            pitch: 1,
+          ),
+        );
+      }
 
-    final frontCompleted = engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 1,
-        pitch: 1,
-      ),
-    );
-    expect(frontCompleted.shouldCaptureFrame, isTrue);
-    expect(engine.currentChallenge?.type, FaceScanChallengeType.left);
+      expect(update?.shouldCaptureFrame, isTrue);
+      expect(update?.completedSteps, scanIndex);
+      expect(update?.currentChallenge?.type,
+          scanIndex == 3 ? isNull : FaceScanChallengeType.front);
+    }
 
-    final leftCompleted = engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 18,
-        pitch: 0,
-      ),
-    );
-    expect(leftCompleted.shouldCaptureFrame, isTrue);
-    expect(engine.currentChallenge?.type, FaceScanChallengeType.right);
+    expect(engine.isComplete, isTrue);
   });
 
-  test('blink challenge requires closed then open eyes', () {
+  test('verification finishes with a few stable front frames only', () {
     final engine = FaceScanEngine.verification(
       actionLabel: 'check-in',
       turnChallenge: FaceScanChallengeType.left,
     );
 
-    engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-      ),
-    );
-    engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-      ),
-    );
+    FaceScanFrameUpdate? update;
+    for (var frame = 1; frame <= 5; frame += 1) {
+      update = engine.evaluate(
+        const FaceObservation(
+          faceCount: 1,
+          isCentered: true,
+          hasAcceptableSize: true,
+          faceWidthRatio: 0.3,
+          faceHeightRatio: 0.36,
+          yaw: 0,
+          pitch: 0,
+        ),
+      );
+    }
 
-    expect(engine.currentChallenge?.type, FaceScanChallengeType.left);
-
-    engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 18,
-        pitch: 0,
-      ),
-    );
-
-    expect(engine.currentChallenge?.type, FaceScanChallengeType.blink);
-
-    final waitingBlink = engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-        leftEyeOpenProbability: 0.9,
-        rightEyeOpenProbability: 0.88,
-      ),
-    );
-    expect(waitingBlink.scanCompleted, isFalse);
-
-    final blinkClosed = engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-        leftEyeOpenProbability: 0.12,
-        rightEyeOpenProbability: 0.18,
-      ),
-    );
-    expect(blinkClosed.shouldCaptureFrame, isFalse);
-
-    final blinkOpened = engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-        leftEyeOpenProbability: 0.92,
-        rightEyeOpenProbability: 0.94,
-      ),
-    );
-    expect(blinkOpened.shouldCaptureFrame, isTrue);
-    expect(blinkOpened.scanCompleted, isTrue);
+    expect(update?.shouldCaptureFrame, isTrue);
+    expect(update?.scanCompleted, isTrue);
+    expect(update?.currentChallenge, isNull);
     expect(engine.livenessScore, 100);
-  });
-
-  test('verification can finish with fallback blink and lower liveness score',
-      () {
-    final engine = FaceScanEngine.verification(
-      actionLabel: 'check-out',
-      turnChallenge: FaceScanChallengeType.right,
-    );
-
-    engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-      ),
-    );
-    engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-      ),
-    );
-    engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: -18,
-        pitch: 0,
-      ),
-    );
-
-    final firstBlinkFrame = engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-      ),
-    );
-    expect(firstBlinkFrame.scanCompleted, isFalse);
-
-    final secondBlinkFrame = engine.evaluate(
-      const FaceObservation(
-        faceCount: 1,
-        isCentered: true,
-        hasAcceptableSize: true,
-        faceWidthRatio: 0.3,
-        faceHeightRatio: 0.36,
-        yaw: 0,
-        pitch: 0,
-      ),
-    );
-    expect(secondBlinkFrame.scanCompleted, isTrue);
-    expect(engine.livenessScore, 75);
   });
 
   test('missing face resets guidance without progress', () {
@@ -245,7 +92,7 @@ void main() {
     );
 
     expect(update.shouldCaptureFrame, isFalse);
-    expect(update.guidance, contains('Tahan stabil'));
+    expect(update.guidance, contains('Lihat lurus ke kamera'));
     expect(engine.currentChallenge?.type, FaceScanChallengeType.front);
   });
 

@@ -139,6 +139,10 @@ class NetworkService
             'network_profile_id' => $profile->id,
             'title' => $payload['title'],
             'note' => $payload['note'],
+            'visit_started_at' => Arr::get($payload, 'visit_started_at'),
+            'visit_finished_at' => Arr::get($payload, 'visit_finished_at'),
+            'visit_duration_seconds' => Arr::get($payload, 'visit_duration_seconds'),
+            'photo_attachment' => Arr::get($payload, 'photo'),
             'actor_id' => $actor->id,
             'actor_name' => $actor->full_name,
             'created_at' => Arr::get($payload, 'created_at', now()),
@@ -155,9 +159,11 @@ class NetworkService
 
     public function queryOwned(User $owner, ?string $type = null, ?string $search = null)
     {
-        $query = NetworkProfile::query()
-            ->with('followUps')
-            ->orderByDesc('created_at');
+        $query = NetworkProfile::query();
+
+        if ($type !== null && $type !== '') {
+            $query->where('type', $type);
+        }
 
         if ($owner->role === UserRole::FGG && TerritoryData::isAssigned($owner)) {
             $query->where(function ($builder) use ($owner): void {
@@ -173,7 +179,6 @@ class NetworkService
                     ->where('owner_id', $owner->id)
                     ->orWhere(function ($territory) use ($owner): void {
                         $this->applyTerritoryScope($territory, $owner);
-                        $territory->where('owner_role', '!=', UserRole::FGG);
                     });
             });
         } elseif ($owner->role === UserRole::MANAGEMENT && TerritoryData::isAssigned($owner)) {
@@ -188,10 +193,6 @@ class NetworkService
             $query->where('owner_id', $owner->id);
         }
 
-        if ($type !== null && $type !== '') {
-            $query->where('type', $type);
-        }
-
         if ($search !== null && $search !== '') {
             $query->where(function ($builder) use ($search): void {
                 $builder
@@ -200,13 +201,12 @@ class NetworkService
             });
         }
 
-        return $query;
+        return $query->orderByDesc('created_at');
     }
 
     public function queryTeamUkm(User $areaManager, ?string $search = null)
     {
         $query = NetworkProfile::query()
-            ->with('followUps')
             ->where('type', 'ukm')
             ->where('owner_role', UserRole::FGG)
             ->orderByDesc('created_at');
@@ -235,20 +235,7 @@ class NetworkService
 
     public function scopeForHeatMap(User $actor)
     {
-        $query = NetworkProfile::query()->with('followUps');
-
-        if (($actor->role === UserRole::AREA_MANAGER || $actor->role === UserRole::FGG || $actor->role === UserRole::MANAGEMENT)
-            && TerritoryData::isAssigned($actor)) {
-            return $query->where(function ($builder) use ($actor): void {
-                $builder
-                    ->where('owner_id', $actor->id)
-                    ->orWhere(function ($territory) use ($actor): void {
-                        $this->applyTerritoryScope($territory, $actor);
-                    });
-            });
-        }
-
-        return $query->where('owner_id', $actor->id);
+        return NetworkProfile::query();
     }
 
     private function refresh(NetworkProfile $profile): NetworkProfile
@@ -284,6 +271,14 @@ class NetworkService
             && TerritoryData::coversProfile($actor, $profile);
 
         if ($isAreaScope) {
+            return;
+        }
+
+        $canVisitHeatMapPoint = in_array($actor->role, [UserRole::FGG, UserRole::AREA_MANAGER, UserRole::MANAGEMENT], true)
+            && $profile->latitude !== null
+            && $profile->longitude !== null;
+
+        if ($canVisitHeatMapPoint) {
             return;
         }
 
@@ -331,30 +326,155 @@ class NetworkService
             return;
         }
 
-        $builder->{$method}(function ($group) use ($assignment, $scopeField, $legacyLabel): void {
+        $builder->{$method}(function ($group) use ($assignment, $method, $scopeField, $legacyLabel): void {
             $group->where(function ($structured) use ($assignment): void {
                 if (filled($assignment['territory_province'])) {
-                    $structured->where('territory_province', $assignment['territory_province']);
+                    $structured->where(function ($column) use ($assignment): void {
+                        $this->whereColumnMatchesAny($column, 'territory_province', $assignment['territory_province']);
+                    });
                 }
                 if (filled($assignment['territory_city'])) {
-                    $structured->where('territory_city', $assignment['territory_city']);
+                    $structured->where(function ($column) use ($assignment): void {
+                        $this->whereColumnMatchesAny($column, 'territory_city', $assignment['territory_city']);
+                    });
                 }
                 if (filled($assignment['territory_district'])) {
-                    $structured->where('territory_district', $assignment['territory_district']);
+                    $structured->where(function ($column) use ($assignment): void {
+                        $this->whereColumnMatchesAny($column, 'territory_district', $assignment['territory_district']);
+                    });
                 }
                 if (filled($assignment['territory_subdistrict'])) {
-                    $structured->where('territory_subdistrict', $assignment['territory_subdistrict']);
+                    $structured->where(function ($column) use ($assignment): void {
+                        $this->whereColumnMatchesAny($column, 'territory_subdistrict', $assignment['territory_subdistrict']);
+                    });
                 }
             });
 
-            if ($scopeField !== null && filled($legacyLabel)) {
-                $group->orWhere(function ($legacy) use ($scopeField, $legacyLabel): void {
-                    $legacy
-                        ->whereNull($scopeField)
-                        ->where('area_name', $legacyLabel);
+            if ($method !== 'whereNot' && $scopeField !== null && filled($legacyLabel)) {
+                foreach ($this->assignmentSearchLabels($assignment) as $label) {
+                    $group->orWhere(function ($text) use ($label): void {
+                        $this->whereTerritoryTextMatches($text, $label);
+                    });
+                }
+            }
+        });
+    }
+
+    private function whereColumnMatchesAny($query, string $column, string $label): void
+    {
+        foreach ($this->labelVariants($label) as $index => $variant) {
+            $method = $index === 0 ? 'where' : 'orWhere';
+            $query->{$method}($column, $variant);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function assignmentSearchLabels(array $assignment): array
+    {
+        $labels = [];
+        foreach ([
+            TerritoryData::displayLabel($assignment),
+            $assignment['territory_subdistrict'] ?? null,
+            $assignment['territory_district'] ?? null,
+            $assignment['territory_city'] ?? null,
+            $assignment['territory_province'] ?? null,
+        ] as $label) {
+            if (is_string($label) && trim($label) !== '') {
+                foreach ($this->labelVariants($label) as $variant) {
+                    $labels[$this->normalizeLabelKey($variant)] = $variant;
+                }
+            }
+        }
+
+        return array_values($labels);
+    }
+
+    private function whereTerritoryTextMatches($query, string $label): void
+    {
+        $query->where(function ($variants) use ($label): void {
+            foreach ($this->labelVariants($label) as $variant) {
+                $variants
+                    ->orWhere('area_name', $variant)
+                    ->orWhere('territory_province', $variant)
+                    ->orWhere('territory_city', $variant)
+                    ->orWhere('territory_district', $variant)
+                    ->orWhere('territory_subdistrict', $variant)
+                    ->orWhere(function ($fallback) use ($variant): void {
+                        $this->whereStructuredTerritoryIsBlank($fallback);
+                        $fallback->where(function ($text) use ($variant): void {
+                            $text
+                                ->where('address', 'like', '%' . $variant . '%')
+                                ->orWhere('note', 'like', '%' . $variant . '%');
+                        });
+                    });
+            }
+        });
+    }
+
+    private function whereStructuredTerritoryIsBlank($query): void
+    {
+        $query->where(function ($blank): void {
+            foreach (TerritoryData::PROFILE_FIELDS as $field) {
+                $blank->where(function ($column) use ($field): void {
+                    $column
+                        ->whereNull($field)
+                        ->orWhere($field, '')
+                        ->orWhere($field, '-');
                 });
             }
         });
+    }
+
+    /**
+     * CSV historis memakai beberapa bentuk nama wilayah yang berbeda dari data
+     * master, jadi query area kerja perlu toleran tanpa mengubah data mentah.
+     *
+     * @return list<string>
+     */
+    private function labelVariants(string $label): array
+    {
+        $clean = trim($label);
+        if ($clean === '') {
+            return [];
+        }
+
+        $variants = [$clean];
+        $withoutAdmin = preg_replace('/^(kota administrasi|kabupaten|kota)\s+/i', '', $clean);
+        if (is_string($withoutAdmin) && trim($withoutAdmin) !== '') {
+            $variants[] = trim($withoutAdmin);
+        }
+
+        $base = trim((string) $withoutAdmin);
+        if (preg_match('/^jakarta\s+(barat|pusat|selatan|timur|utara)$/i', $base)) {
+            $variants[] = 'Kota ' . $base;
+            $variants[] = 'Kota Administrasi ' . $base;
+        }
+
+        if (preg_match('/^dki\s+jakarta$/i', $clean)) {
+            $variants[] = 'Daerah Khusus Ibukota Jakarta';
+            $variants[] = 'Daerah Khusus ibukota Jakarta';
+        }
+
+        if (preg_match('/^daerah\s+khusus\s+ibukota\s+jakarta$/i', $clean)) {
+            $variants[] = 'DKI Jakarta';
+        }
+
+        $unique = [];
+        foreach ($variants as $variant) {
+            $trimmed = trim($variant);
+            if ($trimmed !== '') {
+                $unique[$this->normalizeLabelKey($trimmed)] ??= $trimmed;
+            }
+        }
+
+        return array_values($unique);
+    }
+
+    private function normalizeLabelKey(string $label): string
+    {
+        return mb_strtolower(preg_replace('/\s+/', ' ', trim($label)) ?? trim($label));
     }
 
     private function assertWithinTerritory(User $actor, array $territory, string $profileType): void

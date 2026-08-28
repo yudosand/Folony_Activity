@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -55,6 +56,9 @@ class _NetworkPageState extends State<NetworkPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
       unawaited(_refreshEntries(showFeedback: true));
     });
   }
@@ -1518,7 +1522,10 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
   String _normalizeTerritoryName(String value) {
     return value
         .toLowerCase()
-        .replaceAll(RegExp(r'\b(provinsi|province|kabupaten|kab|kota|city|administrasi|kecamatan|kelurahan|desa|daerah|khusus|ibukota|dki)\b'), ' ')
+        .replaceAll(
+            RegExp(
+                r'\b(provinsi|province|kabupaten|kab|kota|city|administrasi|kecamatan|kelurahan|desa|daerah|khusus|ibukota|dki)\b'),
+            ' ')
         .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
         .trim()
         .replaceAll(RegExp(r'\s+'), ' ');
@@ -1733,7 +1740,7 @@ class _NetworkLocationException implements Exception {
   final String message;
 }
 
-class _NetworkSection extends StatelessWidget {
+class _NetworkSection extends StatefulWidget {
   const _NetworkSection({
     required this.title,
     required this.subtitle,
@@ -1749,8 +1756,34 @@ class _NetworkSection extends StatelessWidget {
   final ValueChanged<NetworkEntry> onTap;
 
   @override
+  State<_NetworkSection> createState() => _NetworkSectionState();
+}
+
+class _NetworkSectionState extends State<_NetworkSection> {
+  static const _itemsPerPage = 10;
+  int _pageIndex = 0;
+
+  @override
+  void didUpdateWidget(covariant _NetworkSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entries.length != widget.entries.length ||
+        oldWidget.title != widget.title) {
+      final lastPageIndex = _lastPageIndex(widget.entries.length);
+      if (_pageIndex > lastPageIndex) {
+        _pageIndex = lastPageIndex;
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final totalPages = _totalPages(widget.entries.length);
+    final start = _pageIndex * _itemsPerPage;
+    final end = math.min(start + _itemsPerPage, widget.entries.length);
+    final pageEntries = widget.entries.isEmpty
+        ? const <NetworkEntry>[]
+        : widget.entries.sublist(start, end);
 
     return Container(
       decoration: BoxDecoration(
@@ -1765,31 +1798,88 @@ class _NetworkSection extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         collapsedShape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(title, style: theme.textTheme.titleMedium),
+        title: Text(widget.title, style: theme.textTheme.titleMedium),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Text(
-            subtitle,
+            widget.subtitle,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ),
         children: [
-          if (entries.isEmpty)
+          if (widget.entries.isEmpty)
             EmptyState(
               icon: Icons.folder_open_rounded,
-              title: '$title masih kosong',
-              message: emptyMessage,
+              title: '${widget.title} masih kosong',
+              message: widget.emptyMessage,
             )
-          else
-            for (var i = 0; i < entries.length; i++) ...[
-              _NetworkItem(entry: entries[i], onTap: () => onTap(entries[i])),
-              if (i != entries.length - 1) const SizedBox(height: 12),
+          else ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Menampilkan ${start + 1}-$end dari ${widget.entries.length} data',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < pageEntries.length; i++) ...[
+              _NetworkItem(
+                entry: pageEntries[i],
+                onTap: () => widget.onTap(pageEntries[i]),
+              ),
+              if (i != pageEntries.length - 1) const SizedBox(height: 12),
             ],
+            if (totalPages > 1) ...[
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _pageIndex == 0
+                          ? null
+                          : () => setState(() => _pageIndex--),
+                      child: const Text('Sebelumnya'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${_pageIndex + 1} / $totalPages',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _pageIndex >= totalPages - 1
+                          ? null
+                          : () => setState(() => _pageIndex++),
+                      child: const Text('Berikutnya'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ],
       ),
     );
+  }
+
+  int _lastPageIndex(int length) {
+    return math.max(0, _totalPages(length) - 1);
+  }
+
+  int _totalPages(int length) {
+    if (length <= 0) {
+      return 1;
+    }
+    return (length / _itemsPerPage).ceil();
   }
 }
 

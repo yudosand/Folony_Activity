@@ -23,6 +23,7 @@ class HeatMapController extends Controller
         $radiusMeters = (int) ($validated['radius_meters'] ?? 1000);
         $latitude = (float) $validated['latitude'];
         $longitude = (float) $validated['longitude'];
+        $bounds = $this->boundsForRadius($latitude, $longitude, $radiusMeters);
 
         $profiles = $networkService
             ->scopeForHeatMap($request->user())
@@ -32,6 +33,8 @@ class HeatMapController extends Controller
             )
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
+            ->whereBetween('latitude', [$bounds['min_latitude'], $bounds['max_latitude']])
+            ->whereBetween('longitude', [$bounds['min_longitude'], $bounds['max_longitude']])
             ->get()
             ->map(function (NetworkProfile $profile) use ($latitude, $longitude) {
                 $distance = $this->distanceInMeters(
@@ -82,5 +85,22 @@ class HeatMapController extends Controller
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
         return $earthRadius * $c;
+    }
+
+    /**
+     * @return array{min_latitude:float,max_latitude:float,min_longitude:float,max_longitude:float}
+     */
+    private function boundsForRadius(float $latitude, float $longitude, int $radiusMeters): array
+    {
+        $latitudeDelta = $radiusMeters / 111320;
+        $longitudeMeters = max(1, 111320 * cos(deg2rad($latitude)));
+        $longitudeDelta = $radiusMeters / $longitudeMeters;
+
+        return [
+            'min_latitude' => max(-90, $latitude - $latitudeDelta),
+            'max_latitude' => min(90, $latitude + $latitudeDelta),
+            'min_longitude' => max(-180, $longitude - $longitudeDelta),
+            'max_longitude' => min(180, $longitude + $longitudeDelta),
+        ];
     }
 }

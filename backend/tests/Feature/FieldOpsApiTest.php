@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Announcement;
+use App\Models\NetworkFollowUp;
 use App\Models\NetworkProfile;
 use App\Models\SurveyCommodityOption;
 use App\Models\SurveyProductOption;
 use App\Models\SurveyResponse;
 use App\Models\User;
+use App\Support\Workflow\UserRole;
 use Database\Seeders\WorkflowDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -404,6 +406,15 @@ class FieldOpsApiTest extends TestCase
             'title' => 'Kunjungan kedua',
             'note' => 'Pemilik siap lanjut ke tahap verifikasi dokumen.',
             'created_at' => now()->toIso8601String(),
+            'visit_started_at' => now()->subMinutes(12)->toIso8601String(),
+            'visit_finished_at' => now()->toIso8601String(),
+            'visit_duration_seconds' => 720,
+            'photo' => [
+                'id' => 'visit_photo_001',
+                'file_name' => 'visit.jpg',
+                'mime_type' => 'image/jpeg',
+                'url' => 'https://example.test/storage/visit.jpg',
+            ],
             'next_status' => 'followUp',
         ]);
 
@@ -411,7 +422,9 @@ class FieldOpsApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.id', 'net_followup_e2e')
             ->assertJsonPath('data.follow_ups.0.title', 'Kunjungan kedua')
-            ->assertJsonPath('data.follow_ups.0.note', 'Pemilik siap lanjut ke tahap verifikasi dokumen.');
+            ->assertJsonPath('data.follow_ups.0.note', 'Pemilik siap lanjut ke tahap verifikasi dokumen.')
+            ->assertJsonPath('data.follow_ups.0.visit_duration_seconds', 720)
+            ->assertJsonPath('data.follow_ups.0.photo.id', 'visit_photo_001');
 
         Sanctum::actingAs(User::query()->findOrFail('usr_area_001'));
         $teamResponse = $this->getJson('/api/network/team-ukm');
@@ -422,11 +435,11 @@ class FieldOpsApiTest extends TestCase
                 'id' => 'net_followup_e2e',
                 'owner_role' => 'fgg',
                 'name' => 'UKM Follow Up Bersama',
-            ])
-            ->assertJsonFragment([
-                'title' => 'Kunjungan kedua',
-                'note' => 'Pemilik siap lanjut ke tahap verifikasi dokumen.',
             ]);
+
+        $followUp = NetworkFollowUp::query()->where('id', 'followup_e2e_001')->firstOrFail();
+        $this->assertSame('Kunjungan kedua', $followUp->title);
+        $this->assertSame('Pemilik siap lanjut ke tahap verifikasi dokumen.', $followUp->note);
     }
 
     public function test_follow_up_submission_with_same_id_is_idempotent(): void
@@ -701,6 +714,100 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonFragment(['id' => 'net_fgg_001']);
     }
 
+    public function test_heat_map_returns_all_network_points_in_radius_even_outside_actor_territory(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $areaManager = User::query()->findOrFail('usr_area_001');
+        NetworkProfile::query()->create([
+            'id' => 'net_area_created_visible_to_nearby_fgg',
+            'owner_id' => $areaManager->id,
+            'owner_name' => $areaManager->full_name,
+            'owner_role' => 'areaManager',
+            'area_name' => 'Jakarta Barat',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Maphar',
+            'type' => 'ukm',
+            'name' => 'UKM AM Dekat FGG',
+            'address' => 'Dekat titik FGG aktif',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081300000777',
+            'status' => 'draft',
+            'latitude' => -6.36901,
+            'longitude' => 106.83151,
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $this->getJson('/api/heat-map?latitude=-6.3690&longitude=106.8315&radius_meters=100')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_area_created_visible_to_nearby_fgg',
+                'name' => 'UKM AM Dekat FGG',
+            ]);
+    }
+
+    public function test_fgg_can_record_visit_from_heat_map_point_created_by_other_area_user(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $areaManager = User::query()->findOrFail('usr_area_001');
+        NetworkProfile::query()->create([
+            'id' => 'net_heatmap_visit_cross_area',
+            'owner_id' => $areaManager->id,
+            'owner_name' => $areaManager->full_name,
+            'owner_role' => UserRole::AREA_MANAGER,
+            'area_name' => 'Jakarta Barat',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Maphar',
+            'type' => 'ukm',
+            'name' => 'UKM Heatmap Kunjungan',
+            'address' => 'Titik dekat FGG aktif',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081300000778',
+            'status' => 'draft',
+            'latitude' => -6.36901,
+            'longitude' => 106.83151,
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $this->getJson('/api/heat-map?latitude=-6.3690&longitude=106.8315&radius_meters=100')
+            ->assertOk()
+            ->assertJsonFragment(['id' => 'net_heatmap_visit_cross_area']);
+
+        $this->postJson('/api/network/net_heatmap_visit_cross_area/follow-ups', [
+            'id' => 'followup_heatmap_visit_cross_area',
+            'title' => 'Kunjungan UKM',
+            'note' => 'Survey display dari heatmap',
+            'visit_started_at' => now()->subMinutes(8)->toIso8601String(),
+            'visit_finished_at' => now()->toIso8601String(),
+            'visit_duration_seconds' => 480,
+            'photo' => [
+                'id' => 'visit_photo_cross_area',
+                'file_name' => 'visit.jpg',
+                'mime_type' => 'image/jpeg',
+                'url' => 'https://example.test/storage/visit.jpg',
+            ],
+            'next_status' => 'followUp',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.id', 'net_heatmap_visit_cross_area')
+            ->assertJsonPath('data.follow_ups.0.visit_duration_seconds', 480)
+            ->assertJsonPath('data.follow_ups.0.photo.id', 'visit_photo_cross_area');
+
+        $this->assertDatabaseHas('network_follow_ups', [
+            'id' => 'followup_heatmap_visit_cross_area',
+            'network_profile_id' => 'net_heatmap_visit_cross_area',
+            'actor_id' => 'usr_fgg_001',
+            'visit_duration_seconds' => 480,
+        ]);
+    }
+
     public function test_new_network_profile_is_visible_by_profile_territory_not_creator_territory(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
@@ -886,12 +993,12 @@ class FieldOpsApiTest extends TestCase
             ->assertOk()
             ->assertJsonFragment([
                 'id' => 'net_fgg_001',
-                'name' => 'UKM Toko Harapan',
+                'name' => 'UKM Demo',
             ]);
 
         $this->patchJson('/api/network/net_fgg_001', [
             'type' => 'ukm',
-            'name' => 'UKM Toko Harapan Reassign',
+            'name' => 'UKM Demo Reassign',
             'address' => 'Pasar Minggu Blok A',
             'territory_province' => 'DKI Jakarta',
             'territory_city' => 'Jakarta Selatan',
@@ -947,6 +1054,148 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonFragment([
                 'id' => 'net_legacy_grogol_001',
                 'name' => 'UKM Legacy Grogol',
+            ]);
+    }
+
+    public function test_app_network_area_lists_include_monitoring_profiles_with_address_only_area_data(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_monitoring_pasming_address_only',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => '-',
+            'territory_province' => '-',
+            'territory_city' => '-',
+            'territory_district' => '-',
+            'territory_subdistrict' => '-',
+            'type' => 'ukm',
+            'name' => 'UKM Monitoring Pasar Minggu',
+            'address' => 'Jl. Raya Pasar Minggu, Jakarta Selatan, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112222',
+            'status' => 'draft',
+            'latitude' => -6.283,
+            'longitude' => 106.844,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_monitoring_dki_mitra_address_only',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => '-',
+            'territory_province' => '-',
+            'territory_city' => '-',
+            'territory_district' => '-',
+            'territory_subdistrict' => '-',
+            'type' => 'mitra',
+            'name' => 'Mitra Monitoring DKI',
+            'address' => 'Area distribusi DKI Jakarta',
+            'business_type' => 'Mitra Distribusi',
+            'phone_number' => '081322223333',
+            'status' => 'draft',
+            'latitude' => -6.2,
+            'longitude' => 106.82,
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $this->getJson('/api/network?type=ukm')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_monitoring_pasming_address_only',
+                'name' => 'UKM Monitoring Pasar Minggu',
+            ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_area_001'));
+
+        $this->getJson('/api/network?type=mitra')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_monitoring_dki_mitra_address_only',
+                'name' => 'Mitra Monitoring DKI',
+            ]);
+    }
+
+    public function test_app_network_area_lists_include_imported_profiles_when_area_label_is_in_any_territory_column(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_import_pasming_subdistrict_label',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Jakarta Selatan',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Kota Administrasi Jakarta Selatan',
+            'territory_subdistrict' => 'Pasar Minggu',
+            'type' => 'ukm',
+            'name' => 'UKM Import Label Pasar Minggu',
+            'address' => 'Jl. Pasar Minggu Raya',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112244',
+            'status' => 'draft',
+            'latitude' => -6.283,
+            'longitude' => 106.844,
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $this->getJson('/api/network?type=ukm')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_import_pasming_subdistrict_label',
+                'name' => 'UKM Import Label Pasar Minggu',
+            ]);
+    }
+
+    public function test_area_manager_mixed_network_list_includes_fgg_ukm_and_mitra_in_area_section(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_fgg_mitra_visible_to_area_manager',
+            'owner_id' => 'usr_fgg_001',
+            'owner_name' => 'Bima FGG',
+            'owner_role' => UserRole::FGG,
+            'area_name' => 'DKI Jakarta',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Pejaten Timur',
+            'type' => 'mitra',
+            'name' => 'Mitra FGG Area DKI',
+            'address' => 'Pasar Minggu, DKI Jakarta',
+            'business_type' => 'Mitra Distribusi',
+            'phone_number' => '081344445555',
+            'status' => 'draft',
+            'latitude' => -6.28,
+            'longitude' => 106.84,
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_area_001'));
+
+        $this->getJson('/api/network')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_fgg_001',
+                'name' => 'UKM Demo',
+            ])
+            ->assertJsonFragment([
+                'id' => 'net_fgg_mitra_visible_to_area_manager',
+                'name' => 'Mitra FGG Area DKI',
+            ]);
+
+        $this->getJson('/api/network/team-ukm')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_fgg_001',
+                'name' => 'UKM Demo',
             ]);
     }
 
@@ -1232,6 +1481,124 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonMissing([
                 'id' => 'net_mangga_besar_other_owner',
                 'name' => 'UKM Mangga Besar Owner Lain',
+            ]);
+    }
+
+    public function test_imported_hr_network_rows_are_visible_in_area_lists_heat_map_and_visits(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $tamanSariFgg = User::query()->create([
+            'id' => 'usr_fgg_taman_sari_csv',
+            'employee_code' => 'EMP-FGG-CSV-001',
+            'full_name' => 'Tia FGG Taman Sari',
+            'phone_number' => '081300009991',
+            'area_name' => 'Taman Sari',
+            'work_location' => 'Jakarta Barat',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'role' => UserRole::FGG,
+            'job_title' => 'Field Growth Guide',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_import_csv_kota_jakarta_barat_001',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'wildan',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Krukut',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Krukut',
+            'type' => 'ukm',
+            'name' => 'Sate Ayam Bang Otong Import',
+            'address' => 'SD Negeri Krukut 01, Jalan Ketapang Utara I, Krukut, Taman Sari, Jakarta Barat, Daerah Khusus ibukota Jakarta',
+            'business_type' => 'Warung Sayur',
+            'phone_number' => '6283894553550',
+            'status' => 'draft',
+            'reference_name' => 'Input spreadsheet HR',
+            'latitude' => -6.15926,
+            'longitude' => 106.818,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_import_csv_mitra_dki_001',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'wildan',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Krukut',
+            'territory_province' => 'Daerah Khusus Ibukota Jakarta',
+            'territory_city' => 'Kota Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Krukut',
+            'type' => 'mitra',
+            'name' => 'Mitra Import DKI',
+            'address' => 'Krukut, Taman Sari, Jakarta Barat, DKI Jakarta',
+            'business_type' => 'Mitra Distribusi',
+            'phone_number' => '628300000001',
+            'status' => 'draft',
+            'reference_name' => 'Input spreadsheet HR',
+            'latitude' => -6.15930,
+            'longitude' => 106.81805,
+        ]);
+
+        Sanctum::actingAs($tamanSariFgg);
+
+        $this->getJson('/api/network?type=ukm&per_page=100')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_import_csv_kota_jakarta_barat_001',
+                'name' => 'Sate Ayam Bang Otong Import',
+                'owner_role' => UserRole::HR,
+            ]);
+
+        $this->getJson('/api/heat-map?latitude=-6.15926&longitude=106.818&radius_meters=500')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_import_csv_kota_jakarta_barat_001',
+                'name' => 'Sate Ayam Bang Otong Import',
+            ])
+            ->assertJsonFragment([
+                'id' => 'net_import_csv_mitra_dki_001',
+                'name' => 'Mitra Import DKI',
+            ]);
+
+        $this->postJson('/api/network/net_import_csv_kota_jakarta_barat_001/follow-ups', [
+            'id' => 'followup_import_csv_visit_001',
+            'title' => 'Kunjungan UKM',
+            'note' => 'Visit import HR dari heatmap',
+            'visit_started_at' => now()->subMinutes(5)->toIso8601String(),
+            'visit_finished_at' => now()->toIso8601String(),
+            'visit_duration_seconds' => 300,
+            'photo' => [
+                'id' => 'visit_photo_import_csv',
+                'file_name' => 'visit-import.jpg',
+                'mime_type' => 'image/jpeg',
+                'url' => 'https://example.test/storage/visit-import.jpg',
+            ],
+            'next_status' => 'followUp',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('network_follow_ups', [
+            'id' => 'followup_import_csv_visit_001',
+            'network_profile_id' => 'net_import_csv_kota_jakarta_barat_001',
+            'actor_id' => 'usr_fgg_taman_sari_csv',
+            'visit_duration_seconds' => 300,
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_area_001'));
+
+        $this->getJson('/api/network?type=mitra&per_page=100')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => 'net_import_csv_mitra_dki_001',
+                'name' => 'Mitra Import DKI',
+                'owner_role' => UserRole::HR,
             ]);
     }
 }

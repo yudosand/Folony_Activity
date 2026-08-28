@@ -97,6 +97,62 @@
                 </div>
             </form>
         </details>
+
+        <hr style="border:0; border-top:1px solid var(--line); margin:22px 0;">
+
+        <details>
+            <summary style="cursor:pointer; font-weight:800; font-size:18px;">Import Spreadsheet Jaringan HR</summary>
+            <p class="muted" style="margin-top:8px;">
+                Import data dari Google Sheet atau CSV. Baris yang memiliki latitude dan longitude valid akan langsung masuk ke heatmap satelit.
+            </p>
+
+            @if($errors->has('sheet_url') || $errors->has('csv_file'))
+                <div style="margin:14px 0; padding:12px 14px; border-radius:14px; background:#fde9e3; color:var(--danger); border:1px solid rgba(184,75,50,0.18);">
+                    {{ $errors->first('sheet_url') ?: $errors->first('csv_file') }}
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('admin.network.import') }}" enctype="multipart/form-data" class="grid cols-2" style="margin-top:14px;">
+                @csrf
+                <div>
+                    <label for="import_sheet_url">Link Google Sheet / CSV publik</label>
+                    <input id="import_sheet_url" name="sheet_url" value="{{ old('sheet_url') }}" placeholder="https://docs.google.com/spreadsheets/d/...">
+                    <div class="muted" style="font-size:12px; margin-top:6px;">Jika link Google tidak bisa dibaca server, download sebagai CSV lalu upload di bawah.</div>
+                </div>
+                <div>
+                    <label for="import_csv_file">Upload CSV</label>
+                    <input id="import_csv_file" name="csv_file" type="file" accept=".csv,text/csv,text/plain">
+                    <div class="muted" style="font-size:12px; margin-top:6px;">CSV maksimal 5 MB. Upload CSV akan dipakai lebih dulu jika link juga diisi.</div>
+                </div>
+                <div>
+                    <label for="import_default_type">Tipe Default</label>
+                    <select id="import_default_type" name="default_type" required>
+                        @foreach($types as $type => $label)
+                            <option value="{{ $type }}" @selected(old('default_type', 'ukm') === $type)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label for="import_default_status">Status Default</label>
+                    <select id="import_default_status" name="default_status" required>
+                        @foreach($statuses as $status)
+                            <option value="{{ $status }}" @selected(old('default_status', 'draft') === $status)>{{ $status }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div style="grid-column:1 / -1;">
+                    <div class="muted" style="font-size:13px; line-height:1.55;">
+                        Header yang dikenali: <strong>type/tipe</strong>, <strong>nama</strong>, <strong>alamat</strong>,
+                        <strong>jenis_usaha</strong>, <strong>nomor_hp</strong>, <strong>provinsi</strong>,
+                        <strong>kota</strong>, <strong>kecamatan</strong>, <strong>kelurahan</strong>,
+                        <strong>latitude</strong>, <strong>longitude</strong>, <strong>status</strong>, dan <strong>catatan</strong>.
+                    </div>
+                </div>
+                <div style="grid-column:1 / -1;">
+                    <button class="btn primary" type="submit">Import ke Heatmap</button>
+                </div>
+            </form>
+        </details>
     </div>
 
     <div class="panel pad">

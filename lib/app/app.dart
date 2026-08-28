@@ -16,6 +16,7 @@ import '../core/repositories/mock/mock_approval_repository.dart';
 import '../core/repositories/mock/mock_announcement_repository.dart';
 import '../core/repositories/mock/mock_attendance_repository.dart';
 import '../core/repositories/mock/mock_face_profile_repository.dart';
+import '../core/repositories/mock/mock_faq_repository.dart';
 import '../core/repositories/mock/mock_heat_map_repository.dart';
 import '../core/repositories/mock/mock_leave_repository.dart';
 import '../core/repositories/mock/mock_network_repository.dart';
@@ -29,6 +30,7 @@ import '../core/repositories/remote/remote_auth_repository.dart';
 import '../core/repositories/remote/remote_approval_repository.dart';
 import '../core/repositories/remote/remote_announcement_repository.dart';
 import '../core/repositories/remote/remote_face_profile_repository.dart';
+import '../core/repositories/remote/remote_faq_repository.dart';
 import '../core/repositories/remote/remote_heat_map_repository.dart';
 import '../core/repositories/remote/remote_leave_repository.dart';
 import '../core/repositories/remote/remote_network_repository.dart';
@@ -135,6 +137,9 @@ class _HexActivityAppState extends State<HexActivityApp> {
       territoryRepository: backendConfig.workflowRemoteEnabled
           ? RemoteTerritoryRepository(client: apiClient)
           : const MockTerritoryRepository(),
+      faqRepository: backendConfig.workflowRemoteEnabled
+          ? RemoteFaqRepository(client: apiClient)
+          : const MockFaqRepository(),
       pushNotificationService: PushNotificationService.instance,
       seedWorkflowDemoData: !backendConfig.workflowRemoteEnabled,
     );

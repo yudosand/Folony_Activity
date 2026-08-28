@@ -6,6 +6,7 @@ use App\Http\Controllers\Web\AnnouncementController;
 use App\Http\Controllers\Web\AttendanceMonitoringController;
 use App\Http\Controllers\Web\ApprovalCenterController;
 use App\Http\Controllers\Web\EmployeeController;
+use App\Http\Controllers\Web\FaqController;
 use App\Http\Controllers\Web\LeaveMonitoringController;
 use App\Http\Controllers\Web\NetworkMonitoringController;
 use App\Http\Controllers\Web\ReportsController;
@@ -25,6 +26,10 @@ Route::middleware([EnsureHrAdmin::class])->prefix('admin')->name('admin.')->grou
     Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
     Route::post('/announcements', [AnnouncementController::class, 'store'])->name('announcements.store');
     Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
+    Route::get('/faqs', [FaqController::class, 'index'])->name('faqs.index');
+    Route::post('/faqs', [FaqController::class, 'store'])->name('faqs.store');
+    Route::put('/faqs/{faq}', [FaqController::class, 'update'])->name('faqs.update');
+    Route::delete('/faqs/{faq}', [FaqController::class, 'destroy'])->name('faqs.destroy');
 
     Route::resource('employees', EmployeeController::class)->except('destroy');
     Route::post('/employees/{employee}/performance-targets', [EmployeeController::class, 'updatePerformanceTargets'])
@@ -37,7 +42,9 @@ Route::middleware([EnsureHrAdmin::class])->prefix('admin')->name('admin.')->grou
     Route::get('/wfa/{requestRecord}', [WfaMonitoringController::class, 'show'])->name('wfa.show');
     Route::get('/approvals', [ApprovalCenterController::class, 'index'])->name('approvals.index');
     Route::get('/network', [NetworkMonitoringController::class, 'index'])->name('network.index');
+    Route::get('/network-activities', [NetworkMonitoringController::class, 'activities'])->name('network.activities');
     Route::post('/network/manual', [NetworkMonitoringController::class, 'storeManual'])->name('network.manual.store');
+    Route::post('/network/import', [NetworkMonitoringController::class, 'import'])->name('network.import');
     Route::get('/network/{profile}', [NetworkMonitoringController::class, 'show'])->name('network.show');
     Route::get('/surveys', [SurveyController::class, 'index'])->name('surveys.index');
     Route::post('/surveys/products', [SurveyController::class, 'storeProduct'])->name('surveys.products.store');

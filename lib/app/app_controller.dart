@@ -9,6 +9,7 @@ import '../core/models/app_user.dart';
 import '../core/models/attendance_record.dart';
 import '../core/models/face_profile.dart';
 import '../core/models/face_verification_result.dart';
+import '../core/models/faq_item.dart';
 import '../core/models/heat_map_snapshot.dart';
 import '../core/models/network_entry.dart';
 import '../core/models/network_profile.dart';
@@ -25,10 +26,12 @@ import '../core/repositories/approval_repository.dart';
 import '../core/repositories/attendance_repository.dart';
 import '../core/repositories/auth_repository.dart';
 import '../core/repositories/face_profile_repository.dart';
+import '../core/repositories/faq_repository.dart';
 import '../core/repositories/heat_map_repository.dart';
 import '../core/repositories/leave_repository.dart';
 import '../core/repositories/mock/mock_attendance_repository.dart';
 import '../core/repositories/mock/mock_face_profile_repository.dart';
+import '../core/repositories/mock/mock_faq_repository.dart';
 import '../core/repositories/mock/mock_heat_map_repository.dart';
 import '../core/repositories/mock/mock_network_repository.dart';
 import '../core/repositories/mock/mock_performance_repository.dart';
@@ -66,6 +69,7 @@ class AppController extends ChangeNotifier {
     PerformanceRepository? performanceRepository,
     SurveyRepository? surveyRepository,
     TerritoryRepository? territoryRepository,
+    FaqRepository? faqRepository,
     FaceProfileRepository? faceProfileRepository,
     FaceBiometricAnalyzer? faceBiometricAnalyzer,
     PushNotificationService? pushNotificationService,
@@ -89,6 +93,7 @@ class AppController extends ChangeNotifier {
         _surveyRepository = surveyRepository ?? MockSurveyRepository(),
         _territoryRepository =
             territoryRepository ?? const MockTerritoryRepository(),
+        _faqRepository = faqRepository ?? const MockFaqRepository(),
         _faceProfileRepository =
             faceProfileRepository ?? MockFaceProfileRepository(),
         _faceBiometricAnalyzer =
@@ -123,6 +128,7 @@ class AppController extends ChangeNotifier {
   final PerformanceRepository _performanceRepository;
   final SurveyRepository _surveyRepository;
   final TerritoryRepository _territoryRepository;
+  final FaqRepository _faqRepository;
   final FaceProfileRepository _faceProfileRepository;
   final FaceBiometricAnalyzer _faceBiometricAnalyzer;
   final PushNotificationService? _pushNotificationService;
@@ -144,6 +150,7 @@ class AppController extends ChangeNotifier {
   final Map<String, List<wfa_model.WfaRequestRecord>>
       _wfaApprovalRequestsByApprover = {};
   List<Announcement> _announcements = const [];
+  List<FaqItem> _faqItems = const [];
   SurveyOptions? _surveyOptions;
   final Map<String, double> _leaveBalanceByUserId = {};
   final Map<String, FaceProfile> _faceProfilesByOwner = {};
@@ -318,6 +325,7 @@ class AppController extends ChangeNotifier {
   }
 
   List<Announcement> get announcements => List.unmodifiable(_announcements);
+  List<FaqItem> get faqItems => List.unmodifiable(_faqItems);
   SurveyOptions get surveyOptions => _surveyOptions ?? SurveyOptions.fallback;
 
   bool hasFaceEnrollmentForSession(AppSession session) {
@@ -556,10 +564,21 @@ class AppController extends ChangeNotifier {
         'Koordinat belum ikut tersimpan di server. Pastikan izin lokasi aktif lalu coba lagi.',
       );
     }
-    await _refreshNetworkCachesAfterMutation(
+    _upsertEntryInOwnerCache(
       session: session,
-      ownerRole: storedProfile.ownerRole,
+      entry: storedProfile.toNetworkEntry(),
     );
+    try {
+      await _refreshNetworkCachesAfterMutation(
+        session: session,
+        ownerRole: storedProfile.ownerRole,
+      );
+    } catch (_) {
+      // The server has accepted the create/update. If the follow-up refresh
+      // drops, keep the saved item visible in "UKM/Mitra Saya" and let the next
+      // manual refresh reconcile area/team lists.
+      notifyListeners();
+    }
   }
 
   Future<void> refreshNetworkDataForSession(AppSession session) async {
@@ -672,10 +691,11 @@ class AppController extends ChangeNotifier {
       _loadAttendanceData(session),
       _loadWorkflowData(session),
       _loadAnnouncements(),
+      _loadFaqs(),
       if (session.role == AppRole.fgg ||
           session.role == AppRole.areaManager ||
           session.role == AppRole.management)
-        _loadNetworkEntries(session),
+        _loadNetworkEntriesBestEffort(session),
       if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
         _loadPerformanceSummary(session),
     ]);
@@ -693,10 +713,11 @@ class AppController extends ChangeNotifier {
       _loadFaceProfileData(session),
       _loadWorkflowData(session),
       _loadAnnouncements(),
+      _loadFaqs(),
       if (session.role == AppRole.fgg ||
           session.role == AppRole.areaManager ||
           session.role == AppRole.management)
-        _loadNetworkEntries(session),
+        _loadNetworkEntriesBestEffort(session),
       if (session.role == AppRole.fgg || session.role == AppRole.areaManager)
         _loadPerformanceSummary(session),
     ]);
@@ -712,6 +733,13 @@ class AppController extends ChangeNotifier {
 
   Future<void> _loadAnnouncements() async {
     _announcements = await _announcementRepository.listActive();
+    notifyListeners();
+  }
+
+  Future<void> refreshFaqs() => _loadFaqs();
+
+  Future<void> _loadFaqs() async {
+    _faqItems = await _faqRepository.listActive();
     notifyListeners();
   }
 
@@ -1013,6 +1041,55 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> recordHeatMapVisit({
+    required AppSession session,
+    required HeatMapPoint point,
+    required String visitType,
+    required String photoPath,
+    required DateTime startedAt,
+    required DateTime finishedAt,
+  }) async {
+    final uploadedPhoto = await uploadAttachment(
+      filePath: photoPath,
+      label: 'Kunjungan ${point.name}',
+    );
+    final durationSeconds =
+        finishedAt.difference(startedAt).inSeconds.clamp(0, 86400).toInt();
+
+    final profile = await _networkRepository.appendFollowUp(
+      profileId: point.id,
+      nextStatus: NetworkProfileStatus.followUp,
+      followUp: NetworkFollowUpRecord(
+        id: '${point.id}-visit-${startedAt.microsecondsSinceEpoch}',
+        title: point.type == 'mitra' ? 'Kunjungan Mitra' : 'Kunjungan UKM',
+        note: visitType,
+        actorId: _workflowUserIdForSession(session),
+        actorName: _workflowUserNameForSession(session),
+        createdAt: finishedAt,
+        visitStartedAt: startedAt,
+        visitFinishedAt: finishedAt,
+        visitDurationSeconds: durationSeconds,
+        photo: uploadedPhoto,
+      ),
+    );
+
+    _replaceEntryInVisibleCaches(profile.toNetworkEntry());
+    if (session.role == AppRole.fgg ||
+        session.role == AppRole.areaManager ||
+        session.role == AppRole.management) {
+      try {
+        await _loadNetworkEntries(session);
+      } catch (_) {
+        // The visit has already been stored. A flaky refresh must not make the
+        // user think the visit failed, so keep the local cache update and let
+        // the next manual refresh pull the latest list.
+        notifyListeners();
+      }
+    } else {
+      notifyListeners();
+    }
+  }
+
   Future<void> _loadWorkflowData(AppSession session) async {
     await _ensureWorkflowSeedForSession(session);
     _leaveBalanceByUserId.putIfAbsent(
@@ -1079,23 +1156,67 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _loadNetworkEntries(AppSession session) async {
+    if (session.role != AppRole.fgg &&
+        session.role != AppRole.areaManager &&
+        session.role != AppRole.management) {
+      _networkEntriesByOwner[session.ownerKey] = const [];
+      notifyListeners();
+      return;
+    }
+
     await _ensureSeedForSession(session);
 
-    final ownProfiles = await _networkRepository.listOwnedByUser(
-      userId: _workflowUserIdForSession(session),
-    );
+    final ownProfiles = <NetworkProfile>[];
+    Object? firstLoadError;
+    for (final type in [NetworkProfileType.ukm, NetworkProfileType.mitra]) {
+      try {
+        ownProfiles.addAll(await _networkRepository.listOwnedByUser(
+          userId: _workflowUserIdForSession(session),
+          type: type,
+        ));
+      } catch (error) {
+        firstLoadError ??= error;
+      }
+    }
+    if (ownProfiles.isEmpty && firstLoadError != null) {
+      Error.throwWithStackTrace(firstLoadError, StackTrace.current);
+    }
     _networkEntriesByOwner[session.ownerKey] =
         ownProfiles.map((item) => item.toNetworkEntry()).toList();
 
     if (session.role == AppRole.areaManager) {
-      final teamProfiles = await _networkRepository.listTeamUkm(
-        areaManagerId: _workflowUserIdForSession(session),
-      );
-      _teamUkmEntriesByAreaManager[session.ownerKey] =
-          teamProfiles.map((item) => item.toNetworkEntry()).toList();
+      try {
+        final teamProfiles = await _networkRepository.listTeamUkm(
+          areaManagerId: _workflowUserIdForSession(session),
+        );
+        _teamUkmEntriesByAreaManager[session.ownerKey] =
+            teamProfiles.map((item) => item.toNetworkEntry()).toList();
+      } catch (_) {
+        _teamUkmEntriesByAreaManager.putIfAbsent(
+          session.ownerKey,
+          () => const [],
+        );
+      }
     }
 
     notifyListeners();
+  }
+
+  Future<void> _loadNetworkEntriesBestEffort(AppSession session) async {
+    try {
+      await _loadNetworkEntries(session);
+    } catch (_) {
+      // Jangan sampai Home/login gagal hanya karena list jaringan sementara
+      // terlalu besar atau koneksi server putus saat refresh.
+      _networkEntriesByOwner.putIfAbsent(session.ownerKey, () => const []);
+      if (session.role == AppRole.areaManager) {
+        _teamUkmEntriesByAreaManager.putIfAbsent(
+          session.ownerKey,
+          () => const [],
+        );
+      }
+      notifyListeners();
+    }
   }
 
   Future<void> _loadPerformanceSummary(AppSession session) async {
@@ -1149,6 +1270,23 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  void _upsertEntryInOwnerCache({
+    required AppSession session,
+    required NetworkEntry entry,
+  }) {
+    final entries = _networkEntriesByOwner.putIfAbsent(
+      session.ownerKey,
+      () => <NetworkEntry>[],
+    );
+    final index = entries.indexWhere((item) => item.id == entry.id);
+    if (index == -1) {
+      entries.insert(0, entry);
+    } else {
+      entries[index] = entry;
+    }
+    _replaceEntryInVisibleCaches(entry);
+  }
+
   Future<void> _ensureSeedForSession(AppSession session) async {
     if (_useRemoteAuth) {
       return;
@@ -1195,7 +1333,7 @@ class AppController extends ChangeNotifier {
             ownerName: session.userName,
             ownerRole: session.role,
             type: NetworkEntryType.mitraHub,
-            name: 'Mitra Hub Budi Jaya',
+            name: 'Mitra Hub Demo',
             address: 'Jagakarsa',
             businessType: 'Gudang dan distribusi',
             phone: '081298765432',
@@ -1220,7 +1358,7 @@ class AppController extends ChangeNotifier {
             ownerName: session.userName,
             ownerRole: session.role,
             type: NetworkEntryType.ukm,
-            name: 'UKM Toko Harapan',
+            name: 'UKM Demo',
             address: 'Pasar Minggu',
             businessType: 'Sembako',
             phone: '081234567890',
@@ -2031,12 +2169,13 @@ class AppController extends ChangeNotifier {
     if (session.role == AppRole.fgg ||
         session.role == AppRole.areaManager ||
         session.role == AppRole.management) {
-      await _loadNetworkEntries(session);
+      await _loadNetworkEntriesBestEffort(session);
     }
     if (session.role == AppRole.fgg || session.role == AppRole.areaManager) {
       await _loadPerformanceSummary(session);
     }
     await _loadAnnouncements();
+    await _loadFaqs();
     await _syncAttendanceReminderSchedule(session);
     if (notify) {
       notifyListeners();

@@ -541,6 +541,10 @@ final class TerritoryData
 
         $trimmed = trim($value);
 
-        return $trimmed === '' ? null : $trimmed;
+        if ($trimmed === '' || $trimmed === '-' || mb_strtolower($trimmed) === 'null') {
+            return null;
+        }
+
+        return $trimmed;
     }
 }

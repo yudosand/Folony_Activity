@@ -330,12 +330,14 @@
                 <nav class="nav">
                     <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
                     <a href="{{ route('admin.announcements.index') }}" class="{{ request()->routeIs('admin.announcements.*') ? 'active' : '' }}">Announcement</a>
+                    <a href="{{ route('admin.faqs.index') }}" class="{{ request()->routeIs('admin.faqs.*') ? 'active' : '' }}">FAQ Aplikasi</a>
                     <a href="{{ route('admin.employees.index') }}" class="{{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">Master Karyawan</a>
                     <a href="{{ route('admin.attendance.index') }}" class="{{ request()->routeIs('admin.attendance.*') ? 'active' : '' }}">Monitoring Absensi</a>
                     <a href="{{ route('admin.leaves.index') }}" class="{{ request()->routeIs('admin.leaves.*') ? 'active' : '' }}">Cuti / Izin</a>
                     <a href="{{ route('admin.wfa.index') }}" class="{{ request()->routeIs('admin.wfa.*') ? 'active' : '' }}">Monitoring WFA</a>
                     <a href="{{ route('admin.approvals.index') }}" class="{{ request()->routeIs('admin.approvals.*') ? 'active' : '' }}">Approval Center</a>
-                    <a href="{{ route('admin.network.index') }}" class="{{ request()->routeIs('admin.network.*') ? 'active' : '' }}">Monitoring Jaringan</a>
+                    <a href="{{ route('admin.network.index') }}" class="{{ request()->routeIs('admin.network.index', 'admin.network.show') ? 'active' : '' }}">Monitoring Jaringan</a>
+                    <a href="{{ route('admin.network.activities') }}" class="{{ request()->routeIs('admin.network.activities') ? 'active' : '' }}">Aktivitas Lapangan</a>
                     <a href="{{ route('admin.surveys.index') }}" class="{{ request()->routeIs('admin.surveys.*') ? 'active' : '' }}">Survey</a>
                     <a href="{{ route('admin.reports.index') }}" class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">Laporan HR</a>
                 </nav>

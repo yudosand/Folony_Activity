@@ -76,26 +76,21 @@ class FaceScanEngine {
         _challenges = const [
           FaceScanChallenge(
             type: FaceScanChallengeType.front,
-            label: 'Pose depan',
-            instruction: 'Hadapkan wajah lurus ke depan sebentar.',
-            requiredStableFrames: 2,
+            label: 'Scan wajah 1',
+            instruction: 'Lihat ke kamera dan tahan wajah tetap di area oval.',
+            requiredStableFrames: 3,
           ),
           FaceScanChallenge(
-            type: FaceScanChallengeType.left,
-            label: 'Tengok kiri',
-            instruction: 'Tengok perlahan ke kiri sampai indikator lanjut.',
+            type: FaceScanChallengeType.front,
+            label: 'Scan wajah 2',
+            instruction: 'Tetap lihat kamera. Pastikan cahaya wajah cukup terang.',
+            requiredStableFrames: 3,
           ),
           FaceScanChallenge(
-            type: FaceScanChallengeType.right,
-            label: 'Tengok kanan',
-            instruction: 'Tengok perlahan ke kanan sampai indikator lanjut.',
-          ),
-          FaceScanChallenge(
-            type: FaceScanChallengeType.blink,
-            label: 'Kedip sekali',
-            instruction: 'Kedipkan mata sekali untuk validasi liveness dasar.',
-            captureOnComplete: false,
-            requiredStableFrames: 1,
+            type: FaceScanChallengeType.front,
+            label: 'Scan wajah 3',
+            instruction: 'Tahan beberapa detik lagi sampai scan selesai.',
+            requiredStableFrames: 3,
           ),
         ];
 
@@ -111,26 +106,10 @@ class FaceScanEngine {
         _challenges = [
           FaceScanChallenge(
             type: FaceScanChallengeType.front,
-            label: 'Pose depan',
+            label: 'Scan wajah',
             instruction:
-                'Arahkan wajah lurus ke depan untuk memulai $actionLabel.',
-            requiredStableFrames: 2,
-          ),
-          FaceScanChallenge(
-            type: turnChallenge,
-            label: turnChallenge == FaceScanChallengeType.left
-                ? 'Tengok kiri'
-                : 'Tengok kanan',
-            instruction: turnChallenge == FaceScanChallengeType.left
-                ? 'Tengok perlahan ke kiri sebagai bukti wajah hidup.'
-                : 'Tengok perlahan ke kanan sebagai bukti wajah hidup.',
-          ),
-          FaceScanChallenge(
-            type: FaceScanChallengeType.blink,
-            label: 'Kedip sekali',
-            instruction:
-                'Kedipkan mata sekali agar verifikasi $actionLabel dilanjutkan.',
-            requiredStableFrames: 1,
+                'Lihat ke kamera untuk verifikasi $actionLabel. Tidak perlu tengok atau kedip.',
+            requiredStableFrames: 5,
           ),
         ];
 
@@ -170,7 +149,7 @@ class FaceScanEngine {
       _resetProgress();
       return _update(
         challenge,
-        guidance: 'Wajah belum terlihat jelas. Dekatkan wajah ke area oval.',
+        guidance: 'Wajah belum terlihat jelas. Lihat ke kamera dan pastikan cahaya cukup terang.',
       );
     }
 
@@ -186,7 +165,7 @@ class FaceScanEngine {
       _resetProgress();
       return _update(
         challenge,
-        guidance: 'Jarak wajah belum pas. Dekatkan sedikit ke kamera.',
+        guidance: 'Jarak wajah belum pas. Dekatkan sedikit dan tahan di area oval.',
       );
     }
 
@@ -199,13 +178,16 @@ class FaceScanEngine {
           return _update(
             challenge,
             guidance:
-                'Dekatkan wajah sedikit lagi sampai dahi, mata, dan dagu lebih penuh di area oval.',
+                'Dekatkan wajah sedikit lagi sampai dahi, mata, dan dagu jelas di area oval.',
           );
         }
         return _evaluatePose(
           challenge,
-          matched: observation.yaw.abs() <= 15 && observation.pitch.abs() <= 15,
-          retryMessage: challenge.instruction,
+          matched: observation.isCentered &&
+              observation.yaw.abs() <= 18 &&
+              observation.pitch.abs() <= 18,
+          retryMessage:
+              'Lihat lurus ke kamera dan posisikan wajah di tengah area oval.',
         );
       case FaceScanChallengeType.left:
         return _evaluatePose(
@@ -347,7 +329,7 @@ class FaceScanEngine {
 
     switch (challenge.type) {
       case FaceScanChallengeType.front:
-        return 28;
+        return 100;
       case FaceScanChallengeType.left:
       case FaceScanChallengeType.right:
       case FaceScanChallengeType.up:

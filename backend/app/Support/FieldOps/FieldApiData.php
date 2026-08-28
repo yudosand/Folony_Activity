@@ -12,6 +12,22 @@ class FieldApiData
     public static function networkProfile(NetworkProfile $profile): array
     {
         return [
+            ...self::networkProfileListItem($profile),
+            'reference_name' => $profile->reference_name,
+            'note' => $profile->note,
+            'photo' => $profile->photo_attachment,
+            'personality_metrics' => $profile->personality_metrics ?? [],
+            'documents' => $profile->documents ?? [],
+            'follow_ups' => $profile->followUps
+                ->map(fn (NetworkFollowUp $followUp) => self::networkFollowUp($followUp))
+                ->values()
+                ->all(),
+        ];
+    }
+
+    public static function networkProfileListItem(NetworkProfile $profile): array
+    {
+        return [
             'id' => $profile->id,
             'owner_id' => $profile->owner_id,
             'owner_name' => $profile->owner_name,
@@ -30,13 +46,10 @@ class FieldApiData
             'created_at' => self::dateTime($profile->created_at),
             'reference_name' => $profile->reference_name,
             'note' => $profile->note,
-            'photo' => $profile->photo_attachment,
-            'personality_metrics' => $profile->personality_metrics ?? [],
-            'documents' => $profile->documents ?? [],
-            'follow_ups' => $profile->followUps
-                ->map(fn (NetworkFollowUp $followUp) => self::networkFollowUp($followUp))
-                ->values()
-                ->all(),
+            'photo' => null,
+            'personality_metrics' => [],
+            'documents' => [],
+            'follow_ups' => [],
             'latitude' => $profile->latitude,
             'longitude' => $profile->longitude,
         ];
@@ -51,6 +64,10 @@ class FieldApiData
             'actor_id' => $followUp->actor_id,
             'actor_name' => $followUp->actor_name,
             'created_at' => self::dateTime($followUp->created_at),
+            'visit_started_at' => self::dateTime($followUp->visit_started_at),
+            'visit_finished_at' => self::dateTime($followUp->visit_finished_at),
+            'visit_duration_seconds' => $followUp->visit_duration_seconds,
+            'photo' => $followUp->photo_attachment,
         ];
     }
 
@@ -79,7 +96,7 @@ class FieldApiData
             'address' => $profile->address,
             'phone_number' => $profile->phone_number,
             'status' => $profile->status,
-            'note' => $profile->followUps->first()?->note ?? $profile->note,
+            'note' => $profile->note,
             'distance_meter' => (int) round($distanceMeter),
             'latitude' => $profile->latitude,
             'longitude' => $profile->longitude,

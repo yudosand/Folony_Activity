@@ -18,14 +18,14 @@ class NetworkController extends Controller
 {
     public function index(Request $request, NetworkService $networkService): JsonResponse
     {
-        return ApiListResponse::fromQuery(
+        return ApiListResponse::fromQueryWindow(
             $request,
             $networkService->queryOwned(
                 $request->user(),
                 $request->string('type')->toString() ?: null,
                 $request->string('q')->toString() ?: null,
             ),
-            fn (NetworkProfile $profile) => FieldApiData::networkProfile($profile),
+            fn (NetworkProfile $profile) => FieldApiData::networkProfileListItem($profile),
         );
     }
 
@@ -37,13 +37,13 @@ class NetworkController extends Controller
             'Menu UKM tim FGG hanya tersedia untuk Area Manager.',
         );
 
-        return ApiListResponse::fromQuery(
+        return ApiListResponse::fromQueryWindow(
             $request,
             $networkService->queryTeamUkm(
                 $request->user(),
                 $request->string('q')->toString() ?: null,
             ),
-            fn (NetworkProfile $profile) => FieldApiData::networkProfile($profile),
+            fn (NetworkProfile $profile) => FieldApiData::networkProfileListItem($profile),
         );
     }
 

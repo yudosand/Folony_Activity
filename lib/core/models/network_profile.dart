@@ -81,6 +81,10 @@ class NetworkFollowUpRecord {
     required this.actorId,
     required this.actorName,
     required this.createdAt,
+    this.visitStartedAt,
+    this.visitFinishedAt,
+    this.visitDurationSeconds,
+    this.photo,
   });
 
   final String id;
@@ -89,6 +93,10 @@ class NetworkFollowUpRecord {
   final String actorId;
   final String actorName;
   final DateTime createdAt;
+  final DateTime? visitStartedAt;
+  final DateTime? visitFinishedAt;
+  final int? visitDurationSeconds;
+  final RemoteAttachment? photo;
 
   factory NetworkFollowUpRecord.fromJson(Map<String, dynamic> json) {
     return NetworkFollowUpRecord(
@@ -98,6 +106,12 @@ class NetworkFollowUpRecord {
       actorId: json['actor_id'] as String? ?? '',
       actorName: json['actor_name'] as String? ?? '',
       createdAt: _dateTimeFromJson(json['created_at']),
+      visitStartedAt: _nullableDateTimeFromJson(json['visit_started_at']),
+      visitFinishedAt: _nullableDateTimeFromJson(json['visit_finished_at']),
+      visitDurationSeconds: (json['visit_duration_seconds'] as num?)?.toInt(),
+      photo: json['photo'] is Map<String, dynamic>
+          ? RemoteAttachment.fromJson(json['photo'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -109,6 +123,10 @@ class NetworkFollowUpRecord {
       'actor_id': actorId,
       'actor_name': actorName,
       'created_at': createdAt.toIso8601String(),
+      'visit_started_at': visitStartedAt?.toIso8601String(),
+      'visit_finished_at': visitFinishedAt?.toIso8601String(),
+      'visit_duration_seconds': visitDurationSeconds,
+      'photo': photo?.toJson(),
     };
   }
 }
@@ -238,6 +256,13 @@ DateTime _dateTimeFromJson(Object? value) {
     return DateTime.tryParse(value) ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
   return DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+DateTime? _nullableDateTimeFromJson(Object? value) {
+  if (value is String && value.isNotEmpty) {
+    return DateTime.tryParse(value);
+  }
+  return null;
 }
 
 List<PersonalityMetric> _metricsFromJson(Object? value) {

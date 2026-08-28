@@ -16,6 +16,10 @@ class NetworkFollowUp extends Model
         'network_profile_id',
         'title',
         'note',
+        'visit_started_at',
+        'visit_finished_at',
+        'visit_duration_seconds',
+        'photo_attachment',
         'actor_id',
         'actor_name',
         'created_at',
@@ -27,6 +31,10 @@ class NetworkFollowUp extends Model
     {
         return [
             'created_at' => 'datetime',
+            'visit_started_at' => 'datetime',
+            'visit_finished_at' => 'datetime',
+            'visit_duration_seconds' => 'integer',
+            'photo_attachment' => 'array',
         ];
     }
 

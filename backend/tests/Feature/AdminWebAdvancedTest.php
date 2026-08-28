@@ -52,7 +52,7 @@ class AdminWebAdvancedTest extends TestCase
             ->get(route('admin.network.index'))
             ->assertOk()
             ->assertSee('Monitoring Jaringan')
-            ->assertSee('UKM Toko Harapan');
+            ->assertSee('UKM Demo');
     }
 
     public function test_hr_can_view_wfa_detail_page(): void
@@ -585,5 +585,65 @@ class AdminWebAdvancedTest extends TestCase
             ->assertSee('Kunjungan UKM')
             ->assertSee('UKM Rekap Bima')
             ->assertSee('Pemilik minta follow-up pekan depan.');
+    }
+
+    public function test_hr_can_view_field_activity_timeline_with_visit_duration(): void
+    {
+        $fgg = User::query()->findOrFail('usr_fgg_001');
+        $createdAt = Carbon::create(2026, 8, 21, 14, 32);
+
+        $profile = NetworkProfile::query()->create([
+            'id' => 'net_activity_001',
+            'owner_id' => $fgg->id,
+            'owner_name' => $fgg->full_name,
+            'owner_role' => $fgg->role,
+            'area_name' => $fgg->area_name,
+            'type' => 'ukm',
+            'name' => 'UKM Activity Timeline',
+            'address' => 'Jl. Activity No. 1',
+            'business_type' => 'Retail',
+            'phone_number' => '081200008888',
+            'status' => 'followUp',
+            'latitude' => -6.2,
+            'longitude' => 106.8,
+        ]);
+        $profile->forceFill([
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ])->saveQuietly();
+
+        NetworkFollowUp::query()->create([
+            'id' => 'net_activity_visit_001',
+            'network_profile_id' => $profile->id,
+            'title' => 'Kunjungan UKM',
+            'note' => 'Survey display produk',
+            'actor_id' => $fgg->id,
+            'actor_name' => $fgg->full_name,
+            'visit_started_at' => $createdAt->copy()->addMinute(),
+            'visit_finished_at' => $createdAt->copy()->addMinutes(16),
+            'visit_duration_seconds' => 900,
+            'photo_attachment' => [
+                'id' => 'visit_photo_activity',
+                'file_name' => 'visit.jpg',
+                'mime_type' => 'image/jpeg',
+                'url' => 'https://example.test/storage/visit.jpg',
+            ],
+            'created_at' => $createdAt->copy()->addMinutes(16),
+        ]);
+
+        $this->actingAs($this->hr)
+            ->get(route('admin.network.activities', [
+                'search' => 'Activity Timeline',
+                'date_from' => '2026-08-21',
+                'date_until' => '2026-08-21',
+            ]))
+            ->assertOk()
+            ->assertSee('Aktivitas Lapangan')
+            ->assertSee('Tambah UKM Baru')
+            ->assertSee('Kunjungan UKM')
+            ->assertSee('UKM Activity Timeline')
+            ->assertSee('Durasi 15m')
+            ->assertSee('Buka di Google Maps')
+            ->assertSee('Buka foto');
     }
 }

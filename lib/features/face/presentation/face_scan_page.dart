@@ -92,9 +92,9 @@ class _FaceScanPageState extends State<FaceScanPage>
 
   String get _pageDescription {
     if (widget.scenario == FaceScanScenario.enrollment) {
-      return 'Ikuti scan singkat: depan, kiri, kanan, lalu kedip sekali.';
+      return 'Scan wajah singkat. Lihat ke kamera beberapa detik, tanpa tengok atau kedip.';
     }
-    return 'Lihat ke kamera, ikuti satu gerakan tengok, lalu kedip sekali agar verifikasi $_verificationLabel lebih hidup dan aman.';
+    return 'Lihat ke kamera beberapa detik. Pastikan wajah terang dan berada di tengah area oval.';
   }
 
   FaceScanChallengeType get _verificationTurnChallenge {

@@ -28,6 +28,26 @@ class ApiListResponse
         return self::fromPaginator($paginator, $transform);
     }
 
+    public static function fromQueryWindow(Request $request, Builder $query, Closure $transform): JsonResponse
+    {
+        $perPage = self::perPage($request) ?? 300;
+        $page = max(1, (int) $request->integer('page', 1));
+        $items = $query
+            ->forPage($page, $perPage)
+            ->get()
+            ->map($transform)
+            ->values();
+
+        return response()->json([
+            'data' => $items,
+            'meta' => [
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'count' => $items->count(),
+            ],
+        ]);
+    }
+
     public static function fromCollection(
         Request $request,
         Collection $collection,
@@ -76,6 +96,6 @@ class ApiListResponse
             return null;
         }
 
-        return min(100, max(1, (int) $request->integer('per_page', 15)));
+        return min(300, max(1, (int) $request->integer('per_page', 15)));
     }
 }

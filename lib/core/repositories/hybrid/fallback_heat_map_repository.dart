@@ -29,20 +29,12 @@ class FallbackHeatMapRepository implements HeatMapRepository {
         type: type,
       );
     }
-    try {
-      return await _remote.load(
-        latitude: latitude,
-        longitude: longitude,
-        radiusMeters: radiusMeters,
-        type: type,
-      );
-    } catch (_) {
-      return _local.load(
-        latitude: latitude,
-        longitude: longitude,
-        radiusMeters: radiusMeters,
-        type: type,
-      );
-    }
+
+    return _remote.load(
+      latitude: latitude,
+      longitude: longitude,
+      radiusMeters: radiusMeters,
+      type: type,
+    );
   }
 }

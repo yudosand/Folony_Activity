@@ -270,7 +270,8 @@ void main() {
 
   testWidgets('network page separates creator data from area data',
       (tester) async {
-    final fggSession = AppSession.mock(AppRole.fgg, userName: 'FGG Pasar Minggu');
+    final fggSession =
+        AppSession.mock(AppRole.fgg, userName: 'FGG Pasar Minggu');
     final repository = _StaticNetworkRepository([
       _networkProfile(
         id: 'warung-jable',
@@ -322,6 +323,53 @@ void main() {
       find.textContaining('1 data UKM non-milik Anda'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('network page paginates area entries instead of hiding overflow',
+      (tester) async {
+    final fggSession =
+        AppSession.mock(AppRole.fgg, userName: 'FGG Pasar Minggu');
+    final profiles = [
+      for (var index = 1; index <= 12; index++)
+        _networkProfile(
+          id: 'area-ukm-$index',
+          ownerId: 'usr_fgg_other_$index',
+          ownerName: 'FGG Area $index',
+          name: 'UKM Area $index',
+          province: 'DKI Jakarta',
+          city: 'Jakarta Selatan',
+        ),
+    ];
+    final controller = AppController(
+      networkRepository: _StaticNetworkRepository(profiles),
+      seedWorkflowDemoData: false,
+    );
+
+    await controller.refreshNetworkDataForSession(fggSession);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NetworkPage(
+          session: fggSession,
+          controller: controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('UKM Area Kerja'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Menampilkan 1-10 dari 12 data'), findsOneWidget);
+    expect(find.text('UKM Area 1'), findsOneWidget);
+    expect(find.text('UKM Area 11'), findsNothing);
+
+    await tester.ensureVisible(find.text('Berikutnya'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Berikutnya'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Menampilkan 11-12 dari 12 data'), findsOneWidget);
+    expect(find.text('UKM Area 11'), findsOneWidget);
   });
 
   test(

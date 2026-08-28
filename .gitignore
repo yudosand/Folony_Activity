@@ -8,6 +8,8 @@
 build/
 coverage/
 *.iml
+flutter_*.log
+hs_err_pid*.log
 dist/
 deploy/
 tools/

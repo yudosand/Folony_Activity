@@ -5,6 +5,7 @@ import '../../../core/enums/app_role.dart';
 import '../../../core/models/app_session.dart';
 import '../../attendance/presentation/attendance_page.dart';
 import '../../dashboard/presentation/fgg_dashboard_page.dart';
+import '../../faq/presentation/faq_page.dart';
 import '../../heatmap/presentation/heatmap_page.dart';
 import '../../home/presentation/home_page.dart';
 import '../../leave/presentation/leave_approval_page.dart';
@@ -12,6 +13,7 @@ import '../../leave/presentation/leave_page.dart';
 import '../../network/presentation/network_page.dart';
 import '../../profile/presentation/profile_page.dart';
 import '../../survey/presentation/survey_page.dart';
+import '../../whatsapp/presentation/whatsapp_quick_chat_page.dart';
 import '../../wfh/presentation/wfh_page.dart';
 
 class MainShell extends StatefulWidget {
@@ -181,6 +183,7 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 _surveyShortcut(session),
+                ..._supportShortcuts(),
               ],
             ),
           ),
@@ -252,6 +255,7 @@ class _MainShellState extends State<MainShell> {
               onOpenNetwork: () => _selectDestination('Jaringan'),
               homeMenus: [
                 _surveyShortcut(session),
+                ..._supportShortcuts(),
               ],
             ),
           ),
@@ -303,6 +307,7 @@ class _MainShellState extends State<MainShell> {
               onOpenLeave: () => _selectDestination('Cuti'),
               homeMenus: [
                 _surveyShortcut(session),
+                ..._supportShortcuts(),
               ],
             ),
           ),
@@ -390,6 +395,7 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 _surveyShortcut(session),
+                ..._supportShortcuts(),
               ],
             ),
           ),
@@ -469,6 +475,7 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 _surveyShortcut(session),
+                ..._supportShortcuts(),
               ],
             ),
           ),
@@ -521,6 +528,29 @@ class _MainShellState extends State<MainShell> {
         ),
       ),
     );
+  }
+
+  List<HomeMenuShortcut> _supportShortcuts() {
+    return [
+      HomeMenuShortcut(
+        icon: Icons.help_outline_rounded,
+        title: 'FAQ',
+        subtitle: 'Baca panduan fitur aplikasi dari HR.',
+        onTap: () => _openStandalonePage(
+          title: 'FAQ',
+          child: FaqPage(controller: widget.controller),
+        ),
+      ),
+      HomeMenuShortcut(
+        icon: Icons.chat_rounded,
+        title: 'Kirim WhatsApp',
+        subtitle: 'Buka chat WhatsApp tanpa simpan nomor.',
+        onTap: () => _openStandalonePage(
+          title: 'Kirim WhatsApp',
+          child: const WhatsAppQuickChatPage(),
+        ),
+      ),
+    ];
   }
 
   void _selectDestination(String label) {

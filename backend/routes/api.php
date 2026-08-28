@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\FaceProfileController;
 use App\Http\Controllers\Api\FaceVerificationController;
+use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Api\HeatMapController;
 use App\Http\Controllers\Api\LeaveController;
 use App\Http\Controllers\Api\MeController;
@@ -34,6 +35,7 @@ Route::middleware(['auth:sanctum', EnsureActiveApiUser::class])->group(function 
     Route::delete('/devices/push-token', [DeviceTokenController::class, 'destroy']);
     Route::get('/me', MeController::class);
     Route::get('/announcements', AnnouncementController::class);
+    Route::get('/faqs', FaqController::class);
     Route::post('/profile/photo', [ProfilePhotoController::class, 'store']);
     Route::delete('/profile/photo', [ProfilePhotoController::class, 'destroy']);
 

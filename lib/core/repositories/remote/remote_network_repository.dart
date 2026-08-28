@@ -14,21 +14,21 @@ class RemoteNetworkRepository implements NetworkRepository {
     required String userId,
     NetworkProfileType? type,
   }) async {
-    final response = await _client.get(
+    return _loadPagedList(
       '/network',
       queryParameters: {
         if (type != null) 'type': type.name,
       },
     );
-    return _decodeList(response);
   }
 
   @override
   Future<List<NetworkProfile>> listTeamUkm({
     required String areaManagerId,
   }) async {
-    final response = await _client.get('/network/team-ukm');
-    return _decodeList(response);
+    return _loadPagedList(
+      '/network/team-ukm',
+    );
   }
 
   @override
@@ -68,6 +68,38 @@ class RemoteNetworkRepository implements NetworkRepository {
 
   NetworkProfile _decodeOne(dynamic response) {
     return NetworkProfile.fromJson(_unwrapMap(response));
+  }
+
+  Future<List<NetworkProfile>> _loadPagedList(
+    String path, {
+    Map<String, String> queryParameters = const {},
+  }) async {
+    const perPage = 300;
+    // Monitoring Jaringan HR adalah sumber utama data area. Ambil semua window
+    // yang tersedia supaya data area kerja tidak berhenti di page pertama.
+    const maxPages = 100;
+    final items = <NetworkProfile>[];
+
+    for (var page = 1; page <= maxPages; page++) {
+      final response = await _client.get(
+        path,
+        queryParameters: {
+          ...queryParameters,
+          'per_page': '$perPage',
+          'page': '$page',
+        },
+      );
+      final pageItems = _decodeList(response);
+      if (pageItems.isEmpty) {
+        break;
+      }
+      items.addAll(pageItems);
+      if (pageItems.length < perPage) {
+        break;
+      }
+    }
+
+    return items;
   }
 
   List<Map<String, dynamic>> _unwrapList(dynamic response) {
