@@ -32,9 +32,16 @@ class ApiListResponse
     {
         $perPage = self::perPage($request) ?? 300;
         $page = max(1, (int) $request->integer('page', 1));
-        $items = $query
-            ->forPage($page, $perPage)
+        $offset = ($page - 1) * $perPage;
+        $total = (clone $query)->count();
+        $window = $query
+            ->skip($offset)
+            ->take($perPage + 1)
             ->get()
+            ->values();
+        $hasMore = $window->count() > $perPage;
+        $items = $window
+            ->take($perPage)
             ->map($transform)
             ->values();
 
@@ -44,6 +51,9 @@ class ApiListResponse
                 'current_page' => $page,
                 'per_page' => $perPage,
                 'count' => $items->count(),
+                'total' => $total,
+                'has_more' => $hasMore,
+                'next_page' => $hasMore ? $page + 1 : null,
             ],
         ]);
     }

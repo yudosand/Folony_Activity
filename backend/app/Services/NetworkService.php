@@ -157,40 +157,68 @@ class NetworkService
         return $this->refresh($profile);
     }
 
-    public function queryOwned(User $owner, ?string $type = null, ?string $search = null)
+    public function queryOwned(User $owner, ?string $type = null, ?string $search = null, ?string $scope = null)
     {
+        $scope = in_array($scope, ['mine', 'area', 'all'], true) ? $scope : 'all';
         $query = NetworkProfile::query();
 
         if ($type !== null && $type !== '') {
             $query->where('type', $type);
         }
 
-        if ($owner->role === UserRole::FGG && TerritoryData::isAssigned($owner)) {
-            $query->where(function ($builder) use ($owner): void {
-                $builder
-                    ->where('owner_id', $owner->id)
+        if ($scope === 'mine') {
+            $query->where('owner_id', $owner->id);
+        } elseif ($owner->role === UserRole::FGG && TerritoryData::isAssigned($owner)) {
+            $query->where(function ($builder) use ($owner, $scope): void {
+                if ($scope === 'area') {
+                    $builder->where('owner_id', '!=', $owner->id)
+                        ->where(function ($territory) use ($owner): void {
+                            $this->applyTerritoryScope($territory, $owner);
+                        });
+                    return;
+                }
+
+                $builder->where('owner_id', $owner->id)
                     ->orWhere(function ($territory) use ($owner): void {
                         $this->applyTerritoryScope($territory, $owner);
                     });
             });
         } elseif ($owner->role === UserRole::AREA_MANAGER && TerritoryData::isAssigned($owner)) {
-            $query->where(function ($builder) use ($owner): void {
-                $builder
-                    ->where('owner_id', $owner->id)
+            $query->where(function ($builder) use ($owner, $scope): void {
+                if ($scope === 'area') {
+                    $builder->where('owner_id', '!=', $owner->id)
+                        ->where(function ($territory) use ($owner): void {
+                            $this->applyTerritoryScope($territory, $owner);
+                        });
+                    return;
+                }
+
+                $builder->where('owner_id', $owner->id)
                     ->orWhere(function ($territory) use ($owner): void {
                         $this->applyTerritoryScope($territory, $owner);
                     });
             });
         } elseif ($owner->role === UserRole::MANAGEMENT && TerritoryData::isAssigned($owner)) {
-            $query->where(function ($builder) use ($owner): void {
-                $builder
-                    ->where('owner_id', $owner->id)
+            $query->where(function ($builder) use ($owner, $scope): void {
+                if ($scope === 'area') {
+                    $builder->where('owner_id', '!=', $owner->id)
+                        ->where(function ($territory) use ($owner): void {
+                            $this->applyTerritoryScope($territory, $owner);
+                        });
+                    return;
+                }
+
+                $builder->where('owner_id', $owner->id)
                     ->orWhere(function ($territory) use ($owner): void {
                         $this->applyTerritoryScope($territory, $owner);
                     });
             });
         } else {
-            $query->where('owner_id', $owner->id);
+            if ($scope === 'area') {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->where('owner_id', $owner->id);
+            }
         }
 
         if ($search !== null && $search !== '') {
@@ -288,7 +316,7 @@ class NetworkService
     private function applyTerritoryScope($query, User $actor): void
     {
         $assignments = TerritoryData::userAssignments($actor);
-        $includes = TerritoryData::includeAssignments($assignments);
+        $includes = $this->mostSpecificIncludeAssignments(TerritoryData::includeAssignments($assignments));
         $excludes = TerritoryData::excludeAssignments($assignments);
 
         if ($includes === []) {
@@ -326,38 +354,333 @@ class NetworkService
             return;
         }
 
-        $builder->{$method}(function ($group) use ($assignment, $method, $scopeField, $legacyLabel): void {
+        $builder->{$method}(function ($group) use ($assignment, $scopeField, $legacyLabel): void {
             $group->where(function ($structured) use ($assignment): void {
-                if (filled($assignment['territory_province'])) {
-                    $structured->where(function ($column) use ($assignment): void {
-                        $this->whereColumnMatchesAny($column, 'territory_province', $assignment['territory_province']);
-                    });
-                }
-                if (filled($assignment['territory_city'])) {
-                    $structured->where(function ($column) use ($assignment): void {
-                        $this->whereColumnMatchesAny($column, 'territory_city', $assignment['territory_city']);
-                    });
-                }
-                if (filled($assignment['territory_district'])) {
-                    $structured->where(function ($column) use ($assignment): void {
-                        $this->whereColumnMatchesAny($column, 'territory_district', $assignment['territory_district']);
-                    });
-                }
-                if (filled($assignment['territory_subdistrict'])) {
-                    $structured->where(function ($column) use ($assignment): void {
-                        $this->whereColumnMatchesAny($column, 'territory_subdistrict', $assignment['territory_subdistrict']);
-                    });
-                }
+                $this->whereStructuredTerritoryMatchesAssignment($structured, $assignment);
             });
 
-            if ($method !== 'whereNot' && $scopeField !== null && filled($legacyLabel)) {
-                foreach ($this->assignmentSearchLabels($assignment) as $label) {
-                    $group->orWhere(function ($text) use ($label): void {
-                        $this->whereTerritoryTextMatches($text, $label);
-                    });
+            if ($scopeField !== null && filled($legacyLabel)) {
+                $group->orWhere(function ($legacy) use ($assignment): void {
+                    $this->whereLegacyTerritoryTextMatchesAssignment($legacy, $assignment);
+                });
+            }
+        });
+    }
+
+    private function whereStructuredTerritoryMatchesAssignment($query, array $assignment): void
+    {
+        $hasStructuredConstraint = false;
+        foreach (TerritoryData::PROFILE_FIELDS as $field) {
+            if (filled($assignment[$field] ?? null)) {
+                $hasStructuredConstraint = true;
+                break;
+            }
+        }
+
+        if (! $hasStructuredConstraint) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        if (filled($assignment['territory_province'])) {
+            $query->where(function ($column) use ($assignment): void {
+                $this->whereColumnMatchesAny($column, 'territory_province', $assignment['territory_province']);
+            });
+        }
+        if (filled($assignment['territory_city'])) {
+            $query->where(function ($column) use ($assignment): void {
+                $this->whereColumnMatchesAny($column, 'territory_city', $assignment['territory_city']);
+            });
+        }
+        if (filled($assignment['territory_district'])) {
+            $query->where(function ($column) use ($assignment): void {
+                $this->whereColumnMatchesAny($column, 'territory_district', $assignment['territory_district']);
+            });
+        }
+        if (filled($assignment['territory_subdistrict'])) {
+            $query->where(function ($column) use ($assignment): void {
+                $this->whereColumnMatchesAny($column, 'territory_subdistrict', $assignment['territory_subdistrict']);
+            });
+        }
+    }
+
+    private function whereLegacyTerritoryTextMatchesAssignment($query, array $assignment): void
+    {
+        $query->where(function ($source) use ($assignment): void {
+            $source->where(function ($text) use ($assignment): void {
+                $this->whereStructuredTerritoryIsCompatibleOrBlank($text, $assignment);
+                $this->whereLegacyTextColumnsHaveValue($text);
+
+                $text->where(function ($matches) use ($assignment): void {
+                    foreach ($this->assignmentSearchLabels($assignment) as $label) {
+                        foreach ($this->labelVariants($label) as $variant) {
+                            $matches
+                                ->orWhere('address', 'like', '%' . $variant . '%')
+                                ->orWhere('note', 'like', '%' . $variant . '%');
+                        }
+                    }
+                });
+            });
+
+            $source->orWhere(function ($areaFallback) use ($assignment): void {
+                $this->whereLegacyTextDoesNotConflictWithAssignment($areaFallback, $assignment);
+                $this->whereStructuredCityDoesNotConflictWithAssignment($areaFallback, $assignment);
+                $this->whereLegacyAreaNameMatchesAssignment($areaFallback, $assignment);
+            });
+        });
+    }
+
+    private function whereStructuredCityDoesNotConflictWithAssignment($query, array $assignment): void
+    {
+        $conflictingLabels = $this->conflictingJakartaCityLabels($assignment);
+        if ($conflictingLabels === []) {
+            return;
+        }
+
+        $query->where(function ($safe) use ($conflictingLabels): void {
+            foreach (['territory_city'] as $field) {
+                $safe->where(function ($column) use ($field, $conflictingLabels): void {
+                    $column
+                        ->whereNull($field)
+                        ->orWhere($field, '')
+                        ->orWhere($field, '-')
+                        ->orWhere(function ($text) use ($field, $conflictingLabels): void {
+                            foreach ($conflictingLabels as $label) {
+                                foreach ($this->labelVariants($label) as $variant) {
+                                    $text->where($field, 'not like', '%' . $variant . '%');
+                                }
+                            }
+                        });
+                });
+            }
+        });
+    }
+
+    private function whereLegacyAreaNameMatchesAssignment($query, array $assignment): void
+    {
+        $query->where(function ($area) use ($assignment): void {
+            foreach ($this->assignmentSearchLabels($assignment) as $label) {
+                foreach ($this->labelVariants($label) as $variant) {
+                    $area->orWhere('area_name', 'like', '%' . $variant . '%');
                 }
             }
         });
+    }
+
+    private function whereStructuredTerritoryIsCompatibleOrBlank($query, array $assignment): void
+    {
+        $compatibleLabels = $this->assignmentCompatibleLabels($assignment);
+
+        $query->where(function ($compatible) use ($assignment, $compatibleLabels): void {
+            foreach (TerritoryData::PROFILE_FIELDS as $field) {
+                if (! filled($assignment[$field] ?? null)) {
+                    continue;
+                }
+
+                $compatible->where(function ($column) use ($field, $assignment, $compatibleLabels): void {
+                    $column
+                        ->whereNull($field)
+                        ->orWhere($field, '')
+                        ->orWhere($field, '-')
+                        ->orWhere(function ($matches) use ($field, $assignment): void {
+                            $this->whereColumnMatchesAny($matches, $field, (string) $assignment[$field]);
+                        })
+                        ->orWhere(function ($matches) use ($field, $compatibleLabels): void {
+                            foreach ($compatibleLabels as $index => $label) {
+                                foreach ($this->labelVariants($label) as $variantIndex => $variant) {
+                                    $method = $index === 0 && $variantIndex === 0 ? 'where' : 'orWhere';
+                                    $matches->{$method}($field, $variant);
+                                }
+                            }
+                        });
+                });
+            }
+        });
+    }
+
+    private function whereLegacyTextColumnsHaveValue($query): void
+    {
+        $query->where(function ($text): void {
+            foreach (['address', 'note'] as $field) {
+                $text->orWhere(function ($column) use ($field): void {
+                    $column
+                        ->whereNotNull($field)
+                        ->where($field, '!=', '')
+                        ->where($field, '!=', '-');
+                });
+            }
+        });
+    }
+
+    private function whereLegacyTextColumnsAreBlank($query): void
+    {
+        $query->where(function ($blank): void {
+            foreach (['address', 'note'] as $field) {
+                $blank->where(function ($column) use ($field): void {
+                    $column
+                        ->whereNull($field)
+                        ->orWhere($field, '')
+                        ->orWhere($field, '-');
+                });
+            }
+        });
+    }
+
+    private function whereLegacyTextDoesNotConflictWithAssignment($query, array $assignment): void
+    {
+        $conflictingLabels = $this->conflictingJakartaCityLabels($assignment);
+        if ($conflictingLabels === []) {
+            return;
+        }
+
+        $query->where(function ($safe) use ($conflictingLabels): void {
+            foreach (['address', 'note'] as $field) {
+                $safe->where(function ($column) use ($field, $conflictingLabels): void {
+                    $column
+                        ->whereNull($field)
+                        ->orWhere($field, '')
+                        ->orWhere($field, '-')
+                        ->orWhere(function ($text) use ($field, $conflictingLabels): void {
+                            foreach ($conflictingLabels as $label) {
+                                foreach ($this->labelVariants($label) as $variant) {
+                                    $text->where($field, 'not like', '%' . $variant . '%');
+                                }
+                            }
+                        });
+                });
+            }
+        });
+    }
+
+    /**
+     * Data import lama kadang punya area_name stale, sementara address/note
+     * masih membuktikan kota Jakarta sebenarnya. Ini mencegah Jakarta Barat
+     * bocor ke user Jakarta Selatan, tapi tetap mengizinkan alamat generik
+     * seperti "Jl. Kyai Tapa" memakai fallback area_name.
+     *
+     * @return list<string>
+     */
+    private function conflictingJakartaCityLabels(array $assignment): array
+    {
+        $currentCity = $assignment['territory_city'] ?? null;
+        if (! is_string($currentCity) || trim($currentCity) === '') {
+            return [];
+        }
+
+        $currentKey = $this->jakartaCityDirectionKey($currentCity);
+        if ($currentKey === null) {
+            return [];
+        }
+
+        $directions = [
+            'barat' => 'Jakarta Barat',
+            'pusat' => 'Jakarta Pusat',
+            'selatan' => 'Jakarta Selatan',
+            'timur' => 'Jakarta Timur',
+            'utara' => 'Jakarta Utara',
+        ];
+        unset($directions[$currentKey]);
+
+        return array_values($directions);
+    }
+
+    private function jakartaCityDirectionKey(string $city): ?string
+    {
+        $normalized = $this->normalizeLabelKey($city);
+        foreach (['barat', 'pusat', 'selatan', 'timur', 'utara'] as $direction) {
+            if (str_contains($normalized, 'jakarta ' . $direction)) {
+                return $direction;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Data lama bisa menyimpan beberapa include bertingkat sekaligus
+     * (contoh: DKI Jakarta + Jakarta Selatan + Pasar Minggu). Untuk area
+     * kerja aplikasi, rule yang lebih spesifik harus menang supaya user
+     * Pasar Minggu tidak ikut melihat seluruh DKI/Jakarta Selatan.
+     *
+     * @param list<array<string, mixed>> $assignments
+     * @return list<array<string, mixed>>
+     */
+    private function mostSpecificIncludeAssignments(array $assignments): array
+    {
+        if ($assignments === []) {
+            return [];
+        }
+
+        $ranked = array_values(array_filter(
+            $assignments,
+            fn (array $assignment): bool => $this->scopeSpecificityRank($assignment['territory_scope'] ?? null) >= 0,
+        ));
+
+        if ($ranked === []) {
+            return [];
+        }
+
+        $maxRank = max(array_map(
+            fn (array $assignment): int => $this->scopeSpecificityRank($assignment['territory_scope'] ?? null),
+            $ranked,
+        ));
+
+        return array_values(array_filter(
+            $ranked,
+            fn (array $assignment): bool => $this->scopeSpecificityRank($assignment['territory_scope'] ?? null) === $maxRank,
+        ));
+    }
+
+    /**
+     * @param array<string, mixed> $child
+     * @param array<string, mixed> $parent
+     */
+    private function assignmentIsMoreSpecificInside(array $child, array $parent): bool
+    {
+        $childScope = $child['territory_scope'] ?? null;
+        $parentScope = $parent['territory_scope'] ?? null;
+
+        if ($parentScope === TerritoryScope::ALL_AREAS) {
+            return $childScope !== TerritoryScope::ALL_AREAS;
+        }
+
+        if (! $this->scopeIsMoreSpecific($childScope, $parentScope)) {
+            return false;
+        }
+
+        foreach ([
+            'territory_province',
+            'territory_city',
+            'territory_district',
+            'territory_subdistrict',
+        ] as $field) {
+            if (! filled($parent[$field] ?? null)) {
+                continue;
+            }
+
+            if (! $this->labelsEquivalent((string) $parent[$field], (string) ($child[$field] ?? ''))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function scopeIsMoreSpecific(?string $childScope, ?string $parentScope): bool
+    {
+        return $this->scopeSpecificityRank($childScope) > $this->scopeSpecificityRank($parentScope);
+    }
+
+    private function scopeSpecificityRank(?string $scope): int
+    {
+        return match ($scope) {
+            TerritoryScope::ALL_AREAS => 0,
+            TerritoryScope::PROVINCE => 1,
+            TerritoryScope::CITY => 2,
+            TerritoryScope::DISTRICT => 3,
+            TerritoryScope::SUBDISTRICT => 4,
+            default => -1,
+        };
     }
 
     private function whereColumnMatchesAny($query, string $column, string $label): void
@@ -368,6 +691,20 @@ class NetworkService
         }
     }
 
+    private function labelsEquivalent(string $left, string $right): bool
+    {
+        $leftKeys = array_map(
+            fn (string $variant) => $this->normalizeLabelKey($variant),
+            $this->labelVariants($left),
+        );
+        $rightKeys = array_map(
+            fn (string $variant) => $this->normalizeLabelKey($variant),
+            $this->labelVariants($right),
+        );
+
+        return array_intersect($leftKeys, $rightKeys) !== [];
+    }
+
     /**
      * @return list<string>
      */
@@ -375,42 +712,47 @@ class NetworkService
     {
         $labels = [];
         foreach ([
-            TerritoryData::displayLabel($assignment),
             $assignment['territory_subdistrict'] ?? null,
             $assignment['territory_district'] ?? null,
             $assignment['territory_city'] ?? null,
             $assignment['territory_province'] ?? null,
+            TerritoryData::displayLabel($assignment),
         ] as $label) {
-            if (is_string($label) && trim($label) !== '') {
+            if (is_string($label) && ! in_array(trim($label), ['', '-'], true)) {
                 foreach ($this->labelVariants($label) as $variant) {
                     $labels[$this->normalizeLabelKey($variant)] = $variant;
                 }
+                break;
             }
         }
 
         return array_values($labels);
     }
 
-    private function whereTerritoryTextMatches($query, string $label): void
+    /**
+     * Import CSV historis kadang menaruh nama kecamatan/kelurahan pada kolom
+     * struktur yang tidak konsisten. Selama teks legacy tetap match area user,
+     * kolom struktur dianggap kompatibel bila berisi salah satu label hierarki
+     * area yang sama.
+     *
+     * @return list<string>
+     */
+    private function assignmentCompatibleLabels(array $assignment): array
     {
-        $query->where(function ($variants) use ($label): void {
-            foreach ($this->labelVariants($label) as $variant) {
-                $variants
-                    ->orWhere('area_name', $variant)
-                    ->orWhere('territory_province', $variant)
-                    ->orWhere('territory_city', $variant)
-                    ->orWhere('territory_district', $variant)
-                    ->orWhere('territory_subdistrict', $variant)
-                    ->orWhere(function ($fallback) use ($variant): void {
-                        $this->whereStructuredTerritoryIsBlank($fallback);
-                        $fallback->where(function ($text) use ($variant): void {
-                            $text
-                                ->where('address', 'like', '%' . $variant . '%')
-                                ->orWhere('note', 'like', '%' . $variant . '%');
-                        });
-                    });
+        $labels = [];
+
+        foreach (TerritoryData::PROFILE_FIELDS as $field) {
+            $label = $assignment[$field] ?? null;
+            if (! is_string($label) || in_array(trim($label), ['', '-'], true)) {
+                continue;
             }
-        });
+
+            foreach ($this->labelVariants($label) as $variant) {
+                $labels[$this->normalizeLabelKey($variant)] = $variant;
+            }
+        }
+
+        return array_values($labels);
     }
 
     private function whereStructuredTerritoryIsBlank($query): void
@@ -479,20 +821,8 @@ class NetworkService
 
     private function assertWithinTerritory(User $actor, array $territory, string $profileType): void
     {
-        if (! in_array($actor->role, [UserRole::FGG, UserRole::AREA_MANAGER], true)) {
-            return;
-        }
-
-        if (! TerritoryData::isAssigned($actor)) {
-            throw ValidationException::withMessages([
-                'territory' => TerritoryData::assignmentHint($actor),
-            ]);
-        }
-
-        if (! TerritoryData::covers($actor, $territory)) {
-            throw ValidationException::withMessages([
-                'territory' => TerritoryData::messageForOutsideArea($profileType),
-            ]);
-        }
+        // FGG dan Area Manager boleh input jaringan di wilayah mana saja.
+        // Data tetap dikembalikan ke user lain berdasarkan wilayah data.
+        return;
     }
 }

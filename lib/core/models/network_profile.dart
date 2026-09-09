@@ -25,7 +25,7 @@ class PersonalityMetric {
   factory PersonalityMetric.fromJson(Map<String, dynamic> json) {
     return PersonalityMetric(
       label: json['label'] as String? ?? '',
-      score: (json['score'] as num?)?.toDouble() ?? 0,
+      score: _doubleFromJson(json['score']) ?? 0,
     );
   }
 
@@ -108,7 +108,7 @@ class NetworkFollowUpRecord {
       createdAt: _dateTimeFromJson(json['created_at']),
       visitStartedAt: _nullableDateTimeFromJson(json['visit_started_at']),
       visitFinishedAt: _nullableDateTimeFromJson(json['visit_finished_at']),
-      visitDurationSeconds: (json['visit_duration_seconds'] as num?)?.toInt(),
+      visitDurationSeconds: _intFromJson(json['visit_duration_seconds']),
       photo: json['photo'] is Map<String, dynamic>
           ? RemoteAttachment.fromJson(json['photo'] as Map<String, dynamic>)
           : null,
@@ -216,8 +216,8 @@ class NetworkProfile {
       personalityMetrics: _metricsFromJson(json['personality_metrics']),
       documents: _documentsFromJson(json['documents']),
       followUps: _followUpsFromJson(json['follow_ups']),
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
+      latitude: _doubleFromJson(json['latitude']),
+      longitude: _doubleFromJson(json['longitude']),
     );
   }
 
@@ -261,6 +261,32 @@ DateTime _dateTimeFromJson(Object? value) {
 DateTime? _nullableDateTimeFromJson(Object? value) {
   if (value is String && value.isNotEmpty) {
     return DateTime.tryParse(value);
+  }
+  return null;
+}
+
+double? _doubleFromJson(Object? value) {
+  if (value is double) {
+    return value;
+  }
+  if (value is num) {
+    return value.toDouble();
+  }
+  if (value is String && value.trim().isNotEmpty) {
+    return double.tryParse(value.trim());
+  }
+  return null;
+}
+
+int? _intFromJson(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String && value.trim().isNotEmpty) {
+    return int.tryParse(value.trim());
   }
   return null;
 }

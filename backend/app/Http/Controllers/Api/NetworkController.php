@@ -18,12 +18,20 @@ class NetworkController extends Controller
 {
     public function index(Request $request, NetworkService $networkService): JsonResponse
     {
+        $scope = $request->string('scope')->toString() ?: null;
+        abort_if(
+            $scope !== null && ! in_array($scope, ['all', 'mine', 'area'], true),
+            422,
+            'Scope jaringan tidak valid.',
+        );
+
         return ApiListResponse::fromQueryWindow(
             $request,
             $networkService->queryOwned(
                 $request->user(),
                 $request->string('type')->toString() ?: null,
                 $request->string('q')->toString() ?: null,
+                $scope,
             ),
             fn (NetworkProfile $profile) => FieldApiData::networkProfileListItem($profile),
         );

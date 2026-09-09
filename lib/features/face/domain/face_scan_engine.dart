@@ -78,19 +78,19 @@ class FaceScanEngine {
             type: FaceScanChallengeType.front,
             label: 'Scan wajah 1',
             instruction: 'Lihat ke kamera dan tahan wajah tetap di area oval.',
-            requiredStableFrames: 3,
+            requiredStableFrames: 1,
           ),
           FaceScanChallenge(
             type: FaceScanChallengeType.front,
             label: 'Scan wajah 2',
             instruction: 'Tetap lihat kamera. Pastikan cahaya wajah cukup terang.',
-            requiredStableFrames: 3,
+            requiredStableFrames: 1,
           ),
           FaceScanChallenge(
             type: FaceScanChallengeType.front,
             label: 'Scan wajah 3',
             instruction: 'Tahan beberapa detik lagi sampai scan selesai.',
-            requiredStableFrames: 3,
+            requiredStableFrames: 1,
           ),
         ];
 
@@ -109,7 +109,7 @@ class FaceScanEngine {
             label: 'Scan wajah',
             instruction:
                 'Lihat ke kamera untuk verifikasi $actionLabel. Tidak perlu tengok atau kedip.',
-            requiredStableFrames: 5,
+            requiredStableFrames: 1,
           ),
         ];
 

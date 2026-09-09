@@ -20,6 +20,9 @@ void main() {
             pitch: 1,
           ),
         );
+        if (update.shouldCaptureFrame) {
+          break;
+        }
       }
 
       expect(update?.shouldCaptureFrame, isTrue);
@@ -50,6 +53,9 @@ void main() {
           pitch: 0,
         ),
       );
+      if (update.shouldCaptureFrame) {
+        break;
+      }
     }
 
     expect(update?.shouldCaptureFrame, isTrue);

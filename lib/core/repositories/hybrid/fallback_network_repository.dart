@@ -18,10 +18,39 @@ class FallbackNetworkRepository implements NetworkRepository {
   Future<List<NetworkProfile>> listOwnedByUser({
     required String userId,
     NetworkProfileType? type,
+    String? scope,
   }) {
     return _guard(
-      remote: () => _remote.listOwnedByUser(userId: userId, type: type),
-      local: () => _local.listOwnedByUser(userId: userId, type: type),
+      remote: () =>
+          _remote.listOwnedByUser(userId: userId, type: type, scope: scope),
+      local: () =>
+          _local.listOwnedByUser(userId: userId, type: type, scope: scope),
+    );
+  }
+
+  @override
+  Future<NetworkProfilePage> listOwnedByUserPage({
+    required String userId,
+    NetworkProfileType? type,
+    String? scope,
+    required int page,
+    required int perPage,
+  }) {
+    return _guard(
+      remote: () => _remote.listOwnedByUserPage(
+        userId: userId,
+        type: type,
+        scope: scope,
+        page: page,
+        perPage: perPage,
+      ),
+      local: () => _local.listOwnedByUserPage(
+        userId: userId,
+        type: type,
+        scope: scope,
+        page: page,
+        perPage: perPage,
+      ),
     );
   }
 

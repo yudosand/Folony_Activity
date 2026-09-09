@@ -166,6 +166,7 @@ class SimpleApiClient {
         configureRequest: (request, originalHost) {
           request.headers.contentType = ContentType.json;
           request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+          request.headers.set(HttpHeaders.connectionHeader, 'close');
           if (originalHost != null) {
             request.headers.set(HttpHeaders.hostHeader, originalHost);
           }
@@ -178,7 +179,7 @@ class SimpleApiClient {
             request.write(encodedBody);
           }
         },
-        timeout: const Duration(seconds: 12),
+        timeout: const Duration(seconds: 30),
       );
       return _decodeResponse(response, method, uri);
     } finally {
@@ -202,7 +203,7 @@ class SimpleApiClient {
 
   HttpClient _createHttpClient() {
     return HttpClient()
-      ..connectionTimeout = const Duration(seconds: 8)
+      ..connectionTimeout = const Duration(seconds: 15)
       ..badCertificateCallback = _allowKnownFallbackCertificate;
   }
 

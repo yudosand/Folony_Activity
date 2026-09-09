@@ -11,8 +11,8 @@ class HeatMapUserLocation {
 
   factory HeatMapUserLocation.fromJson(Map<String, dynamic> json) {
     return HeatMapUserLocation(
-      latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
-      longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
+      latitude: _doubleFromJson(json['latitude']) ?? 0,
+      longitude: _doubleFromJson(json['longitude']) ?? 0,
       recordedAt: _dateTimeFromJson(json['recorded_at']),
     );
   }
@@ -54,9 +54,9 @@ class HeatMapPoint {
       phoneNumber: json['phone_number'] as String? ?? '',
       status: json['status'] as String? ?? '',
       note: json['note'] as String?,
-      distanceMeter: (json['distance_meter'] as num?)?.toInt() ?? 0,
-      latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
-      longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
+      distanceMeter: _intFromJson(json['distance_meter']) ?? 0,
+      latitude: _doubleFromJson(json['latitude']) ?? 0,
+      longitude: _doubleFromJson(json['longitude']) ?? 0,
       ownerName: json['owner_name'] as String? ?? '',
     );
   }
@@ -78,7 +78,7 @@ class HeatMapSnapshot {
       userLocation: HeatMapUserLocation.fromJson(
         json['user_location'] as Map<String, dynamic>? ?? const {},
       ),
-      radiusMeters: (json['radius_meters'] as num?)?.toInt() ?? 0,
+      radiusMeters: _intFromJson(json['radius_meters']) ?? 0,
       points: _pointsFromJson(json['points']),
     );
   }
@@ -100,4 +100,30 @@ List<HeatMapPoint> _pointsFromJson(Object? value) {
         .toList();
   }
   return const [];
+}
+
+double? _doubleFromJson(Object? value) {
+  if (value is double) {
+    return value;
+  }
+  if (value is num) {
+    return value.toDouble();
+  }
+  if (value is String && value.trim().isNotEmpty) {
+    return double.tryParse(value.trim());
+  }
+  return null;
+}
+
+int? _intFromJson(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String && value.trim().isNotEmpty) {
+    return int.tryParse(value.trim());
+  }
+  return null;
 }

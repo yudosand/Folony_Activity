@@ -8,12 +8,27 @@ use App\Models\PerformanceTarget;
 use App\Models\User;
 use Database\Seeders\WorkflowDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class PerformanceTargetApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Carbon::setTestNow(Carbon::create(2026, 8, 15, 10, 0, 0, 'Asia/Jakarta'));
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     public function test_fgg_summary_counts_new_ukm_and_follow_up_for_current_month(): void
     {

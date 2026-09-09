@@ -138,7 +138,11 @@ class AppController extends ChangeNotifier {
   final bool _seedWorkflowDemoData;
   bool _isAuthenticating = false;
   bool _isBootstrapping = true;
+  static const int _networkPageSize = 10;
   final Map<String, List<NetworkEntry>> _networkEntriesByOwner = {};
+  final Map<String, List<NetworkEntry>> _networkEntriesByScopeKey = {};
+  final Map<String, _NetworkPagingState> _networkPagingByKey = {};
+  final Map<String, Object> _networkErrorsByKey = {};
   final Map<String, List<NetworkEntry>> _teamUkmEntriesByAreaManager = {};
   final Map<String, List<AttendanceRecord>> _attendanceRecordsByOwner = {};
   final Map<String, PerformanceSummary?> _performanceSummaryByOwner = {};
@@ -294,6 +298,82 @@ class AppController extends ChangeNotifier {
 
     return List.unmodifiable(
         _networkEntriesByOwner[session.ownerKey] ?? const []);
+  }
+
+  List<NetworkEntry> networkEntriesForSession(
+    AppSession session, {
+    required NetworkEntryType type,
+    required String scope,
+  }) {
+    if (session.role != AppRole.fgg &&
+        session.role != AppRole.areaManager &&
+        session.role != AppRole.management) {
+      return const [];
+    }
+
+    return List.unmodifiable(_networkEntriesByScopeKey[
+            _networkPagingKey(session: session, type: type, scope: scope)] ??
+        const []);
+  }
+
+  Object? networkErrorForSession(
+    AppSession session, {
+    required NetworkEntryType type,
+    required String scope,
+  }) {
+    return _networkErrorsByKey[
+        _networkPagingKey(session: session, type: type, scope: scope)];
+  }
+
+  bool hasMoreNetworkEntriesForSession(
+    AppSession session, {
+    required NetworkEntryType type,
+    required String scope,
+  }) {
+    return _networkPagingByKey[
+                _networkPagingKey(session: session, type: type, scope: scope)]
+            ?.hasMore ??
+        false;
+  }
+
+  int? totalNetworkEntriesForSession(
+    AppSession session, {
+    required NetworkEntryType type,
+    required String scope,
+  }) {
+    return _networkPagingByKey[
+            _networkPagingKey(session: session, type: type, scope: scope)]
+        ?.totalCount;
+  }
+
+  Future<void> loadMoreNetworkEntriesForSession(
+    AppSession session, {
+    required NetworkEntryType type,
+    required String scope,
+  }) async {
+    final key = _networkPagingKey(session: session, type: type, scope: scope);
+    final cursor = _networkPagingByKey[key];
+    if (cursor == null || !cursor.hasMore || cursor.isLoading) {
+      return;
+    }
+
+    _networkPagingByKey[key] = cursor.copyWith(isLoading: true);
+    notifyListeners();
+    try {
+      await _loadNetworkPage(
+        session: session,
+        type: type,
+        scope: scope,
+        page: cursor.nextPage,
+        resetScopeType: false,
+      );
+    } finally {
+      final latest = _networkPagingByKey[key];
+      if (latest != null) {
+        _networkPagingByKey[key] = latest.copyWith(isLoading: false);
+        notifyListeners();
+      }
+    }
   }
 
   List<NetworkEntry> teamUkmEntriesForAreaManager(AppSession session) {
@@ -1166,23 +1246,53 @@ class AppController extends ChangeNotifier {
 
     await _ensureSeedForSession(session);
 
-    final ownProfiles = <NetworkProfile>[];
-    Object? firstLoadError;
+    _clearNetworkPagingForSession(session);
+    _networkEntriesByOwner[session.ownerKey] = const [];
+    notifyListeners();
+
+    Object? firstError;
+    var loadedScopeCount = 0;
     for (final type in [NetworkProfileType.ukm, NetworkProfileType.mitra]) {
       try {
-        ownProfiles.addAll(await _networkRepository.listOwnedByUser(
-          userId: _workflowUserIdForSession(session),
-          type: type,
-        ));
+        await _loadNetworkPage(
+          session: session,
+          type: _entryTypeFromProfileType(type),
+          scope: 'mine',
+          page: 1,
+          resetScopeType: true,
+        );
+        loadedScopeCount++;
       } catch (error) {
-        firstLoadError ??= error;
+        _networkErrorsByKey[_networkPagingKey(
+          session: session,
+          type: _entryTypeFromProfileType(type),
+          scope: 'mine',
+        )] = error;
+        firstError ??= error;
       }
     }
-    if (ownProfiles.isEmpty && firstLoadError != null) {
-      Error.throwWithStackTrace(firstLoadError, StackTrace.current);
+    for (final type in [NetworkProfileType.ukm, NetworkProfileType.mitra]) {
+      try {
+        await _loadNetworkPage(
+          session: session,
+          type: _entryTypeFromProfileType(type),
+          scope: 'area',
+          page: 1,
+          resetScopeType: true,
+        );
+        loadedScopeCount++;
+      } catch (error) {
+        _networkErrorsByKey[_networkPagingKey(
+          session: session,
+          type: _entryTypeFromProfileType(type),
+          scope: 'area',
+        )] = error;
+        firstError ??= error;
+      }
     }
-    _networkEntriesByOwner[session.ownerKey] =
-        ownProfiles.map((item) => item.toNetworkEntry()).toList();
+    if (loadedScopeCount == 0 && firstError != null) {
+      throw firstError;
+    }
 
     if (session.role == AppRole.areaManager) {
       try {
@@ -1200,6 +1310,76 @@ class AppController extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  Future<void> _loadNetworkPage({
+    required AppSession session,
+    required NetworkEntryType type,
+    required String scope,
+    required int page,
+    required bool resetScopeType,
+  }) async {
+    final key = _networkPagingKey(session: session, type: type, scope: scope);
+    final response = await _networkRepository.listOwnedByUserPage(
+      userId: _workflowUserIdForSession(session),
+      type: _profileTypeFromEntryType(type),
+      scope: scope,
+      page: page,
+      perPage: _networkPageSize,
+    );
+    final newEntries = response.items.map((item) => item.toNetworkEntry());
+    final entries = resetScopeType
+        ? <NetworkEntry>[]
+        : [
+            ...?_networkEntriesByScopeKey[key],
+          ];
+
+    for (final entry in newEntries) {
+      final index = entries.indexWhere((item) => item.id == entry.id);
+      if (index == -1) {
+        entries.add(entry);
+      } else {
+        entries[index] = entry;
+      }
+    }
+
+    _networkEntriesByScopeKey[key] = entries;
+    _networkErrorsByKey.remove(key);
+    _networkPagingByKey[key] = _NetworkPagingState(
+      currentPage: response.currentPage,
+      hasMore: response.hasMore,
+      isLoading: false,
+      totalCount: response.totalCount,
+    );
+    _rebuildNetworkEntriesForSession(session);
+    notifyListeners();
+  }
+
+  void _clearNetworkPagingForSession(AppSession session) {
+    final prefix = '${session.ownerKey}:';
+    _networkPagingByKey.removeWhere((key, _) => key.startsWith(prefix));
+    _networkEntriesByScopeKey.removeWhere((key, _) => key.startsWith(prefix));
+    _networkErrorsByKey.removeWhere((key, _) => key.startsWith(prefix));
+  }
+
+  String _networkPagingKey({
+    required AppSession session,
+    required NetworkEntryType type,
+    required String scope,
+  }) {
+    return '${session.ownerKey}:$scope:${type.name}';
+  }
+
+  NetworkEntryType _entryTypeFromProfileType(NetworkProfileType type) {
+    return type == NetworkProfileType.ukm
+        ? NetworkEntryType.ukm
+        : NetworkEntryType.mitraHub;
+  }
+
+  NetworkProfileType _profileTypeFromEntryType(NetworkEntryType type) {
+    return type == NetworkEntryType.ukm
+        ? NetworkProfileType.ukm
+        : NetworkProfileType.mitra;
   }
 
   Future<void> _loadNetworkEntriesBestEffort(AppSession session) async {
@@ -1262,6 +1442,12 @@ class AppController extends ChangeNotifier {
         entries[index] = updatedEntry;
       }
     }
+    for (final entries in _networkEntriesByScopeKey.values) {
+      final index = entries.indexWhere((item) => item.id == updatedEntry.id);
+      if (index != -1) {
+        entries[index] = updatedEntry;
+      }
+    }
     for (final entries in _teamUkmEntriesByAreaManager.values) {
       final index = entries.indexWhere((item) => item.id == updatedEntry.id);
       if (index != -1) {
@@ -1284,7 +1470,36 @@ class AppController extends ChangeNotifier {
     } else {
       entries[index] = entry;
     }
+    final mineKey = _networkPagingKey(
+      session: session,
+      type: entry.type,
+      scope: 'mine',
+    );
+    final mineEntries = _networkEntriesByScopeKey.putIfAbsent(
+      mineKey,
+      () => <NetworkEntry>[],
+    );
+    final mineIndex = mineEntries.indexWhere((item) => item.id == entry.id);
+    if (mineIndex == -1) {
+      mineEntries.insert(0, entry);
+    } else {
+      mineEntries[mineIndex] = entry;
+    }
     _replaceEntryInVisibleCaches(entry);
+  }
+
+  void _rebuildNetworkEntriesForSession(AppSession session) {
+    final prefix = '${session.ownerKey}:';
+    final deduped = <String, NetworkEntry>{};
+    for (final item in _networkEntriesByScopeKey.entries) {
+      if (!item.key.startsWith(prefix)) {
+        continue;
+      }
+      for (final entry in item.value) {
+        deduped[entry.id] = entry;
+      }
+    }
+    _networkEntriesByOwner[session.ownerKey] = deduped.values.toList();
   }
 
   Future<void> _ensureSeedForSession(AppSession session) async {
@@ -2211,5 +2426,35 @@ class AppController extends ChangeNotifier {
       default:
         return NetworkProfileStatus.followUp;
     }
+  }
+}
+
+class _NetworkPagingState {
+  const _NetworkPagingState({
+    required this.currentPage,
+    required this.hasMore,
+    required this.isLoading,
+    this.totalCount,
+  });
+
+  final int currentPage;
+  final bool hasMore;
+  final bool isLoading;
+  final int? totalCount;
+
+  int get nextPage => currentPage + 1;
+
+  _NetworkPagingState copyWith({
+    int? currentPage,
+    bool? hasMore,
+    bool? isLoading,
+    int? totalCount,
+  }) {
+    return _NetworkPagingState(
+      currentPage: currentPage ?? this.currentPage,
+      hasMore: hasMore ?? this.hasMore,
+      isLoading: isLoading ?? this.isLoading,
+      totalCount: totalCount ?? this.totalCount,
+    );
   }
 }

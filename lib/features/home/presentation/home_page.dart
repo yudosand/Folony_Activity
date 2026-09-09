@@ -43,9 +43,18 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _imagePicker = ImagePicker();
+  final _workController = TextEditingController();
   bool _isUploadingPhoto = false;
-  String? _selectedMoodEmoji;
-  int _moodAnimationSeed = 0;
+  File? _workPhoto;
+  bool _isWorkActive = false;
+  DateTime? _workStartedAt;
+  final List<_DailyWorkUpdate> _workUpdates = [];
+
+  @override
+  void dispose() {
+    _workController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,10 +89,16 @@ class _HomePageState extends State<HomePage> {
                 onOpenPhotoOptions: () => _showPhotoOptions(session),
               ),
               const SizedBox(height: 18),
-              _MoodPickerCard(
-                selectedEmoji: _selectedMoodEmoji,
-                animationSeed: _moodAnimationSeed,
-                onSelected: _selectMood,
+              _TodayWorkCard(
+                controller: _workController,
+                selectedPhoto: _workPhoto,
+                isActive: _isWorkActive,
+                startedAt: _workStartedAt,
+                updates: _workUpdates,
+                onCapturePhoto: _captureWorkPhoto,
+                onClearPhoto: _clearWorkPhoto,
+                onSaveUpdate: _saveWorkUpdate,
+                onFinishWork: _finishWork,
               ),
               const SizedBox(height: 18),
               Text(
@@ -249,11 +264,79 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _selectMood(String emoji) {
+  Future<void> _captureWorkPhoto() async {
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 72,
+      maxWidth: 1280,
+    );
+    if (image == null || !mounted) {
+      return;
+    }
+
+    setState(() => _workPhoto = File(image.path));
+  }
+
+  void _clearWorkPhoto() {
+    setState(() => _workPhoto = null);
+  }
+
+  void _saveWorkUpdate() {
+    final note = _workController.text.trim();
+    if (note.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Isi dulu pekerjaan yang akan dilakukan.')),
+      );
+      return;
+    }
+
     setState(() {
-      _selectedMoodEmoji = emoji;
-      _moodAnimationSeed++;
+      _isWorkActive = true;
+      _workStartedAt ??= DateTime.now();
+      _workUpdates.insert(
+        0,
+        _DailyWorkUpdate(
+          note: note,
+          photoPath: _workPhoto?.path,
+          createdAt: DateTime.now(),
+          isFinished: false,
+        ),
+      );
+      _workController.clear();
+      _workPhoto = null;
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Update pekerjaan hari ini tersimpan.')),
+    );
+  }
+
+  void _finishWork() {
+    if (!_isWorkActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Belum ada pekerjaan aktif hari ini.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _workUpdates.insert(
+        0,
+        _DailyWorkUpdate(
+          note: 'Pekerjaan selesai.',
+          createdAt: DateTime.now(),
+          isFinished: true,
+        ),
+      );
+      _isWorkActive = false;
+      _workStartedAt = null;
+      _workController.clear();
+      _workPhoto = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pekerjaan hari ini selesai.')),
+    );
   }
 
   leave_model.LeaveRequestRecord? _latestLeave(
@@ -463,8 +546,236 @@ class _ProfileAvatar extends StatelessWidget {
   }
 }
 
-class _MoodPickerCard extends StatelessWidget {
-  const _MoodPickerCard({
+class _DailyWorkUpdate {
+  const _DailyWorkUpdate({
+    required this.note,
+    required this.createdAt,
+    this.photoPath,
+    this.isFinished = false,
+  });
+
+  final String note;
+  final DateTime createdAt;
+  final String? photoPath;
+  final bool isFinished;
+}
+
+class _TodayWorkCard extends StatelessWidget {
+  const _TodayWorkCard({
+    required this.controller,
+    required this.selectedPhoto,
+    required this.isActive,
+    required this.startedAt,
+    required this.updates,
+    required this.onCapturePhoto,
+    required this.onClearPhoto,
+    required this.onSaveUpdate,
+    required this.onFinishWork,
+  });
+
+  final TextEditingController controller;
+  final File? selectedPhoto;
+  final bool isActive;
+  final DateTime? startedAt;
+  final List<_DailyWorkUpdate> updates;
+  final VoidCallback onCapturePhoto;
+  final VoidCallback onClearPhoto;
+  final VoidCallback onSaveUpdate;
+  final VoidCallback onFinishWork;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE7E5E4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ingin mengerjakan apa hari ini?',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? const Color(0xFFE6F4EF)
+                      : const Color(0xFFF6F2EA),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  isActive ? 'Aktif' : 'Belum mulai',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: isActive
+                        ? const Color(0xFF00796B)
+                        : const Color(0xFF7A6A58),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            startedAt == null
+                ? 'Tulis rencana atau update pekerjaan. Bisa diupdate beberapa kali sampai pekerjaan selesai.'
+                : 'Mulai ${_formatTime(startedAt!)}. Tambahkan update jika ada perkembangan.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF5D6B66),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: controller,
+            minLines: 2,
+            maxLines: 4,
+            textInputAction: TextInputAction.newline,
+            decoration: InputDecoration(
+              labelText: isActive ? 'Update pekerjaan' : 'Pekerjaan hari ini',
+              hintText: 'Contoh: Follow up UKM Pasar Minggu',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+          ),
+          if (selectedPhoto != null) ...[
+            const SizedBox(height: 12),
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.file(
+                    selectedPhoto!,
+                    height: 120,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton.filledTonal(
+                    onPressed: onClearPhoto,
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Hapus foto',
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onCapturePhoto,
+                icon: const Icon(Icons.photo_camera_rounded),
+                label: const Text('Foto kamera'),
+              ),
+              FilledButton.icon(
+                onPressed: onSaveUpdate,
+                icon: const Icon(Icons.check_rounded),
+                label: Text(isActive ? 'Simpan update' : 'Mulai kerja'),
+              ),
+              if (isActive)
+                TextButton.icon(
+                  onPressed: onFinishWork,
+                  icon: const Icon(Icons.flag_rounded),
+                  label: const Text('Pekerjaan selesai'),
+                ),
+            ],
+          ),
+          if (updates.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text('Riwayat update', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            for (final update in updates.take(3)) ...[
+              _WorkUpdateTile(update: update),
+              const SizedBox(height: 8),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkUpdateTile extends StatelessWidget {
+  const _WorkUpdateTile({required this.update});
+
+  final _DailyWorkUpdate update;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: update.isFinished
+            ? const Color(0xFFEFF7F3)
+            : const Color(0xFFF7F7F4),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            update.isFinished
+                ? Icons.task_alt_rounded
+                : Icons.work_history_rounded,
+            color: const Color(0xFF00796B),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(update.note, style: theme.textTheme.bodyLarge),
+                const SizedBox(height: 4),
+                Text(
+                  _formatTime(update.createdAt),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+                if (update.photoPath != null) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      File(update.photoPath!),
+                      height: 72,
+                      width: 96,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Kept only to avoid migration churn while the new daily-work card is active.
+// ignore: unused_element
+class _LegacyDailyPickerCard extends StatelessWidget {
+  const _LegacyDailyPickerCard({
     required this.selectedEmoji,
     required this.animationSeed,
     required this.onSelected,
@@ -500,7 +811,8 @@ class _MoodPickerCard extends StatelessWidget {
             children: [
               Expanded(
                 child:
-                    Text('Mood Hari Ini', style: theme.textTheme.titleMedium),
+                    Text('Aktivitas Hari Ini',
+                        style: theme.textTheme.titleMedium),
               ),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),

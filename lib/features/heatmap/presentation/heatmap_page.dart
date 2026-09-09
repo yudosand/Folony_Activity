@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -29,6 +30,9 @@ class HeatMapPage extends StatefulWidget {
 }
 
 class _HeatMapPageState extends State<HeatMapPage> {
+  static const _deviceLocationChannel =
+      MethodChannel('folony_activity/device_location');
+
   final _searchController = TextEditingController();
   StreamSubscription<Position>? _positionSubscription;
   DateTime? _lastLiveRefreshAt;
@@ -97,6 +101,7 @@ class _HeatMapPageState extends State<HeatMapPage> {
             snapshot: snapshot,
             points: visiblePoints,
             isLoading: _isLoading,
+            errorMessage: _errorMessage,
             onPointTap: _showPointDetail,
           ),
           const SizedBox(height: 18),
@@ -221,8 +226,22 @@ class _HeatMapPageState extends State<HeatMapPage> {
       _errorMessage = null;
     });
 
+    late final _Coordinate coordinate;
     try {
-      final coordinate = await _resolveCoordinate();
+      coordinate = await _resolveCoordinate();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _snapshot = null;
+        _errorMessage = _locationErrorMessage(error);
+        _isLoading = false;
+      });
+      return;
+    }
+
+    try {
       await _loadSnapshotForCoordinate(coordinate);
       _startLocationWatch();
     } catch (error) {
@@ -231,7 +250,7 @@ class _HeatMapPageState extends State<HeatMapPage> {
       }
       setState(() {
         _snapshot = null;
-        _errorMessage = _locationErrorMessage(error);
+        _errorMessage = _heatMapLoadErrorMessage(error);
       });
     } finally {
       if (mounted) {
@@ -241,11 +260,6 @@ class _HeatMapPageState extends State<HeatMapPage> {
   }
 
   Future<_Coordinate> _resolveCoordinate() async {
-    final isEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!isEnabled) {
-      throw StateError('GPS belum aktif.');
-    }
-
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -255,16 +269,219 @@ class _HeatMapPageState extends State<HeatMapPage> {
       throw StateError('Izin lokasi belum diberikan.');
     }
 
-    final position = await Geolocator.getCurrentPosition(
+    var isEnabled = true;
+    try {
+      isEnabled = await Geolocator.isLocationServiceEnabled().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => true,
+      );
+    } catch (_) {
+      isEnabled = true;
+    }
+
+    if (!isEnabled) {
+      final nativeRetry = await _readNativeLastKnownCoordinate();
+      if (nativeRetry != null) {
+        return nativeRetry;
+      }
+      throw StateError('GPS belum aktif.');
+    }
+
+    return _readLiveCoordinate();
+  }
+
+  Future<_Coordinate> _readLiveCoordinate() async {
+    Object lastError;
+
+    try {
+      final position = await _readLivePosition();
+      return _Coordinate(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+    } catch (error) {
+      lastError = error;
+    }
+
+    final nativeLastKnown = await _readNativeLastKnownCoordinate(
+      allowRelaxedFallback: true,
+    );
+    if (nativeLastKnown != null) {
+      return nativeLastKnown;
+    }
+
+    try {
+      final position = await Geolocator.getLastKnownPosition().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => null,
+      );
+      if (position != null && _isUsableDevicePosition(position)) {
+        return _Coordinate(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
+      }
+      if (position != null && _isReasonableFallbackPosition(position)) {
+        return _Coordinate(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
+      }
+    } catch (error) {
+      lastError = error;
+    }
+
+    throw lastError;
+  }
+
+  Future<Position> _readLivePosition() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 6),
+        ),
+      );
+      if (_isUsableDevicePosition(position)) {
+        return position;
+      }
+      if (_isReasonableFallbackPosition(position)) {
+        return position;
+      }
+    } catch (_) {}
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 6),
+        ),
+      );
+      if (_isUsableDevicePosition(position) ||
+          _isReasonableFallbackPosition(position)) {
+        return position;
+      }
+    } catch (_) {}
+
+    final nativeLastKnown = await _readNativeLastKnownCoordinate(
+      allowRelaxedFallback: true,
+    );
+    if (nativeLastKnown != null) {
+      return Position(
+        latitude: nativeLastKnown.latitude,
+        longitude: nativeLastKnown.longitude,
+        timestamp: DateTime.now(),
+        accuracy: 100,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      );
+    }
+
+    final lastKnown = await Geolocator.getLastKnownPosition().timeout(
+      const Duration(seconds: 2),
+      onTimeout: () => null,
+    );
+    if (lastKnown != null &&
+        (_isUsableDevicePosition(lastKnown) ||
+            _isReasonableFallbackPosition(lastKnown))) {
+      return lastKnown;
+    }
+
+    final streamedPosition = await Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 12),
+        accuracy: LocationAccuracy.low,
+        distanceFilter: 0,
       ),
-    );
-    return _Coordinate(
-      latitude: position.latitude,
-      longitude: position.longitude,
-    );
+    ).first.timeout(const Duration(seconds: 8));
+    if (_isUsableDevicePosition(streamedPosition) ||
+        _isReasonableFallbackPosition(streamedPosition)) {
+      return streamedPosition;
+    }
+
+    return streamedPosition;
+  }
+
+  Future<_Coordinate?> _readNativeLastKnownCoordinate({
+    bool allowRelaxedFallback = false,
+  }) async {
+    try {
+      final payload = await _deviceLocationChannel.invokeMethod<Object?>(
+        'lastKnownLocation',
+      ).timeout(const Duration(seconds: 8), onTimeout: () => null);
+      if (payload is! Map) {
+        return null;
+      }
+
+      final latitude = _asDouble(payload['latitude']);
+      final longitude = _asDouble(payload['longitude']);
+      if (latitude == null || longitude == null) {
+        return null;
+      }
+
+      final accuracy = _asDouble(payload['accuracy']);
+      final ageMs = _asInt(payload['age_ms']);
+      final time = _asInt(payload['time']);
+      if (accuracy != null && accuracy > (allowRelaxedFallback ? 5000 : 2000)) {
+        return null;
+      }
+      if (ageMs != null) {
+        final maxAge = allowRelaxedFallback
+            ? const Duration(minutes: 30)
+            : const Duration(minutes: 10);
+        if (Duration(milliseconds: ageMs).abs() > maxAge) {
+          return null;
+        }
+      } else if (time != null) {
+        final maxAge = allowRelaxedFallback
+            ? const Duration(minutes: 30)
+            : const Duration(minutes: 10);
+        final age = DateTime.now()
+            .difference(DateTime.fromMillisecondsSinceEpoch(time))
+            .abs();
+        if (age > maxAge) {
+          return null;
+        }
+      }
+
+      return _Coordinate(latitude: latitude, longitude: longitude);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  double? _asDouble(Object? value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  int? _asInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  bool _isUsableDevicePosition(Position position) {
+    final age = DateTime.now().difference(position.timestamp).abs();
+    final accuracy = position.accuracy;
+
+    return age <= const Duration(minutes: 10) && accuracy <= 2000;
+  }
+
+  bool _isReasonableFallbackPosition(Position position) {
+    final age = DateTime.now().difference(position.timestamp).abs();
+    final accuracy = position.accuracy;
+
+    return age <= const Duration(minutes: 30) && accuracy <= 5000;
   }
 
   Future<void> _loadSnapshotForCoordinate(_Coordinate coordinate) async {
@@ -318,10 +535,17 @@ class _HeatMapPageState extends State<HeatMapPage> {
       return 'Izin lokasi belum diberikan. Berikan izin lokasi agar Heat Map membaca posisi Anda sekarang.';
     }
     if (raw.contains('timeout')) {
-      return 'Lokasi belum terbaca dalam 12 detik. Pastikan GPS aktif dan sinyal lokasi stabil, lalu coba lagi.';
+      return 'Lokasi belum terbaca. Pastikan GPS aktif, izin lokasi sudah diberikan, lalu tekan Refresh lokasi.';
     }
 
     return 'Lokasi belum berhasil dibaca. Heat Map hanya akan tampil setelah GPS live berhasil didapat.';
+  }
+
+  String _heatMapLoadErrorMessage(Object error) {
+    return humanReadableError(
+      error,
+      action: 'memuat data Heat Map',
+    );
   }
 
   void _showPointDetail(HeatMapPoint point) {
@@ -743,12 +967,14 @@ class _MapPreview extends StatefulWidget {
     required this.snapshot,
     required this.points,
     required this.isLoading,
+    required this.errorMessage,
     required this.onPointTap,
   });
 
   final HeatMapSnapshot? snapshot;
   final List<HeatMapPoint> points;
   final bool isLoading;
+  final String? errorMessage;
   final ValueChanged<HeatMapPoint> onPointTap;
 
   @override
@@ -778,9 +1004,50 @@ class _MapPreviewState extends State<_MapPreview> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final center = widget.snapshot?.userLocation;
-    final userPoint = center == null
-        ? const LatLng(-6.2000, 106.8166)
-        : LatLng(center.latitude, center.longitude);
+    if (center == null) {
+      return Container(
+        height: 360,
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6F4EF),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: const Color(0xFFE7E5E4)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.my_location_rounded,
+              size: 46,
+              color: widget.isLoading ? Colors.orange : Colors.teal,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              widget.isLoading
+                  ? 'Membaca GPS live...'
+                  : widget.errorMessage == null
+                      ? 'GPS live belum siap'
+                      : 'Data Heat Map belum termuat',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.errorMessage ??
+                  'Heat Map hanya mengambil data Monitoring Jaringan HR setelah lokasi perangkat berhasil terbaca. Tekan Refresh lokasi jika GPS sudah aktif.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final userPoint = LatLng(center.latitude, center.longitude);
     final radiusMeters = widget.snapshot?.radiusMeters ?? 0;
 
     return Container(
@@ -822,7 +1089,7 @@ class _MapPreviewState extends State<_MapPreview> {
                   maxZoom: 19,
                   errorTileCallback: (_, __, ___) {},
                 ),
-                if (center != null && radiusMeters > 0)
+                if (radiusMeters > 0)
                   CircleLayer(
                     circles: [
                       CircleMarker(
@@ -848,13 +1115,12 @@ class _MapPreviewState extends State<_MapPreview> {
                           onTap: () => widget.onPointTap(point),
                         ),
                       ),
-                    if (center != null)
-                      Marker(
-                        point: userPoint,
-                        width: 54,
-                        height: 54,
-                        child: const _UserPin(),
-                      ),
+                    Marker(
+                      point: userPoint,
+                      width: 54,
+                      height: 54,
+                      child: const _UserPin(),
+                    ),
                   ],
                 ),
               ],
@@ -927,21 +1193,6 @@ class _MapPreviewState extends State<_MapPreview> {
               ],
             ),
           ),
-          if (center == null)
-            Positioned.fill(
-              child: ColoredBox(
-                color: Colors.black.withValues(alpha: 0.34),
-                child: Center(
-                  child: Text(
-                    'Menunggu lokasi untuk membuka peta.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );

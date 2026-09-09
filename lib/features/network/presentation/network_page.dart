@@ -78,27 +78,36 @@ class _NetworkPageState extends State<NetworkPage> {
       builder: (context, _) {
         final theme = Theme.of(context);
         final query = _searchController.text.trim().toLowerCase();
-        final visibleEntries = widget.controller.ownNetworkEntriesForSession(
-          widget.session,
-        );
-        final myUkmEntries = visibleEntries
-            .where((entry) => entry.type == NetworkEntryType.ukm)
-            .where(_isOwnedByCurrentUser)
+        final myUkmEntries = widget.controller
+            .networkEntriesForSession(
+              widget.session,
+              type: NetworkEntryType.ukm,
+              scope: 'mine',
+            )
             .where((entry) => _matchesSearch(entry, query))
             .toList();
-        final areaUkmEntries = visibleEntries
-            .where((entry) => entry.type == NetworkEntryType.ukm)
-            .where((entry) => _isManagement || !_isOwnedByCurrentUser(entry))
+        final areaUkmEntries = widget.controller
+            .networkEntriesForSession(
+              widget.session,
+              type: NetworkEntryType.ukm,
+              scope: 'area',
+            )
             .where((entry) => _matchesSearch(entry, query))
             .toList();
-        final myMitraEntries = visibleEntries
-            .where((entry) => entry.type == NetworkEntryType.mitraHub)
-            .where(_isOwnedByCurrentUser)
+        final myMitraEntries = widget.controller
+            .networkEntriesForSession(
+              widget.session,
+              type: NetworkEntryType.mitraHub,
+              scope: 'mine',
+            )
             .where((entry) => _matchesSearch(entry, query))
             .toList();
-        final areaMitraEntries = visibleEntries
-            .where((entry) => entry.type == NetworkEntryType.mitraHub)
-            .where((entry) => _isManagement || !_isOwnedByCurrentUser(entry))
+        final areaMitraEntries = widget.controller
+            .networkEntriesForSession(
+              widget.session,
+              type: NetworkEntryType.mitraHub,
+              scope: 'area',
+            )
             .where((entry) => _matchesSearch(entry, query))
             .toList();
         final teamUkmEntries = _isAreaManager
@@ -169,6 +178,7 @@ class _NetworkPageState extends State<NetworkPage> {
                     subtitle:
                         '${teamUkmEntries.length} data UKM FGG yang berada di wilayah kerja anda.',
                     entries: teamUkmEntries,
+                    totalCount: teamUkmEntries.length,
                     emptyMessage:
                         'Data UKM dari FGG akan muncul di sini sebagai monitoring area.',
                     onTap: (entry) => _showDetail(entry, canEdit: false),
@@ -178,12 +188,32 @@ class _NetworkPageState extends State<NetworkPage> {
                 _NetworkSection(
                   title: _isManagement ? 'UKM Area Kerja' : 'UKM Saya',
                   subtitle: _isManagement
-                      ? '${areaUkmEntries.length} data UKM di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.'
-                      : '${myUkmEntries.length} data UKM yang Anda buat sendiri, termasuk data di luar area kerja.',
+                      ? '${_networkCountText(areaUkmEntries, type: NetworkEntryType.ukm, scope: 'area')} data UKM di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.'
+                      : '${_networkCountText(myUkmEntries, type: NetworkEntryType.ukm, scope: 'mine')} data UKM yang Anda buat sendiri, termasuk data di luar area kerja.',
                   entries: _isManagement ? areaUkmEntries : myUkmEntries,
+                  totalCount: _networkTotalCount(
+                    type: NetworkEntryType.ukm,
+                    scope: _isManagement ? 'area' : 'mine',
+                    fallback: _isManagement
+                        ? areaUkmEntries.length
+                        : myUkmEntries.length,
+                  ),
                   emptyMessage: _isManagement
                       ? 'Belum ada data UKM di wilayah kerja management.'
                       : 'Tekan tombol tambah untuk membuat data UKM baru.',
+                  errorMessage: _networkErrorText(
+                    type: NetworkEntryType.ukm,
+                    scope: _isManagement ? 'area' : 'mine',
+                  ),
+                  hasMore: widget.controller.hasMoreNetworkEntriesForSession(
+                    widget.session,
+                    type: NetworkEntryType.ukm,
+                    scope: _isManagement ? 'area' : 'mine',
+                  ),
+                  onLoadMore: () => _loadMoreEntries(
+                    type: NetworkEntryType.ukm,
+                    scope: _isManagement ? 'area' : 'mine',
+                  ),
                   onTap: (entry) => _showDetail(entry, canEdit: !_isManagement),
                 ),
                 if (!_isManagement) ...[
@@ -191,10 +221,28 @@ class _NetworkPageState extends State<NetworkPage> {
                   _NetworkSection(
                     title: 'UKM Area Kerja',
                     subtitle:
-                        '${areaUkmEntries.length} data UKM non-milik Anda yang berada di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
+                        '${_networkCountText(areaUkmEntries, type: NetworkEntryType.ukm, scope: 'area')} data UKM non-milik Anda yang berada di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
                     entries: areaUkmEntries,
+                    totalCount: _networkTotalCount(
+                      type: NetworkEntryType.ukm,
+                      scope: 'area',
+                      fallback: areaUkmEntries.length,
+                    ),
                     emptyMessage:
                         'Data UKM area kerja dari user lain akan muncul di sini.',
+                    errorMessage: _networkErrorText(
+                      type: NetworkEntryType.ukm,
+                      scope: 'area',
+                    ),
+                    hasMore: widget.controller.hasMoreNetworkEntriesForSession(
+                      widget.session,
+                      type: NetworkEntryType.ukm,
+                      scope: 'area',
+                    ),
+                    onLoadMore: () => _loadMoreEntries(
+                      type: NetworkEntryType.ukm,
+                      scope: 'area',
+                    ),
                     onTap: (entry) =>
                         _showDetail(entry, canEdit: !_isManagement),
                   ),
@@ -205,10 +253,29 @@ class _NetworkPageState extends State<NetworkPage> {
                     _NetworkSection(
                       title: 'Mitra Saya',
                       subtitle:
-                          '${myMitraEntries.length} data mitra yang Anda buat sendiri, termasuk data di luar area kerja.',
+                          '${_networkCountText(myMitraEntries, type: NetworkEntryType.mitraHub, scope: 'mine')} data mitra yang Anda buat sendiri, termasuk data di luar area kerja.',
                       entries: myMitraEntries,
+                      totalCount: _networkTotalCount(
+                        type: NetworkEntryType.mitraHub,
+                        scope: 'mine',
+                        fallback: myMitraEntries.length,
+                      ),
                       emptyMessage:
                           'Tekan tombol tambah untuk membuat data mitra baru.',
+                      errorMessage: _networkErrorText(
+                        type: NetworkEntryType.mitraHub,
+                        scope: 'mine',
+                      ),
+                      hasMore:
+                          widget.controller.hasMoreNetworkEntriesForSession(
+                        widget.session,
+                        type: NetworkEntryType.mitraHub,
+                        scope: 'mine',
+                      ),
+                      onLoadMore: () => _loadMoreEntries(
+                        type: NetworkEntryType.mitraHub,
+                        scope: 'mine',
+                      ),
                       onTap: (entry) =>
                           _showDetail(entry, canEdit: !_isManagement),
                     ),
@@ -217,12 +284,30 @@ class _NetworkPageState extends State<NetworkPage> {
                   _NetworkSection(
                     title: 'Mitra Area Kerja',
                     subtitle: _isManagement
-                        ? '${areaMitraEntries.length} data mitra di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.'
-                        : '${areaMitraEntries.length} data mitra non-milik Anda di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
+                        ? '${_networkCountText(areaMitraEntries, type: NetworkEntryType.mitraHub, scope: 'area')} data mitra di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.'
+                        : '${_networkCountText(areaMitraEntries, type: NetworkEntryType.mitraHub, scope: 'area')} data mitra non-milik Anda di wilayah kerja ${widget.session.territoryLabel ?? widget.session.areaName}.',
                     entries: areaMitraEntries,
+                    totalCount: _networkTotalCount(
+                      type: NetworkEntryType.mitraHub,
+                      scope: 'area',
+                      fallback: areaMitraEntries.length,
+                    ),
                     emptyMessage: _isManagement
                         ? 'Belum ada data mitra di wilayah kerja management.'
                         : 'Data mitra area kerja dari user lain akan muncul di sini.',
+                    errorMessage: _networkErrorText(
+                      type: NetworkEntryType.mitraHub,
+                      scope: 'area',
+                    ),
+                    hasMore: widget.controller.hasMoreNetworkEntriesForSession(
+                      widget.session,
+                      type: NetworkEntryType.mitraHub,
+                      scope: 'area',
+                    ),
+                    onLoadMore: () => _loadMoreEntries(
+                      type: NetworkEntryType.mitraHub,
+                      scope: 'area',
+                    ),
                     onTap: (entry) =>
                         _showDetail(entry, canEdit: !_isManagement),
                   ),
@@ -287,6 +372,47 @@ class _NetworkPageState extends State<NetworkPage> {
     await _openForm(type: selectedType);
   }
 
+  String _networkCountText(
+    List<NetworkEntry> entries, {
+    required NetworkEntryType type,
+    required String scope,
+  }) {
+    final total = widget.controller.totalNetworkEntriesForSession(
+      widget.session,
+      type: type,
+      scope: scope,
+    );
+    return '${total ?? entries.length}';
+  }
+
+  int _networkTotalCount({
+    required NetworkEntryType type,
+    required String scope,
+    required int fallback,
+  }) {
+    return widget.controller.totalNetworkEntriesForSession(
+          widget.session,
+          type: type,
+          scope: scope,
+        ) ??
+        fallback;
+  }
+
+  String? _networkErrorText({
+    required NetworkEntryType type,
+    required String scope,
+  }) {
+    final error = widget.controller.networkErrorForSession(
+      widget.session,
+      type: type,
+      scope: scope,
+    );
+    if (error == null) {
+      return null;
+    }
+    return humanReadableError(error, action: 'memuat data jaringan');
+  }
+
   Future<void> _refreshEntries({bool showFeedback = false}) async {
     try {
       await widget.controller.refreshNetworkDataForSession(widget.session);
@@ -303,6 +429,30 @@ class _NetworkPageState extends State<NetworkPage> {
         SnackBar(
           content: Text(
             'Muat data jaringan gagal: ${humanReadableError(error, action: 'memuat data jaringan')}',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadMoreEntries({
+    required NetworkEntryType type,
+    required String scope,
+  }) async {
+    try {
+      await widget.controller.loadMoreNetworkEntriesForSession(
+        widget.session,
+        type: type,
+        scope: scope,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Muat halaman berikutnya gagal: ${humanReadableError(error, action: 'memuat data jaringan')}',
           ),
         ),
       );
@@ -1745,14 +1895,22 @@ class _NetworkSection extends StatefulWidget {
     required this.title,
     required this.subtitle,
     required this.entries,
+    required this.totalCount,
     required this.emptyMessage,
+    this.errorMessage,
+    this.hasMore = false,
+    this.onLoadMore,
     required this.onTap,
   });
 
   final String title;
   final String subtitle;
   final List<NetworkEntry> entries;
+  final int totalCount;
   final String emptyMessage;
+  final String? errorMessage;
+  final bool hasMore;
+  final Future<void> Function()? onLoadMore;
   final ValueChanged<NetworkEntry> onTap;
 
   @override
@@ -1762,6 +1920,7 @@ class _NetworkSection extends StatefulWidget {
 class _NetworkSectionState extends State<_NetworkSection> {
   static const _itemsPerPage = 10;
   int _pageIndex = 0;
+  bool _isLoadingMore = false;
 
   @override
   void didUpdateWidget(covariant _NetworkSection oldWidget) {
@@ -1809,6 +1968,25 @@ class _NetworkSectionState extends State<_NetworkSection> {
           ),
         ),
         children: [
+          if (widget.errorMessage != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: Text(
+                'Data section ini belum lengkap: ${widget.errorMessage}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF9A3412),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (widget.entries.isEmpty)
             EmptyState(
               icon: Icons.folder_open_rounded,
@@ -1819,7 +1997,7 @@ class _NetworkSectionState extends State<_NetworkSection> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Menampilkan ${start + 1}-$end dari ${widget.entries.length} data',
+                'Menampilkan ${start + 1}-$end dari ${widget.totalCount} data',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -1865,10 +2043,52 @@ class _NetworkSectionState extends State<_NetworkSection> {
                 ],
               ),
             ],
+            if (widget.hasMore && widget.onLoadMore != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isLoadingMore ? null : _loadMoreFromServer,
+                  icon: _isLoadingMore
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_download_rounded),
+                  label: Text(
+                    _isLoadingMore
+                        ? 'Memuat data...'
+                        : 'Muat halaman berikutnya',
+                  ),
+                ),
+              ),
+            ],
           ],
         ],
       ),
     );
+  }
+
+  Future<void> _loadMoreFromServer() async {
+    final onLoadMore = widget.onLoadMore;
+    if (onLoadMore == null || _isLoadingMore) {
+      return;
+    }
+
+    final nextPageIndex = _lastPageIndex(widget.entries.length + _itemsPerPage);
+    setState(() => _isLoadingMore = true);
+    try {
+      await onLoadMore();
+      if (mounted) {
+        setState(() {
+          _pageIndex = nextPageIndex;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
+    }
   }
 
   int _lastPageIndex(int length) {

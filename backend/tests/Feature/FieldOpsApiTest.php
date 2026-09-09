@@ -185,6 +185,688 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonPath('data.name', 'Mitra Sinar Jaya');
     }
 
+    public function test_network_area_work_data_uses_hr_monitoring_source_with_complete_pagination(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        for ($index = 1; $index <= 25; $index++) {
+            $this->createHrMonitoringNetworkProfile(
+                id: sprintf('net_hr_pasarminggu_%02d', $index),
+                type: 'ukm',
+                name: sprintf('HR Pasar Minggu Page Test %02d', $index),
+                district: 'Pasar Minggu',
+                subdistrict: 'Ragunan',
+                latitude: -6.286000 + ($index * 0.00001),
+                longitude: 106.830000 + ($index * 0.00001),
+            );
+        }
+
+        $pasarMingguFgg = User::query()->create([
+            'id' => 'usr_fgg_pasarminggu_page',
+            'employee_code' => 'EMP-FGG-PAGE-001',
+            'full_name' => 'Page FGG Pasar Minggu',
+            'phone_number' => '081399990001',
+            'area_name' => 'Pasar Minggu',
+            'work_location' => 'Pasar Minggu',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => null,
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'district',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Jakarta Selatan',
+                    'territory_district' => 'Pasar Minggu',
+                ],
+            ],
+            'role' => 'fgg',
+            'job_title' => 'Field Growth Guide',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($pasarMingguFgg);
+
+        $pageOne = $this->getJson('/api/network?type=ukm&scope=area&q=HR%20Pasar%20Minggu%20Page%20Test&per_page=10&page=1');
+        $pageTwo = $this->getJson('/api/network?type=ukm&scope=area&q=HR%20Pasar%20Minggu%20Page%20Test&per_page=10&page=2');
+        $pageThree = $this->getJson('/api/network?type=ukm&scope=area&q=HR%20Pasar%20Minggu%20Page%20Test&per_page=10&page=3');
+
+        $pageOne
+            ->assertOk()
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.count', 10)
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonPath('meta.next_page', 2)
+            ->assertJsonCount(10, 'data')
+            ->assertJsonFragment(['name' => 'HR Pasar Minggu Page Test 25']);
+
+        $pageTwo
+            ->assertOk()
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.count', 10)
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonPath('meta.next_page', 3)
+            ->assertJsonCount(10, 'data');
+
+        $pageThree
+            ->assertOk()
+            ->assertJsonPath('meta.current_page', 3)
+            ->assertJsonPath('meta.count', 5)
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonPath('meta.next_page', null)
+            ->assertJsonCount(5, 'data')
+            ->assertJsonFragment(['name' => 'HR Pasar Minggu Page Test 01']);
+    }
+
+    public function test_network_area_work_data_matches_hr_monitoring_pasarminggu_import_rows(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        for ($index = 1; $index <= 125; $index++) {
+            NetworkProfile::query()->create([
+                'id' => sprintf('net_hr_pm_legacy_%03d', $index),
+                'owner_id' => 'usr_hr_001',
+                'owner_name' => 'HR Monitoring',
+                'owner_role' => UserRole::HR,
+                'area_name' => 'pasar minggu',
+                'territory_province' => 'DKI Jakarta',
+                'territory_city' => 'Kolom Import Tidak Konsisten',
+                'territory_district' => null,
+                'territory_subdistrict' => null,
+                'type' => 'ukm',
+                'name' => sprintf('Legacy PM HR Match %03d', $index),
+                'address' => 'Jalan Pasar Minggu, Pasar Minggu, Kota Jakarta Selatan, DKI Jakarta',
+                'business_type' => 'Warung',
+                'phone_number' => '08139998' . str_pad((string) $index, 4, '0', STR_PAD_LEFT),
+                'status' => 'draft',
+                'reference_name' => 'Monitoring HR',
+                'latitude' => -6.289000 + ($index * 0.00001),
+                'longitude' => 106.809000 + ($index * 0.00001),
+                'created_at' => now()->addSeconds($index),
+                'updated_at' => now()->addSeconds($index),
+            ]);
+        }
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_pm_legacy_wrong_city_guard',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'HR Monitoring',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'pasar minggu',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Krukut',
+            'type' => 'ukm',
+            'name' => 'Legacy PM HR Match Guard Krukut',
+            'address' => 'Krukut, Taman Sari, Kota Jakarta Barat, DKI Jakarta',
+            'business_type' => 'Warung',
+            'phone_number' => '081399989999',
+            'status' => 'draft',
+            'reference_name' => 'Monitoring HR',
+            'latitude' => -6.159372,
+            'longitude' => 106.8180155,
+        ]);
+
+        $pasarMingguFgg = User::query()->create([
+            'id' => 'usr_fgg_pasarminggu_legacy_match',
+            'employee_code' => 'EMP-FGG-PM-LEGACY',
+            'full_name' => 'Legacy FGG Pasar Minggu',
+            'phone_number' => '081399990125',
+            'area_name' => 'Pasar Minggu',
+            'work_location' => 'Pasar Minggu',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => null,
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'district',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Kota Administrasi Jakarta Selatan',
+                    'territory_district' => 'Pasar Minggu',
+                ],
+            ],
+            'role' => 'fgg',
+            'job_title' => 'Field Growth Guide',
+            'password' => '123456',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($pasarMingguFgg);
+
+        $pageOne = $this->getJson('/api/network?type=ukm&scope=area&q=Legacy%20PM%20HR%20Match&per_page=10&page=1');
+        $pageThirteen = $this->getJson('/api/network?type=ukm&scope=area&q=Legacy%20PM%20HR%20Match&per_page=10&page=13');
+
+        $pageOne
+            ->assertOk()
+            ->assertJsonPath('meta.total', 125)
+            ->assertJsonPath('meta.count', 10)
+            ->assertJsonPath('meta.has_more', true)
+            ->assertJsonFragment(['name' => 'Legacy PM HR Match 125'])
+            ->assertJsonMissing(['id' => 'net_hr_pm_legacy_wrong_city_guard']);
+
+        $pageThirteen
+            ->assertOk()
+            ->assertJsonPath('meta.current_page', 13)
+            ->assertJsonPath('meta.total', 125)
+            ->assertJsonPath('meta.count', 5)
+            ->assertJsonPath('meta.has_more', false)
+            ->assertJsonPath('meta.next_page', null)
+            ->assertJsonFragment(['name' => 'Legacy PM HR Match 001']);
+    }
+
+    public function test_network_profile_created_outside_user_area_stays_in_mine_and_moves_to_matching_area(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $this->postJson('/api/network', [
+            'id' => 'net_bima_outside_indramayu',
+            'type' => 'ukm',
+            'name' => 'Warung Jable Indramayu',
+            'address' => 'Jl. Pasar Indramayu',
+            'territory_province' => 'Jawa Barat',
+            'territory_city' => 'Indramayu',
+            'territory_district' => 'Indramayu',
+            'territory_subdistrict' => 'Lemahabang',
+            'business_type' => 'Warung',
+            'phone_number' => '081300001234',
+            'status' => 'draft',
+            'latitude' => -6.326200,
+            'longitude' => 108.322000,
+        ])->assertCreated();
+
+        $this->getJson('/api/network?type=ukm&scope=mine&q=Warung%20Jable%20Indramayu&per_page=10')
+            ->assertOk()
+            ->assertJsonPath('meta.count', 1)
+            ->assertJsonFragment(['id' => 'net_bima_outside_indramayu']);
+
+        $this->getJson('/api/network?type=ukm&scope=area&q=Warung%20Jable%20Indramayu&per_page=10')
+            ->assertOk()
+            ->assertJsonPath('meta.count', 0)
+            ->assertJsonMissing(['id' => 'net_bima_outside_indramayu']);
+    }
+
+    public function test_fgg_area_scope_only_uses_most_specific_assignment_label(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_krukut_wrong_for_pasarminggu',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Krukut',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Krukut',
+            'type' => 'ukm',
+            'name' => 'HR Krukut Tidak Untuk Pasar Minggu',
+            'address' => 'Krukut, Taman Sari, Kota Jakarta Barat, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112255',
+            'status' => 'draft',
+            'latitude' => -6.159260,
+            'longitude' => 106.818000,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_pasarminggu_visible_for_bima',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Pasar Minggu',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Ragunan',
+            'type' => 'ukm',
+            'name' => 'HR Pasar Minggu Untuk Bima',
+            'address' => 'Ragunan, Pasar Minggu, Kota Jakarta Selatan, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112266',
+            'status' => 'draft',
+            'latitude' => -6.286500,
+            'longitude' => 106.830900,
+        ]);
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $this->getJson('/api/network?type=ukm&scope=area&per_page=10')
+            ->assertOk()
+            ->assertJsonFragment(['id' => 'net_hr_pasarminggu_visible_for_bima'])
+            ->assertJsonMissing(['id' => 'net_hr_krukut_wrong_for_pasarminggu']);
+    }
+
+    public function test_fgg_area_scope_ignores_broad_ancestor_assignments_when_specific_area_exists(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $bima = User::query()->findOrFail('usr_fgg_001');
+        $bima->forceFill([
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'province',
+                    'territory_province' => 'DKI Jakarta',
+                ],
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'city',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Kota Administrasi Jakarta Selatan',
+                ],
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'district',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Kota Administrasi Jakarta Selatan',
+                    'territory_district' => 'Pasar Minggu',
+                ],
+            ],
+        ])->save();
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_jakbar_ancestor_should_not_show',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Krukut',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Krukut',
+            'type' => 'ukm',
+            'name' => 'HR Krukut Ancestor Tidak Untuk Bima',
+            'address' => 'Krukut, Taman Sari, Kota Jakarta Barat, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112277',
+            'status' => 'draft',
+            'latitude' => -6.159260,
+            'longitude' => 106.818000,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_pasarminggu_ancestor_visible',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Pasar Minggu',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Ragunan',
+            'type' => 'ukm',
+            'name' => 'HR Pasar Minggu Ancestor Untuk Bima',
+            'address' => 'Ragunan, Pasar Minggu, Kota Jakarta Selatan, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112288',
+            'status' => 'draft',
+            'latitude' => -6.286500,
+            'longitude' => 106.830900,
+        ]);
+
+        Sanctum::actingAs($bima->fresh());
+
+        $this->getJson('/api/network?type=ukm&scope=area&per_page=10')
+            ->assertOk()
+            ->assertJsonFragment(['id' => 'net_hr_pasarminggu_ancestor_visible'])
+            ->assertJsonMissing(['id' => 'net_hr_jakbar_ancestor_should_not_show']);
+    }
+
+    public function test_fgg_area_scope_prefers_specific_district_even_when_assignment_parent_data_is_incomplete(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $bima = User::query()->findOrFail('usr_fgg_001');
+        $bima->forceFill([
+            'area_name' => 'Pasar Minggu',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => null,
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'province',
+                    'territory_province' => 'DKI Jakarta',
+                ],
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'district',
+                    'territory_district' => 'Pasar Minggu',
+                ],
+            ],
+        ])->save();
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_krukut_incomplete_parent_should_not_show',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Krukut',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Krukut',
+            'type' => 'ukm',
+            'name' => 'HR Krukut Incomplete Parent Guard',
+            'address' => 'Krukut, Taman Sari, Kota Jakarta Barat, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112303',
+            'status' => 'draft',
+            'latitude' => -6.159260,
+            'longitude' => 106.818000,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_pasarminggu_incomplete_parent_visible',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Pasar Minggu',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Ragunan',
+            'type' => 'ukm',
+            'name' => 'HR Pasar Minggu Incomplete Parent Visible',
+            'address' => 'Ragunan, Pasar Minggu, Kota Jakarta Selatan, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112304',
+            'status' => 'draft',
+            'latitude' => -6.286500,
+            'longitude' => 106.830900,
+        ]);
+
+        Sanctum::actingAs($bima->fresh());
+
+        $this->getJson('/api/network?type=ukm&scope=area&q=HR&per_page=10')
+            ->assertOk()
+            ->assertJsonFragment(['id' => 'net_hr_pasarminggu_incomplete_parent_visible'])
+            ->assertJsonMissing(['id' => 'net_hr_krukut_incomplete_parent_should_not_show']);
+    }
+
+    public function test_fgg_area_scope_tolerates_jakarta_city_name_variants_without_leaking_other_districts(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $bima = User::query()->findOrFail('usr_fgg_001');
+        $bima->forceFill([
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'province',
+                    'territory_province' => 'DKI Jakarta',
+                ],
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'city',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Jakarta Selatan',
+                ],
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'district',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Kota Administrasi Jakarta Selatan',
+                    'territory_district' => 'Pasar Minggu',
+                ],
+            ],
+        ])->save();
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_krukut_variant_leak_guard',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Krukut',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Krukut',
+            'type' => 'ukm',
+            'name' => 'HR Krukut Variant Leak Guard',
+            'address' => 'Krukut, Taman Sari, Kota Jakarta Barat, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112299',
+            'status' => 'draft',
+            'latitude' => -6.159260,
+            'longitude' => 106.818000,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_pasarminggu_variant_visible',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Pasar Minggu',
+            'territory_province' => 'Daerah Khusus Ibukota Jakarta',
+            'territory_city' => 'Kota Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Ragunan',
+            'type' => 'ukm',
+            'name' => 'HR Pasar Minggu Variant Visible',
+            'address' => 'Ragunan, Pasar Minggu, Jakarta Selatan, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112300',
+            'status' => 'draft',
+            'latitude' => -6.286500,
+            'longitude' => 106.830900,
+        ]);
+
+        Sanctum::actingAs($bima->fresh());
+
+        $response = $this->getJson('/api/network?type=ukm&scope=area&q=HR&per_page=10');
+
+        $response
+            ->assertOk()
+            ->assertJsonFragment(['id' => 'net_hr_pasarminggu_variant_visible'])
+            ->assertJsonMissing(['id' => 'net_hr_krukut_variant_leak_guard']);
+    }
+
+    public function test_fgg_area_scope_does_not_leak_structured_jakbar_data_with_pasarminggu_text(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $bima = User::query()->findOrFail('usr_fgg_001');
+        $bima->forceFill([
+            'area_name' => 'Pasar Minggu',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => null,
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'district',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Kota Administrasi Jakarta Selatan',
+                    'territory_district' => 'Pasar Minggu',
+                ],
+            ],
+        ])->save();
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_jakbar_has_pasarminggu_text_should_not_show',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Pasar Minggu',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
+            'territory_subdistrict' => 'Krukut',
+            'type' => 'ukm',
+            'name' => 'HR Krukut Dengan Teks Pasar Minggu',
+            'address' => 'Krukut, Taman Sari, Kota Jakarta Barat, DKI Jakarta - catatan Pasar Minggu',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112301',
+            'status' => 'draft',
+            'latitude' => -6.159260,
+            'longitude' => 106.818000,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_hr_pasarminggu_structured_should_show',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Pasar Minggu',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => 'Ragunan',
+            'type' => 'ukm',
+            'name' => 'HR Pasar Minggu Struktur Benar',
+            'address' => 'Ragunan, Pasar Minggu, Kota Jakarta Selatan, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112302',
+            'status' => 'draft',
+            'latitude' => -6.286500,
+            'longitude' => 106.830900,
+        ]);
+
+        Sanctum::actingAs($bima->fresh());
+
+        $this->getJson('/api/network?type=ukm&scope=area&q=Pasar%20Minggu&per_page=10')
+            ->assertOk()
+            ->assertJsonFragment(['id' => 'net_hr_pasarminggu_structured_should_show'])
+            ->assertJsonMissing(['id' => 'net_hr_jakbar_has_pasarminggu_text_should_not_show']);
+
+        $this->getJson('/api/network?type=ukm&scope=area&q=Krukut&per_page=10')
+            ->assertOk()
+            ->assertJsonPath('meta.count', 0)
+            ->assertJsonMissing(['id' => 'net_hr_jakbar_has_pasarminggu_text_should_not_show']);
+    }
+
+    public function test_fgg_area_scope_uses_legacy_address_before_stale_area_name(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $bima = User::query()->findOrFail('usr_fgg_001');
+        $bima->forceFill([
+            'area_name' => 'Pasar Minggu',
+            'territory_scope' => 'district',
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Kota Administrasi Jakarta Selatan',
+            'territory_district' => 'Pasar Minggu',
+            'territory_subdistrict' => null,
+            'territory_assignments' => [
+                [
+                    'rule_type' => 'include',
+                    'territory_scope' => 'district',
+                    'territory_province' => 'DKI Jakarta',
+                    'territory_city' => 'Kota Administrasi Jakarta Selatan',
+                    'territory_district' => 'Pasar Minggu',
+                ],
+            ],
+        ])->save();
+
+        NetworkProfile::query()->create([
+            'id' => 'net_legacy_stale_pasarminggu_area_but_krukut_address',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Pasar Minggu',
+            'territory_province' => null,
+            'territory_city' => null,
+            'territory_district' => null,
+            'territory_subdistrict' => null,
+            'type' => 'ukm',
+            'name' => 'Legacy Krukut Tidak Untuk Pasar Minggu',
+            'address' => 'Krukut, Taman Sari, Kota Jakarta Barat, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112305',
+            'status' => 'draft',
+            'latitude' => -6.159260,
+            'longitude' => 106.818000,
+        ]);
+
+        NetworkProfile::query()->create([
+            'id' => 'net_legacy_pasarminggu_address_visible',
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'Alya HR',
+            'owner_role' => UserRole::HR,
+            'area_name' => 'Import Spreadsheet',
+            'territory_province' => null,
+            'territory_city' => null,
+            'territory_district' => null,
+            'territory_subdistrict' => null,
+            'type' => 'ukm',
+            'name' => 'Legacy Pasar Minggu Alamat Benar',
+            'address' => 'Pasar Minggu, Kota Administrasi Jakarta Selatan, DKI Jakarta',
+            'business_type' => 'Kuliner',
+            'phone_number' => '081311112306',
+            'status' => 'draft',
+            'latitude' => -6.286500,
+            'longitude' => 106.830900,
+        ]);
+
+        Sanctum::actingAs($bima->fresh());
+
+        $this->getJson('/api/network?type=ukm&scope=area&q=Legacy&per_page=10')
+            ->assertOk()
+            ->assertJsonFragment(['id' => 'net_legacy_pasarminggu_address_visible'])
+            ->assertJsonMissing(['id' => 'net_legacy_stale_pasarminggu_area_but_krukut_address']);
+
+        $this->getJson('/api/network?type=ukm&scope=area&q=Krukut&per_page=10')
+            ->assertOk()
+            ->assertJsonPath('meta.count', 0)
+            ->assertJsonMissing(['id' => 'net_legacy_stale_pasarminggu_area_but_krukut_address']);
+    }
+
+    public function test_heat_map_uses_current_gps_radius_from_hr_monitoring_source(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+
+        $this->createHrMonitoringNetworkProfile(
+            id: 'net_hr_tamansari_near_ukm',
+            type: 'ukm',
+            name: 'HR Taman Sari Dekat UKM',
+            district: 'Taman Sari',
+            subdistrict: 'Krukut',
+            latitude: -6.159260,
+            longitude: 106.818000,
+        );
+        $this->createHrMonitoringNetworkProfile(
+            id: 'net_hr_tamansari_near_mitra',
+            type: 'mitra',
+            name: 'HR Taman Sari Dekat Mitra',
+            district: 'Taman Sari',
+            subdistrict: 'Krukut',
+            latitude: -6.159300,
+            longitude: 106.818050,
+        );
+        $this->createHrMonitoringNetworkProfile(
+            id: 'net_hr_pasarminggu_far_from_gps',
+            type: 'ukm',
+            name: 'HR Pasar Minggu Jauh Dari GPS',
+            district: 'Pasar Minggu',
+            subdistrict: 'Ragunan',
+            latitude: -6.286500,
+            longitude: 106.830900,
+        );
+
+        Sanctum::actingAs(User::query()->findOrFail('usr_fgg_001'));
+
+        $this->getJson('/api/heat-map?latitude=-6.15926&longitude=106.818&radius_meters=500')
+            ->assertOk()
+            ->assertJsonPath('data.radius_meters', 500)
+            ->assertJsonFragment(['id' => 'net_hr_tamansari_near_ukm'])
+            ->assertJsonFragment(['id' => 'net_hr_tamansari_near_mitra'])
+            ->assertJsonMissing(['id' => 'net_hr_pasarminggu_far_from_gps']);
+    }
+
     public function test_area_manager_can_read_team_ukm(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
@@ -1120,23 +1802,23 @@ class FieldOpsApiTest extends TestCase
             ]);
     }
 
-    public function test_app_network_area_lists_include_imported_profiles_when_area_label_is_in_any_territory_column(): void
+    public function test_app_network_area_lists_reject_structured_profiles_that_do_not_match_area_hierarchy(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
 
         NetworkProfile::query()->create([
-            'id' => 'net_import_pasming_subdistrict_label',
+            'id' => 'net_import_pasming_wrong_hierarchy',
             'owner_id' => 'usr_hr_001',
             'owner_name' => 'Alya HR',
             'owner_role' => UserRole::HR,
             'area_name' => 'Jakarta Selatan',
             'territory_province' => 'DKI Jakarta',
-            'territory_city' => 'Jakarta Selatan',
-            'territory_district' => 'Kota Administrasi Jakarta Selatan',
+            'territory_city' => 'Kota Administrasi Jakarta Barat',
+            'territory_district' => 'Taman Sari',
             'territory_subdistrict' => 'Pasar Minggu',
             'type' => 'ukm',
-            'name' => 'UKM Import Label Pasar Minggu',
-            'address' => 'Jl. Pasar Minggu Raya',
+            'name' => 'UKM Import Pasar Minggu Hirarki Salah',
+            'address' => 'Krukut, Taman Sari, Kota Jakarta Barat, DKI Jakarta',
             'business_type' => 'Kuliner',
             'phone_number' => '081311112244',
             'status' => 'draft',
@@ -1148,9 +1830,9 @@ class FieldOpsApiTest extends TestCase
 
         $this->getJson('/api/network?type=ukm')
             ->assertOk()
-            ->assertJsonFragment([
-                'id' => 'net_import_pasming_subdistrict_label',
-                'name' => 'UKM Import Label Pasar Minggu',
+            ->assertJsonMissing([
+                'id' => 'net_import_pasming_wrong_hierarchy',
+                'name' => 'UKM Import Pasar Minggu Hirarki Salah',
             ]);
     }
 
@@ -1600,5 +2282,36 @@ class FieldOpsApiTest extends TestCase
                 'name' => 'Mitra Import DKI',
                 'owner_role' => UserRole::HR,
             ]);
+    }
+
+    private function createHrMonitoringNetworkProfile(
+        string $id,
+        string $type,
+        string $name,
+        string $district,
+        string $subdistrict,
+        float $latitude,
+        float $longitude,
+    ): void {
+        NetworkProfile::query()->create([
+            'id' => $id,
+            'owner_id' => 'usr_hr_001',
+            'owner_name' => 'HR Monitoring',
+            'owner_role' => UserRole::HR,
+            'area_name' => $district,
+            'territory_province' => 'DKI Jakarta',
+            'territory_city' => 'Jakarta Selatan',
+            'territory_district' => $district,
+            'territory_subdistrict' => $subdistrict,
+            'type' => $type,
+            'name' => $name,
+            'address' => "{$subdistrict}, {$district}, Jakarta Selatan",
+            'business_type' => $type === 'mitra' ? 'Mitra' : 'Warung',
+            'phone_number' => '08130000' . substr(md5($id), 0, 4),
+            'status' => 'draft',
+            'reference_name' => 'Monitoring HR',
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ]);
     }
 }

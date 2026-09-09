@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) {
   --dart-define=HEX_ENABLE_REMOTE_WORKFLOW=true `
   --dart-define=HEX_BACKEND_BASE_URL=$BackendBaseUrl `
   --dart-define=HEX_ENABLE_DEMO_MODE=false `
-  --dart-define=HEX_APP_ENV_LABEL="STAGING VPS"
+  --dart-define=HEX_APP_ENV_LABEL=STAGING_VPS
 
 if ($LASTEXITCODE -ne 0) {
     throw "Flutter build failed with exit code $LASTEXITCODE"

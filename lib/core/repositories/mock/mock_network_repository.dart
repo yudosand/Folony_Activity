@@ -8,9 +8,14 @@ class MockNetworkRepository implements NetworkRepository {
   Future<List<NetworkProfile>> listOwnedByUser({
     required String userId,
     NetworkProfileType? type,
+    String? scope,
   }) async {
-    final profiles =
-        List<NetworkProfile>.from(_profilesByOwner[userId] ?? const []);
+    final allProfiles = _profilesByOwner.values.expand((items) => items);
+    final profiles = switch (scope) {
+      'area' => allProfiles.where((item) => item.ownerId != userId).toList(),
+      'mine' => List<NetworkProfile>.from(_profilesByOwner[userId] ?? const []),
+      _ => List<NetworkProfile>.from(_profilesByOwner[userId] ?? const []),
+    };
     if (type == null) {
       profiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return profiles;
@@ -19,6 +24,40 @@ class MockNetworkRepository implements NetworkRepository {
     final filtered = profiles.where((item) => item.type == type).toList();
     filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return filtered;
+  }
+
+  @override
+  Future<NetworkProfilePage> listOwnedByUserPage({
+    required String userId,
+    NetworkProfileType? type,
+    String? scope,
+    required int page,
+    required int perPage,
+  }) async {
+    final allItems = await listOwnedByUser(
+      userId: userId,
+      type: type,
+      scope: scope,
+    );
+    final start = (page - 1) * perPage;
+    if (start >= allItems.length) {
+      return NetworkProfilePage(
+        items: const [],
+        currentPage: page,
+        perPage: perPage,
+        hasMore: false,
+        totalCount: allItems.length,
+      );
+    }
+    final end = start + perPage;
+    return NetworkProfilePage(
+      items: allItems.sublist(
+          start, end > allItems.length ? allItems.length : end),
+      currentPage: page,
+      perPage: perPage,
+      hasMore: end < allItems.length,
+      totalCount: allItems.length,
+    );
   }
 
   @override

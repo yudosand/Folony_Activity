@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -275,7 +277,7 @@ void main() {
     final repository = _StaticNetworkRepository([
       _networkProfile(
         id: 'warung-jable',
-        ownerId: fggSession.userId,
+        ownerId: fggSession.ownerKey,
         ownerName: fggSession.userName,
         name: 'Warung Jable',
         province: 'Jawa Barat',
@@ -363,13 +365,88 @@ void main() {
     expect(find.text('UKM Area 1'), findsOneWidget);
     expect(find.text('UKM Area 11'), findsNothing);
 
-    await tester.ensureVisible(find.text('Berikutnya'));
+    await tester.ensureVisible(find.text('Muat halaman berikutnya'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Berikutnya'));
+    await tester.tap(find.text('Muat halaman berikutnya'));
     await tester.pumpAndSettle();
 
     expect(find.text('Menampilkan 11-12 dari 12 data'), findsOneWidget);
     expect(find.text('UKM Area 11'), findsOneWidget);
+  });
+
+  testWidgets(
+      'network page renders HR monitoring source data in work-area sections',
+      (tester) async {
+    final areaManagerSession = AppSession.mock(
+      AppRole.areaManager,
+      userName: 'Raka Area Manager',
+    ).copyWith(
+      userId: 'usr_raka_area_manager',
+      areaName: 'DKI Jakarta',
+      territoryLabel: 'DKI Jakarta',
+    );
+    final profiles = [
+      _networkProfile(
+        id: 'raka-own-ukm',
+        ownerId: areaManagerSession.userId,
+        ownerName: areaManagerSession.userName,
+        ownerRole: AppRole.areaManager,
+        name: 'UKM Raka Sendiri',
+        province: 'DKI Jakarta',
+        city: 'Jakarta Selatan',
+      ),
+      for (var index = 1; index <= 23; index++)
+        _networkProfile(
+          id: 'hr-dki-ukm-$index',
+          ownerId: 'usr_hr_001',
+          ownerName: 'Alya HR',
+          ownerRole: AppRole.management,
+          name: 'HR DKI UKM $index',
+          province: 'DKI Jakarta',
+          city: 'Jakarta Selatan',
+        ),
+      _networkProfile(
+        id: 'hr-jabar-ukm',
+        ownerId: 'usr_hr_001',
+        ownerName: 'Alya HR',
+        ownerRole: AppRole.management,
+        name: 'HR Jabar UKM',
+        province: 'Jawa Barat',
+        city: 'Bandung',
+      ),
+    ];
+    final controller = AppController(
+      useCanonicalWorkflowIds: true,
+      networkRepository: _StaticNetworkRepository(
+        profiles,
+        areaProvinceByUserId: {
+          areaManagerSession.userId: 'DKI Jakarta',
+        },
+      ),
+      seedWorkflowDemoData: false,
+    );
+
+    await controller.refreshNetworkDataForSession(areaManagerSession);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NetworkPage(
+          session: areaManagerSession,
+          controller: controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('23 data UKM non-milik Anda'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('UKM Area Kerja').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Menampilkan 1-10 dari 23 data'), findsOneWidget);
+    expect(find.text('HR DKI UKM 1'), findsOneWidget);
+    expect(find.text('HR Jabar UKM'), findsNothing);
   });
 
   test(
@@ -1083,18 +1160,59 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 class _StaticNetworkRepository implements NetworkRepository {
-  _StaticNetworkRepository(this.profiles);
+  _StaticNetworkRepository(
+    this.profiles, {
+    this.areaProvinceByUserId = const {},
+  });
 
   final List<NetworkProfile> profiles;
+  final Map<String, String> areaProvinceByUserId;
 
   @override
   Future<List<NetworkProfile>> listOwnedByUser({
     required String userId,
     NetworkProfileType? type,
+    String? scope,
   }) async {
     return profiles
+        .where((profile) {
+          return switch (scope) {
+            'area' =>
+              profile.ownerId != userId && _matchesArea(userId, profile),
+            'mine' => profile.ownerId == userId,
+            _ => profile.ownerId == userId,
+          };
+        })
         .where((profile) => type == null || profile.type == type)
         .toList();
+  }
+
+  @override
+  Future<NetworkProfilePage> listOwnedByUserPage({
+    required String userId,
+    NetworkProfileType? type,
+    String? scope,
+    required int page,
+    required int perPage,
+  }) async {
+    final allItems = await listOwnedByUser(
+      userId: userId,
+      type: type,
+      scope: scope,
+    );
+    final start = (page - 1) * perPage;
+    final end = math.min(start + perPage, allItems.length);
+    final pageItems = start >= allItems.length
+        ? const <NetworkProfile>[]
+        : allItems.sublist(start, end);
+
+    return NetworkProfilePage(
+      items: pageItems,
+      currentPage: page,
+      perPage: perPage,
+      hasMore: end < allItems.length,
+      totalCount: allItems.length,
+    );
   }
 
   @override
@@ -1102,6 +1220,11 @@ class _StaticNetworkRepository implements NetworkRepository {
     required String areaManagerId,
   }) async {
     return const [];
+  }
+
+  bool _matchesArea(String userId, NetworkProfile profile) {
+    final province = areaProvinceByUserId[userId];
+    return province == null || profile.territoryProvince == province;
   }
 
   @override
@@ -1162,6 +1285,8 @@ NetworkProfile _networkProfile({
   required String id,
   required String ownerId,
   required String ownerName,
+  AppRole ownerRole = AppRole.fgg,
+  NetworkProfileType type = NetworkProfileType.ukm,
   required String name,
   required String province,
   required String city,
@@ -1170,8 +1295,8 @@ NetworkProfile _networkProfile({
     id: id,
     ownerId: ownerId,
     ownerName: ownerName,
-    ownerRole: AppRole.fgg,
-    type: NetworkProfileType.ukm,
+    ownerRole: ownerRole,
+    type: type,
     name: name,
     address: city,
     territoryProvince: province,
