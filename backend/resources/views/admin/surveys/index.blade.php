@@ -1,12 +1,6 @@
-@extends('admin.layouts.app', ['title' => 'Survey'])
+@extends('admin.layouts.app', ['title' => 'Survey', 'heading' => 'Survey', 'subheading' => 'Hasil Survey Kios dan Survey Harga dari aplikasi mobile.'])
 
 @section('content')
-    <div class="topbar">
-        <div>
-            <h1 style="margin:0;">Survey</h1>
-            <p class="muted" style="margin:6px 0 0;">HR bisa melihat hasil Survey Kios dan Survey Harga dari aplikasi mobile.</p>
-        </div>
-    </div>
 
     @if(session('status'))
         <div class="status-banner">{{ session('status') }}</div>
@@ -16,9 +10,8 @@
         <div class="error-banner">{{ $errors->first() }}</div>
     @endif
 
-    <div class="grid cols-2" style="margin-bottom: 20px;">
-        <section class="panel pad">
-            <h3 style="margin-top:0;">Produk Survey Kios</h3>
+    <div class="grid cols-2 survey-catalogs" style="margin-bottom: 20px;">
+        <details class="disclosure"><summary>Produk Survey Kios</summary><div class="disclosure-body">
             <form method="POST" action="{{ route('admin.surveys.products.store') }}" class="filters" style="margin-bottom: 14px;">
                 @csrf
                 <input name="name" placeholder="Nama produk, contoh: Beras premium" required>
@@ -52,10 +45,9 @@
                     </tbody>
                 </table>
             </div>
-        </section>
+        </div></details>
 
-        <section class="panel pad">
-            <h3 style="margin-top:0;">Komoditas Survey Harga</h3>
+        <details class="disclosure"><summary>Komoditas Survey Harga</summary><div class="disclosure-body">
             <form method="POST" action="{{ route('admin.surveys.commodities.store') }}" class="filters" style="margin-bottom: 14px;">
                 @csrf
                 <input name="name" placeholder="Nama komoditas, contoh: Cabai rawit" required>
@@ -90,7 +82,7 @@
                     </tbody>
                 </table>
             </div>
-        </section>
+        </div></details>
     </div>
 
     <section class="panel pad">
@@ -101,7 +93,8 @@
             </div>
         </div>
 
-        <form method="GET" class="filters" style="margin-bottom: 16px;">
+        <x-admin.filter-panel>
+<form method="GET" class="filters" style="margin-bottom: 16px;">
             <input name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Cari user / alamat GPS / area / kios / pasar">
             <select name="type">
                 <option value="">Semua survey</option>
@@ -111,6 +104,7 @@
             </select>
             <button class="btn secondary" type="submit">Filter</button>
         </form>
+</x-admin.filter-panel>
 
         <div class="table-wrap">
             <table>

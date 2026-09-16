@@ -26,3 +26,9 @@ backend/.phpunit.result.cache
 android/hs_err_pid*.log
 android/replay_pid*.log
 android/.kotlin/
+
+# Local QA captures and runtime scratch data
+.dart-appdata/
+/adb-*.png
+/adb-*.xml
+/backend/full-test-output.txt

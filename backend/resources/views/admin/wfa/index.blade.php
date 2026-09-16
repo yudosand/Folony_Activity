@@ -28,7 +28,8 @@
 
     <div class="panel pad">
         <div class="toolbar">
-            <form method="GET" class="filters">
+            <x-admin.filter-panel>
+<form method="GET" class="filters">
                 <input name="search" placeholder="Cari nama / ID / lokasi" value="{{ $filters['search'] ?? '' }}">
                 <select name="role">
                     <option value="">Semua role</option>
@@ -50,6 +51,7 @@
                 </select>
                 <button class="btn secondary" type="submit">Filter</button>
             </form>
+</x-admin.filter-panel>
             <div class="actions">
                 <a href="{{ route('admin.reports.index') }}" class="btn secondary">Laporan HR</a>
                 <a href="{{ route('admin.wfa.index', array_merge(request()->query(), ['export' => 'csv'])) }}" class="btn warn">Export CSV</a>

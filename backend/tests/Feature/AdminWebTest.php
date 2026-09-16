@@ -164,8 +164,8 @@ class AdminWebTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee('Monitoring Absensi')
-            ->assertSee('Head Office');
+            ->assertSee('Monitoring Absensi')->assertSee('Detail');
+        $this->get(route('admin.attendance.show', ['employee' => 'usr_001', 'date' => now()->toDateString()]))->assertOk()->assertSee('Head Office');
     }
 
     public function test_hr_can_view_leave_monitoring_page(): void

@@ -68,6 +68,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await _scrollUntilVisible(tester, find.text('Data Absensi Hari Ini'));
+      await tester.tap(find.text('Data Absensi Hari Ini'));
+      await tester.pumpAndSettle();
 
       await _scrollUntilVisible(
         tester,
@@ -137,6 +140,9 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
+      await _scrollUntilVisible(tester, find.text('Data Absensi Hari Ini'));
+      await tester.tap(find.text('Data Absensi Hari Ini'));
       await tester.pumpAndSettle();
 
       await _scrollUntilVisible(

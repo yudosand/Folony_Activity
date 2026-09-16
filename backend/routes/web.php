@@ -21,6 +21,8 @@ Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('adm
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.store');
 
 Route::middleware([EnsureHrAdmin::class])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/employee-activities', [\App\Http\Controllers\Web\EmployeeActivityController::class, 'index'])->name('employee-activities.index');
+    Route::get('/employee-activities/{employee}/{date}', [\App\Http\Controllers\Web\EmployeeActivityController::class, 'show'])->name('employee-activities.show');
     Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
     Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
     Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
@@ -35,6 +37,7 @@ Route::middleware([EnsureHrAdmin::class])->prefix('admin')->name('admin.')->grou
     Route::post('/employees/{employee}/performance-targets', [EmployeeController::class, 'updatePerformanceTargets'])
         ->name('employees.targets.update');
     Route::get('/attendance', [AttendanceMonitoringController::class, 'index'])->name('attendance.index');
+    Route::get('/attendance/{employee}/{date}', [AttendanceMonitoringController::class, 'show'])->name('attendance.show');
     Route::post('/attendance/work-areas', [AttendanceMonitoringController::class, 'storeWorkArea'])->name('attendance.work-areas.store');
     Route::put('/attendance/work-areas/{workArea}', [AttendanceMonitoringController::class, 'updateWorkArea'])->name('attendance.work-areas.update');
     Route::get('/leaves', [LeaveMonitoringController::class, 'index'])->name('leaves.index');
@@ -42,7 +45,10 @@ Route::middleware([EnsureHrAdmin::class])->prefix('admin')->name('admin.')->grou
     Route::get('/wfa/{requestRecord}', [WfaMonitoringController::class, 'show'])->name('wfa.show');
     Route::get('/approvals', [ApprovalCenterController::class, 'index'])->name('approvals.index');
     Route::get('/network', [NetworkMonitoringController::class, 'index'])->name('network.index');
-    Route::get('/network-activities', [NetworkMonitoringController::class, 'activities'])->name('network.activities');
+    Route::get('/network/map-points', [NetworkMonitoringController::class, 'mapPoints'])->name('network.map-points');
+    Route::get('/network-activities', [\App\Http\Controllers\Web\FieldActivityController::class, 'index'])->name('network.activities');
+    Route::get('/field-delivery-proofs/{operation}', [\App\Http\Controllers\Web\FieldActivityController::class, 'proof'])->whereNumber('operation')->name('network.activities.proof');
+    Route::get('/network-activities/{employee}/{date}', [\App\Http\Controllers\Web\FieldActivityController::class, 'show'])->name('network.activities.show');
     Route::post('/network/manual', [NetworkMonitoringController::class, 'storeManual'])->name('network.manual.store');
     Route::post('/network/import', [NetworkMonitoringController::class, 'import'])->name('network.import');
     Route::get('/network/{profile}', [NetworkMonitoringController::class, 'show'])->name('network.show');

@@ -252,12 +252,14 @@ class AdminWebAdvancedTest extends TestCase
                 'date' => now()->addDays(5)->toDateString(),
                 'search' => 'Nadia Staff',
             ]))
+            ->assertOk()->assertSee('Detail');
+        $this->get(route('admin.attendance.show', ['employee' => $staff->id, 'date' => now()->addDays(5)->toDateString()]))
             ->assertOk()
             ->assertSee('Gudang Barat')
             ->assertSee('-6.159693, 106.818045')
             ->assertSee('https://www.google.com/maps?q=-6.1596929,106.8180445', false)
             ->assertSee('Terlambat 1 menit dari jadwal 08:30.')
-            ->assertSee('Terverifikasi');
+            ->assertSee('Belum valid');
 
         $this->actingAs($this->hr)
             ->get(route('admin.employees.show', $staff))
@@ -642,7 +644,11 @@ class AdminWebAdvancedTest extends TestCase
             ->assertSee('Tambah UKM Baru')
             ->assertSee('Kunjungan UKM')
             ->assertSee('UKM Activity Timeline')
-            ->assertSee('Durasi 15m')
+            ->assertSee('15m')
+            ->assertViewHas('days', fn ($days) => $days->total() === 1);
+
+        $this->get(route('admin.network.activities.show', ['employee' => $fgg->id, 'date' => '2026-08-21']))
+            ->assertOk()->assertSee('Durasi 15m')->assertSee('Survey display produk')
             ->assertSee('Buka di Google Maps')
             ->assertSee('Buka foto');
     }

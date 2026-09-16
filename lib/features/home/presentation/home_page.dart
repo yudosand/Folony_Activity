@@ -8,12 +8,15 @@ import '../../../app/app_controller.dart';
 import '../../../core/enums/app_role.dart';
 import '../../../core/models/announcement.dart';
 import '../../../core/models/app_session.dart';
+import '../../../core/models/daily_work_update.dart';
+import '../../../core/widgets/adaptive_image.dart';
 import '../../../core/models/attendance_record.dart';
 import '../../../core/models/leave_request_record.dart' as leave_model;
 import '../../../core/models/network_entry.dart';
 import '../../../core/models/performance_summary.dart';
 import '../../../core/models/wfa_request_record.dart' as wfa_model;
 import '../../../core/network/human_readable_error.dart';
+import '../../fgg/presentation/fgg_shipping_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -48,7 +51,43 @@ class _HomePageState extends State<HomePage> {
   File? _workPhoto;
   bool _isWorkActive = false;
   DateTime? _workStartedAt;
-  final List<_DailyWorkUpdate> _workUpdates = [];
+  final List<DailyWorkUpdate> _workUpdates = [];
+  bool _isSavingWork = false;
+  bool _isLoadingWork = true;
+  String? _workLoadError;
+  String? _pendingWorkId;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadWork());
+  }
+
+  Future<void> _loadWork() async {
+    if ((widget.controller.session ?? widget.session).role == AppRole.fgg) {
+      if (mounted) setState(() => _isLoadingWork = false);
+      return;
+    }
+    try {
+      final updates = await widget.controller.dailyWorkRepository
+          .load(widget.session.userId);
+      if (!mounted) return;
+      setState(() {
+        _workUpdates
+          ..clear()
+          ..addAll(updates);
+        _isWorkActive = updates.isNotEmpty && !updates.first.isFinished;
+        _workStartedAt = _isWorkActive ? updates.first.startedAt : null;
+        _workLoadError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _workLoadError =
+          humanReadableError(error, action: 'memuat aktifitas karyawan'));
+    } finally {
+      if (mounted) setState(() => _isLoadingWork = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -78,7 +117,10 @@ class _HomePageState extends State<HomePage> {
         final usesNetworkSummary = session.role == AppRole.fgg;
 
         return RefreshIndicator(
-          onRefresh: widget.onRefresh ?? () async {},
+          onRefresh: () async {
+            await _loadWork();
+            await widget.onRefresh?.call();
+          },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(20),
@@ -89,18 +131,46 @@ class _HomePageState extends State<HomePage> {
                 onOpenPhotoOptions: () => _showPhotoOptions(session),
               ),
               const SizedBox(height: 18),
-              _TodayWorkCard(
-                controller: _workController,
-                selectedPhoto: _workPhoto,
-                isActive: _isWorkActive,
-                startedAt: _workStartedAt,
-                updates: _workUpdates,
-                onCapturePhoto: _captureWorkPhoto,
-                onClearPhoto: _clearWorkPhoto,
-                onSaveUpdate: _saveWorkUpdate,
-                onFinishWork: _finishWork,
-              ),
-              const SizedBox(height: 18),
+              if (session.role == AppRole.fgg &&
+                  widget.controller.fggRepository != null) ...[
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.local_shipping_outlined),
+                    title: const Text('FGG Pengiriman'),
+                    subtitle:
+                        const Text('Hubungkan akun HUB dan kelola pengiriman'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () =>
+                        Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => FggShippingPage(
+                        repository: widget.controller.fggRepository!,
+                      ),
+                    )),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (session.role != AppRole.fgg) ...[
+                _TodayWorkCard(
+                  isBusy: _isSavingWork || _isLoadingWork,
+                  controller: _workController,
+                  selectedPhoto: _workPhoto,
+                  isActive: _isWorkActive,
+                  startedAt: _workStartedAt,
+                  updates: _workUpdates,
+                  onCapturePhoto: _captureWorkPhoto,
+                  onClearPhoto: _clearWorkPhoto,
+                  onSaveUpdate: _saveWorkUpdate,
+                  onFinishWork: _finishWork,
+                ),
+                if (_workLoadError != null)
+                  ListTile(
+                    title: Text(_workLoadError!),
+                    trailing: TextButton(
+                        onPressed: _loadWork, child: const Text('Coba lagi')),
+                  ),
+                const SizedBox(height: 18),
+              ],
               Text(
                 usesNetworkSummary
                     ? 'Ringkasan Jaringan'
@@ -281,37 +351,20 @@ class _HomePageState extends State<HomePage> {
     setState(() => _workPhoto = null);
   }
 
-  void _saveWorkUpdate() {
+  Future<void> _saveWorkUpdate() async {
     final note = _workController.text.trim();
     if (note.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Isi dulu pekerjaan yang akan dilakukan.')),
+        const SnackBar(
+            content: Text('Isi dulu pekerjaan yang akan dilakukan.')),
       );
       return;
     }
 
-    setState(() {
-      _isWorkActive = true;
-      _workStartedAt ??= DateTime.now();
-      _workUpdates.insert(
-        0,
-        _DailyWorkUpdate(
-          note: note,
-          photoPath: _workPhoto?.path,
-          createdAt: DateTime.now(),
-          isFinished: false,
-        ),
-      );
-      _workController.clear();
-      _workPhoto = null;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Update pekerjaan hari ini tersimpan.')),
-    );
+    await _persistWork(note: note, isFinished: false);
   }
 
-  void _finishWork() {
+  Future<void> _finishWork() async {
     if (!_isWorkActive) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Belum ada pekerjaan aktif hari ini.')),
@@ -319,24 +372,62 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    setState(() {
-      _workUpdates.insert(
-        0,
-        _DailyWorkUpdate(
-          note: 'Pekerjaan selesai.',
-          createdAt: DateTime.now(),
-          isFinished: true,
-        ),
-      );
-      _isWorkActive = false;
-      _workStartedAt = null;
-      _workController.clear();
-      _workPhoto = null;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Pekerjaan hari ini selesai.')),
+    await _persistWork(
+      note: _workController.text.trim().isEmpty
+          ? 'Pekerjaan selesai.'
+          : _workController.text.trim(),
+      isFinished: true,
     );
+  }
+
+  Future<void> _persistWork(
+      {required String note, required bool isFinished}) async {
+    if (_isSavingWork || _isLoadingWork) return;
+    setState(() => _isSavingWork = true);
+    _pendingWorkId ??=
+        '${widget.session.userId}-${DateTime.now().microsecondsSinceEpoch}';
+    try {
+      String? photoUrl;
+      if (_workPhoto != null) {
+        photoUrl = widget.controller.isRemoteAuthEnabled
+            ? (await widget.controller.uploadAttachment(
+                    filePath: _workPhoto!.path,
+                    label: 'Foto aktifitas karyawan'))
+                .url
+            : _workPhoto!.path;
+      }
+      final saved = await widget.controller.dailyWorkRepository.save(
+        userId: widget.session.userId,
+        requestId: _pendingWorkId!,
+        note: note,
+        photoUrl: photoUrl,
+        isFinished: isFinished,
+      );
+      if (!mounted) return;
+      setState(() {
+        _workUpdates.insert(0, saved);
+        _isWorkActive = !saved.isFinished;
+        _workStartedAt = _isWorkActive ? saved.startedAt : null;
+        _workController.clear();
+        _workPhoto = null;
+        _pendingWorkId = null;
+        _workLoadError = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+        saved.isFinished
+            ? 'Pekerjaan hari ini selesai.'
+            : 'Update pekerjaan hari ini tersimpan.',
+      )));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+        humanReadableError(error, action: 'menyimpan aktifitas karyawan'),
+      )));
+    } finally {
+      if (mounted) setState(() => _isSavingWork = false);
+    }
   }
 
   leave_model.LeaveRequestRecord? _latestLeave(
@@ -546,22 +637,9 @@ class _ProfileAvatar extends StatelessWidget {
   }
 }
 
-class _DailyWorkUpdate {
-  const _DailyWorkUpdate({
-    required this.note,
-    required this.createdAt,
-    this.photoPath,
-    this.isFinished = false,
-  });
-
-  final String note;
-  final DateTime createdAt;
-  final String? photoPath;
-  final bool isFinished;
-}
-
 class _TodayWorkCard extends StatelessWidget {
   const _TodayWorkCard({
+    required this.isBusy,
     required this.controller,
     required this.selectedPhoto,
     required this.isActive,
@@ -577,7 +655,8 @@ class _TodayWorkCard extends StatelessWidget {
   final File? selectedPhoto;
   final bool isActive;
   final DateTime? startedAt;
-  final List<_DailyWorkUpdate> updates;
+  final List<DailyWorkUpdate> updates;
+  final bool isBusy;
   final VoidCallback onCapturePhoto;
   final VoidCallback onClearPhoto;
   final VoidCallback onSaveUpdate;
@@ -638,6 +717,7 @@ class _TodayWorkCard extends StatelessWidget {
           const SizedBox(height: 14),
           TextField(
             controller: controller,
+            enabled: !isBusy,
             minLines: 2,
             maxLines: 4,
             textInputAction: TextInputAction.newline,
@@ -680,18 +760,22 @@ class _TodayWorkCard extends StatelessWidget {
             runSpacing: 10,
             children: [
               OutlinedButton.icon(
-                onPressed: onCapturePhoto,
+                onPressed: isBusy ? null : onCapturePhoto,
                 icon: const Icon(Icons.photo_camera_rounded),
                 label: const Text('Foto kamera'),
               ),
               FilledButton.icon(
-                onPressed: onSaveUpdate,
+                onPressed: isBusy ? null : onSaveUpdate,
                 icon: const Icon(Icons.check_rounded),
-                label: Text(isActive ? 'Simpan update' : 'Mulai kerja'),
+                label: Text(isBusy
+                    ? 'Memproses...'
+                    : isActive
+                        ? 'Simpan update'
+                        : 'Mulai kerja'),
               ),
               if (isActive)
                 TextButton.icon(
-                  onPressed: onFinishWork,
+                  onPressed: isBusy ? null : onFinishWork,
                   icon: const Icon(Icons.flag_rounded),
                   label: const Text('Pekerjaan selesai'),
                 ),
@@ -699,12 +783,18 @@ class _TodayWorkCard extends StatelessWidget {
           ),
           if (updates.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text('Riwayat update', style: theme.textTheme.titleSmall),
-            const SizedBox(height: 8),
-            for (final update in updates.take(3)) ...[
-              _WorkUpdateTile(update: update),
-              const SizedBox(height: 8),
-            ],
+            ExpansionTile(
+              initiallyExpanded: false,
+              tilePadding: EdgeInsets.zero,
+              title: Text('Riwayat update', style: theme.textTheme.titleSmall),
+              subtitle: Text('${updates.length} update'),
+              children: [
+                for (final update in updates) ...[
+                  _WorkUpdateTile(update: update),
+                  const SizedBox(height: 8),
+                ]
+              ],
+            ),
           ],
         ],
       ),
@@ -715,7 +805,7 @@ class _TodayWorkCard extends StatelessWidget {
 class _WorkUpdateTile extends StatelessWidget {
   const _WorkUpdateTile({required this.update});
 
-  final _DailyWorkUpdate update;
+  final DailyWorkUpdate update;
 
   @override
   Widget build(BuildContext context) {
@@ -755,8 +845,8 @@ class _WorkUpdateTile extends StatelessWidget {
                   const SizedBox(height: 8),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      File(update.photoPath!),
+                    child: AdaptiveImage(
+                      path: update.photoPath!,
                       height: 72,
                       width: 96,
                       fit: BoxFit.cover,
@@ -810,9 +900,8 @@ class _LegacyDailyPickerCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child:
-                    Text('Aktivitas Hari Ini',
-                        style: theme.textTheme.titleMedium),
+                child: Text('Aktivitas Hari Ini',
+                    style: theme.textTheme.titleMedium),
               ),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),

@@ -80,7 +80,7 @@
             border-color: rgba(248, 106, 16, 0.28);
             transform: translateX(2px);
         }
-        .content { padding: 32px; }
+        .content { padding: 32px; min-width: 0; }
         .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
         .panel {
             background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,253,249,0.98));
@@ -90,6 +90,7 @@
         }
         .panel.pad { padding: 24px; }
         .grid { display: grid; gap: 18px; }
+        .grid > * { min-width: 0; }
         .grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -163,6 +164,7 @@
         .eyebrow { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
         .toolbar {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             gap: 16px;
             align-items: center;
@@ -317,6 +319,34 @@
             .grid.cols-4, .grid.cols-3, .grid.cols-2, .form-grid { grid-template-columns: 1fr; }
             .detail-item { grid-template-columns: 1fr; }
         }
+        .shell.sidebar-hidden { grid-template-columns: minmax(0, 1fr); }
+        .sidebar[hidden] { display: none; }
+        .sidebar { align-self: start; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+        .nav { gap: 4px; margin-top: 20px; }
+        .nav a { padding: 10px 12px; }
+        .nav-group-label { margin: 18px 12px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: #cad9c6; }
+        .navigation-toggle { margin-bottom: 18px; }
+        .disclosure { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+        .disclosure > summary { cursor: pointer; padding: 14px 16px; font-weight: 700; display: flex; align-items: center; gap: 12px; list-style: none; }
+        .disclosure > summary::-webkit-details-marker { display: none; }
+        .disclosure > summary::after { content: '+'; margin-left: auto; font-size: 20px; color: var(--primary); }
+        .disclosure[open] > summary::after { content: '−'; }
+        .disclosure > summary:focus-visible, .navigation-toggle:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+        .disclosure-body { padding: 4px 16px 16px; }
+        .filter-panel { flex: 1 1 420px; min-width: 0; margin-bottom: 16px; }
+        .toolbar > .filter-panel { margin-bottom: 0; }
+        .filter-status { color: var(--muted); font-size: 12px; font-weight: 400; }
+        .filter-panel .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); align-items: end; gap: 12px; margin: 0 !important; }
+        .filter-panel .filters > * { min-width: 0 !important; max-width: 100%; }
+        .filter-panel .filters > button { justify-self: start; }
+        .filter-reset { display: inline-block; margin-top: 14px; color: var(--primary); font-size: 13px; text-decoration: underline; }
+        .survey-catalogs { align-items: start; }
+        .survey-catalogs .table-wrap { max-height: 360px; overflow: auto; }
+        @media (max-width: 1080px) {
+            .sidebar { position: static; height: auto; max-height: 65vh; padding-bottom: 22px; }
+            .content { padding: 18px; min-width: 0; }
+            .topbar { flex-wrap: wrap; }
+        }
     </style>
 </head>
 <body>
@@ -324,25 +354,31 @@
         @yield('content')
     @else
         <div class="shell">
-            <aside class="sidebar">
+            <aside class="sidebar" id="hr-sidebar">
                 <div class="brand">Folony Activity<small>Web Admin HR</small></div>
                 <div class="muted" style="color:rgba(247,245,239,0.74);">Monitoring karyawan, absensi, cuti, dan aktivitas lapangan.</div>
-                <nav class="nav">
-                    <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
-                    <a href="{{ route('admin.announcements.index') }}" class="{{ request()->routeIs('admin.announcements.*') ? 'active' : '' }}">Announcement</a>
-                    <a href="{{ route('admin.faqs.index') }}" class="{{ request()->routeIs('admin.faqs.*') ? 'active' : '' }}">FAQ Aplikasi</a>
-                    <a href="{{ route('admin.employees.index') }}" class="{{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">Master Karyawan</a>
-                    <a href="{{ route('admin.attendance.index') }}" class="{{ request()->routeIs('admin.attendance.*') ? 'active' : '' }}">Monitoring Absensi</a>
-                    <a href="{{ route('admin.leaves.index') }}" class="{{ request()->routeIs('admin.leaves.*') ? 'active' : '' }}">Cuti / Izin</a>
-                    <a href="{{ route('admin.wfa.index') }}" class="{{ request()->routeIs('admin.wfa.*') ? 'active' : '' }}">Monitoring WFA</a>
-                    <a href="{{ route('admin.approvals.index') }}" class="{{ request()->routeIs('admin.approvals.*') ? 'active' : '' }}">Approval Center</a>
-                    <a href="{{ route('admin.network.index') }}" class="{{ request()->routeIs('admin.network.index', 'admin.network.show') ? 'active' : '' }}">Monitoring Jaringan</a>
-                    <a href="{{ route('admin.network.activities') }}" class="{{ request()->routeIs('admin.network.activities') ? 'active' : '' }}">Aktivitas Lapangan</a>
-                    <a href="{{ route('admin.surveys.index') }}" class="{{ request()->routeIs('admin.surveys.*') ? 'active' : '' }}">Survey</a>
-                    <a href="{{ route('admin.reports.index') }}" class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">Laporan HR</a>
-                </nav>
+                <nav class="nav" aria-label="Navigasi utama">
+<div class="nav-group-label">Ringkasan</div>
+<a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
+<a href="{{ route('admin.reports.index') }}" class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">Laporan HR</a>
+<div class="nav-group-label">Karyawan</div>
+<a href="{{ route('admin.employees.index') }}" class="{{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">Master Karyawan</a>
+<a href="{{ route('admin.attendance.index') }}" class="{{ request()->routeIs('admin.attendance.*') ? 'active' : '' }}">Monitoring Absensi</a>
+<a href="{{ route('admin.employee-activities.index') }}" class="{{ request()->routeIs('admin.employee-activities.*') ? 'active' : '' }}">Aktifitas Karyawan</a>
+<a href="{{ route('admin.wfa.index') }}" class="{{ request()->routeIs('admin.wfa.*') ? 'active' : '' }}">Monitoring WFA</a>
+<a href="{{ route('admin.leaves.index') }}" class="{{ request()->routeIs('admin.leaves.*') ? 'active' : '' }}">Cuti / Izin</a>
+<a href="{{ route('admin.approvals.index') }}" class="{{ request()->routeIs('admin.approvals.*') ? 'active' : '' }}">Approval Center</a>
+<div class="nav-group-label">Lapangan</div>
+<a href="{{ route('admin.network.index') }}" class="{{ request()->routeIs('admin.network.index', 'admin.network.show') ? 'active' : '' }}">Monitoring Jaringan</a>
+<a href="{{ route('admin.network.activities') }}" class="{{ request()->routeIs('admin.network.activities*') ? 'active' : '' }}">Aktivitas Lapangan</a>
+<a href="{{ route('admin.surveys.index') }}" class="{{ request()->routeIs('admin.surveys.*') ? 'active' : '' }}">Survey</a>
+<div class="nav-group-label">Pengaturan</div>
+<a href="{{ route('admin.announcements.index') }}" class="{{ request()->routeIs('admin.announcements.*') ? 'active' : '' }}">Announcement</a>
+<a href="{{ route('admin.faqs.index') }}" class="{{ request()->routeIs('admin.faqs.*') ? 'active' : '' }}">FAQ Aplikasi</a>
+</nav>
             </aside>
             <main class="content">
+                <button class="btn secondary navigation-toggle" id="sidebar-toggle" type="button" aria-controls="hr-sidebar" aria-expanded="true">☰ Sembunyikan menu</button>
                 <div class="topbar">
                     <div>
                         <h1 style="margin:0 0 6px;">{{ $heading ?? 'Folony Activity Admin' }}</h1>
@@ -364,6 +400,7 @@
                 @yield('content')
             </main>
         </div>
+        <script src="{{ asset('js/admin-navigation.js') }}?v=20260916-ui"></script>
     @endif
 </body>
 </html>

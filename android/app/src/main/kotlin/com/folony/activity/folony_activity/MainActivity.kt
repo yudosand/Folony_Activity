@@ -10,6 +10,7 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -42,7 +43,7 @@ class MainActivity : FlutterActivity() {
         }
 
         readLastKnownLocation()?.let {
-            Log.i(locationLogTag, "lastKnownLocation cache hit: $it")
+            Log.i(locationLogTag, "lastKnownLocation usable cache hit")
             result.success(it)
             return
         }
@@ -96,7 +97,8 @@ class MainActivity : FlutterActivity() {
         providers.forEach { provider ->
             val listener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
-                    Log.i(locationLogTag, "lastKnownLocation callback ${location.toPayload()}")
+                    if (!location.isUsable()) return
+                    Log.i(locationLogTag, "lastKnownLocation received usable fix")
                     handler.removeCallbacks(timeout)
                     finish(location)
                 }
@@ -136,6 +138,7 @@ class MainActivity : FlutterActivity() {
                     null
                 }
             }
+            .filter { it.isUsable() }
             .maxWithOrNull(::compareLocationFreshness)
             ?: return null
 
@@ -147,11 +150,19 @@ class MainActivity : FlutterActivity() {
             "latitude" to latitude,
             "longitude" to longitude,
             "accuracy" to if (hasAccuracy()) accuracy.toDouble() else null,
-            "age_ms" to maxOf(0L, System.currentTimeMillis() - time),
+            "age_ms" to ageMillis(),
             "time" to time,
             "provider" to provider
         )
     }
+
+    private fun Location.ageMillis(): Long =
+        maxOf(0L, (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos) / 1000000L)
+
+    private fun Location.isUsable(): Boolean =
+        latitude.isFinite() && longitude.isFinite() &&
+            latitude in -90.0..90.0 && longitude in -180.0..180.0 &&
+            hasAccuracy() && accuracy >= 0f && accuracy <= 2000f && ageMillis() <= 600000L
 
     private fun compareLocationFreshness(left: Location, right: Location): Int {
         val timeCompare = left.time.compareTo(right.time)

@@ -7,6 +7,7 @@ import '../../../core/enums/app_role.dart';
 import '../../../core/models/app_session.dart';
 import '../../../core/models/performance_summary.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../fgg/presentation/fgg_summary_card.dart';
 
 class FieldDashboardPage extends StatefulWidget {
   const FieldDashboardPage({
@@ -23,6 +24,7 @@ class FieldDashboardPage extends StatefulWidget {
 }
 
 class _FieldDashboardPageState extends State<FieldDashboardPage> {
+  final _shippingKey = GlobalKey<FggSummaryCardState>();
   @override
   void initState() {
     super.initState();
@@ -46,11 +48,24 @@ class _FieldDashboardPageState extends State<FieldDashboardPage> {
         final hasTargets = summary?.hasTargets ?? false;
 
         return RefreshIndicator(
-          onRefresh: () => widget.controller
-              .refreshPerformanceSummaryForSession(widget.session),
+          onRefresh: () async {
+            await Future.wait([
+              widget.controller
+                  .refreshPerformanceSummaryForSession(widget.session),
+              if (_shippingKey.currentState != null)
+                _shippingKey.currentState!.refresh(),
+            ]);
+          },
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              if (widget.session.role == AppRole.fgg &&
+                  widget.controller.fggRepository != null) ...[
+                FggSummaryCard(
+                    key: _shippingKey,
+                    repository: widget.controller.fggRepository!),
+                const SizedBox(height: 16),
+              ],
               Row(
                 children: [
                   Expanded(

@@ -108,7 +108,8 @@
 
     <div class="panel pad">
         <div class="toolbar">
-            <form method="GET" class="filters">
+            <x-admin.filter-panel>
+<form method="GET" class="filters">
                 <input name="search" placeholder="Cari nama / kode karyawan" value="{{ $filters['search'] ?? '' }}">
                 <select name="role">
                     <option value="">Semua role</option>
@@ -143,6 +144,7 @@
                 </div>
                 <button class="btn secondary" type="submit">Filter</button>
             </form>
+</x-admin.filter-panel>
             <div class="actions">
                 <a href="{{ route('admin.reports.index') }}" class="btn secondary">Laporan HR</a>
                 <a href="{{ route('admin.attendance.index', array_merge(request()->query(), ['export' => 'csv'])) }}" class="btn warn">Export CSV</a>
@@ -208,152 +210,23 @@
             </div>
         @endif
 
-        <div class="table-wrap">
-            <table>
-                <thead>
-                <tr>
-                    <th>Karyawan</th>
-                    <th>Aksi</th>
-                    <th>Jam</th>
-                    <th>Lokasi</th>
-                    <th>Verifikasi Wajah</th>
-                    <th>Catatan</th>
-                    <th>Status</th>
-                </tr>
-                </thead>
-                <tbody>
-                @forelse($records as $record)
-                    @php
-                        $decision = $record->verification['decision'] ?? null;
-                        $decisionLabel = match ($decision) {
-                            'verified' => 'Terverifikasi',
-                            'retry' => 'Perlu Ulangi Scan',
-                            'rejected' => 'Ditolak',
-                            default => 'Belum Ada Audit',
-                        };
-                        $decisionClass = match ($decision) {
-                            'verified' => 'success',
-                            'retry' => 'warn',
-                            'rejected' => 'danger',
-                            default => '',
-                        };
-                        $locationLatitude = $record->location['latitude'] ?? null;
-                        $locationLongitude = $record->location['longitude'] ?? null;
-                        $hasCoordinates = is_numeric($locationLatitude) && is_numeric($locationLongitude);
-                        $coordinateLabel = $hasCoordinates
-                            ? number_format((float) $locationLatitude, 6, '.', '') . ', ' . number_format((float) $locationLongitude, 6, '.', '')
-                            : null;
-                        $googleMapsUrl = $hasCoordinates
-                            ? 'https://www.google.com/maps?q=' . $locationLatitude . ',' . $locationLongitude
-                            : null;
-                        $faceCaptureUrl = data_get($record->verification, 'capture.thumbnail_url')
-                            ?: data_get($record->verification, 'capture.url');
-                        $recordSummaryKey = $record->user_id . '|' . $record->work_date?->toDateString();
-                        $recordSummary = $recordSummaries[$recordSummaryKey] ?? null;
-                        $outsideOfficeMode = ($record->metadata['attendance_mode'] ?? null) === 'outside_office';
-                        $actionLabel = match ($record->action) {
-                            'checkIn' => 'Checkin',
-                            'checkOut' => 'Checkout',
-                            'outsideOfficeStart' => 'Checkin Outside',
-                            'outsideOfficeFinish' => 'Checkout Outside',
-                            default => $record->action,
-                        };
-                        $outsideOfficePlace = $outsideOfficeMode
-                            ? trim((string) ($record->metadata['place_description'] ?? ''))
-                            : '';
-                        $businessLabel = $outsideOfficeMode
-                            ? ($outsideOfficePlace !== '' ? $outsideOfficePlace : 'Absensi luar kantor')
-                            : ($record->action === 'checkIn'
-                                ? ($recordSummary['arrival_label'] ?? null)
-                                : ($recordSummary['departure_label'] ?? null));
-                        $businessNote = $outsideOfficeMode
-                            ? collect([
-                                $record->metadata['ukm_name'] ?? null,
-                                isset($record->metadata['report_type'])
-                                    ? match ($record->metadata['report_type']) {
-                                        'survey' => 'Survey',
-                                        'follow_up' => 'Follow up',
-                                        default => 'Kunjungan',
-                                    }
-                                    : null,
-                                $record->metadata['report_text'] ?? null,
-                            ])->filter()->implode(' · ')
-                            : ($record->action === 'checkIn'
-                                ? ($recordSummary['arrival_note'] ?? null)
-                                : ($recordSummary['departure_note'] ?? null));
-                    @endphp
-                    <tr>
-                        <td>
-                            <strong>{{ $record->user?->full_name ?? $record->user_id }}</strong><br>
-                            <span class="muted">{{ $record->user?->employee_code ?? '-' }} &middot; {{ \App\Support\Workflow\UserRole::label($record->user?->role) }}</span>
-                        </td>
-                        <td>{{ $actionLabel }}</td>
-                        <td>{{ $record->recorded_at?->format('d M Y H:i') }}</td>
-                        <td>
-                            <div class="stack">
-                                <span>{{ $record->location['address_label'] ?? '-' }}</span>
-                                @if($coordinateLabel)
-                                    <span class="muted">{{ $coordinateLabel }}</span>
-                                @endif
-                                @if(!empty($record->location['work_area_name'] ?? null))
-                                    <span class="muted">
-                                        Area {{ $record->location['work_area_name'] }}
-                                        @if(isset($record->location['distance_meters']))
-                                            &middot; {{ number_format((float) $record->location['distance_meters'], 0, ',', '.') }}m dari titik area
-                                        @endif
-                                    </span>
-                                @endif
-                                @if($googleMapsUrl)
-                                    <a class="muted" href="{{ $googleMapsUrl }}" target="_blank" rel="noreferrer">Buka di Google Maps</a>
-                                @endif
-                            </div>
-                        </td>
-                        <td>
-                            @if($decision !== null)
-                                <span class="pill {{ $decisionClass }}">{{ $decisionLabel }}</span>
-                                <div class="muted">Match {{ $record->verification['match_score'] ?? '-' }}</div>
-                                <div class="muted">Liveness {{ $record->verification['liveness_score'] ?? '-' }}</div>
-                                @if($faceCaptureUrl)
-                                    <div style="margin-top:6px;">
-                                        <a class="attachment-link" href="{{ $faceCaptureUrl }}" target="_blank" rel="noreferrer">Lihat foto Face ID</a>
-                                    </div>
-                                @endif
-                            @else
-                                <span class="pill">Belum valid</span>
-                            @endif
-                        </td>
-                        <td style="max-width:320px;">
-                            @if($businessLabel || $businessNote)
-                                @if($businessLabel)
-                                    <div><strong>{{ $businessLabel }}</strong></div>
-                                @endif
-                                @if($businessNote)
-                                    <div class="muted">{{ $businessNote }}</div>
-                                @endif
-                                @if($outsideOfficeMode && !empty($record->metadata['evidence_attachment']['url'] ?? null))
-                                    <div style="margin-top:6px;">
-                                        <a class="attachment-link" href="{{ $record->metadata['evidence_attachment']['url'] }}" target="_blank" rel="noreferrer">Buka foto kunjungan</a>
-                                    </div>
-                                @endif
-                                @if($record->verification['note'] ?? null)
-                                    <div class="muted" style="margin-top:6px;">Audit wajah: {{ $record->verification['note'] }}</div>
-                                @endif
-                            @elseif($record->verification['note'] ?? null)
-                                <span class="muted">Audit wajah: {{ $record->verification['note'] }}</span>
-                            @else
-                                <span class="muted">Belum ada catatan absensi.</span>
-                            @endif
-                        </td>
-                        <td><span class="pill">{{ $record->status }}</span></td>
-                    </tr>
-                @empty
-                    <tr><td colspan="7" class="muted">Belum ada data absensi.</td></tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
-
-        <div class="pagination">{{ $records->links() }}</div>
+        <p class="muted">Satu baris per karyawan per tanggal kerja. Durasi menghitung pasangan absensi berhasil; jeda dan sesi belum selesai tidak dihitung. Buka detail untuk audit wajah, lokasi, dan semua percobaan absensi.</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Karyawan</th><th>Tanggal</th><th>Check-in</th><th>Check-out</th><th>Update terakhir</th><th>Total waktu kerja</th><th>Status</th><th>Detail</th></tr></thead>
+            <tbody>@forelse($days as $day)
+            <tr>
+                <td><strong>{{ $day['user']?->full_name ?? $day['user_id'] }}</strong><div class="muted">{{ $day['user']?->employee_code }} · {{ \App\Support\Workflow\UserRole::label($day['user']?->role) }}</div></td>
+                <td>{{ \Illuminate\Support\Carbon::parse($day['date'])->format('d M Y') }}</td>
+                <td>{{ $day['check_in']?->format('d M Y H:i:s') ?? 'Belum tercatat' }}</td>
+                <td>{{ $day['check_out']?->format('d M Y H:i:s') ?? 'Belum tercatat' }}</td>
+                <td>{{ $day['last_update']?->format('d M Y H:i:s') }}</td>
+                <td>{{ $day['duration_label'] }}@if($day['open_sessions'])<div class="muted">Ada sesi belum selesai</div>@endif</td>
+                <td>{{ $day['status_label'] }}<div class="muted">{{ $day['records']->count() }} catatan absensi</div></td>
+                <td><a class="btn secondary" href="{{ route('admin.attendance.show', ['employee' => $day['user_id'], 'date' => $day['date']]) }}">Detail</a></td>
+            </tr>
+            @empty<tr><td colspan="8">Belum ada absensi sesuai filter.</td></tr>@endforelse</tbody>
+        </table></div>
+        <div class="pagination">{{ $days->links() }}</div>
     </div>
     <script>
         (function () {

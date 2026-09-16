@@ -28,7 +28,8 @@
 
     <div class="panel pad">
         <div class="toolbar">
-            <form method="GET" class="filters">
+            <x-admin.filter-panel>
+<form method="GET" class="filters">
                 <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}">
                 <input type="date" name="date_until" value="{{ $filters['date_until'] ?? '' }}">
                 <select name="role">
@@ -39,6 +40,7 @@
                 </select>
                 <button class="btn secondary" type="submit">Filter</button>
             </form>
+</x-admin.filter-panel>
             <a href="{{ route('admin.reports.index', array_merge(request()->query(), ['export' => 'csv'])) }}" class="btn warn">Export CSV</a>
         </div>
 

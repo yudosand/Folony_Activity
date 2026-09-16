@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/enums/app_role.dart';
+import '../core/repositories/daily_work_repository.dart';
+import '../core/repositories/fgg_repository.dart';
 import '../core/models/announcement.dart';
 import '../core/models/app_session.dart';
 import '../core/models/app_user.dart';
@@ -57,6 +59,8 @@ class AppController extends ChangeNotifier {
   static const String multiRoleTesterPassword = '123456';
 
   AppController({
+    this.fggRepository,
+    DailyWorkRepository? dailyWorkRepository,
     AuthRepository? authRepository,
     NetworkRepository? networkRepository,
     AttendanceRepository? attendanceRepository,
@@ -77,7 +81,8 @@ class AppController extends ChangeNotifier {
     bool allowDemoMode = false,
     bool useCanonicalWorkflowIds = false,
     bool seedWorkflowDemoData = true,
-  })  : _authRepository = authRepository,
+  })  : dailyWorkRepository = dailyWorkRepository ?? DailyWorkRepository(),
+        _authRepository = authRepository,
         _networkRepository = networkRepository ?? MockNetworkRepository(),
         _attendanceRepository =
             attendanceRepository ?? MockAttendanceRepository(),
@@ -116,6 +121,8 @@ class AppController extends ChangeNotifier {
   }
 
   AppSession? _session;
+  final DailyWorkRepository dailyWorkRepository;
+  final FggRepository? fggRepository;
   final AuthRepository? _authRepository;
   final NetworkRepository _networkRepository;
   final AttendanceRepository _attendanceRepository;

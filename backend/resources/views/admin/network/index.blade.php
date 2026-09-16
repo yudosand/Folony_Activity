@@ -157,7 +157,8 @@
 
     <div class="panel pad">
         <div class="toolbar">
-            <form method="GET" class="filters">
+            <x-admin.filter-panel>
+<form method="GET" class="filters">
                 <input name="search" placeholder="Cari nama / owner / alamat" value="{{ $filters['search'] ?? '' }}">
                 <select name="owner_role">
                     <option value="">Semua owner role</option>
@@ -199,11 +200,14 @@
                 </div>
                 <button class="btn secondary" type="submit">Filter</button>
             </form>
+</x-admin.filter-panel>
             <div class="actions">
                 <a href="{{ route('admin.reports.index') }}" class="btn secondary">Laporan HR</a>
                 <a href="{{ route('admin.network.index', array_merge(request()->query(), ['export' => 'csv'])) }}" class="btn warn">Export CSV</a>
             </div>
         </div>
+
+        @include('admin.network.satellite-map')
 
         @if($activityRecap)
             <div class="panel pad" style="margin-bottom:18px; background: rgba(255,255,255,0.72);">

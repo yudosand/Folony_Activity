@@ -3,6 +3,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folony_activity/features/face/domain/face_scan_engine.dart';
 
 void main() {
+  test('portrait ML Kit bounds use rotated image dimensions and capture immediately', () {
+    for (final rotation in [90, 270]) {
+      final engine = FaceScanEngine.verification(actionLabel: 'check-in', turnChallenge: FaceScanChallengeType.left);
+      final observation = FaceObservation.fromBounds(
+        faceCount: 1, imageWidth: 640, imageHeight: 480, rotationDegrees: rotation,
+        left: 150, top: 200, width: 180, height: 240,
+      );
+      expect(observation.isCentered, isTrue);
+      expect(observation.faceWidthRatio, 0.375);
+      expect(observation.faceHeightRatio, 0.375);
+      expect(engine.evaluate(observation).shouldCaptureFrame, isTrue);
+      engine.retryFailedCapture();
+      expect(engine.isComplete, isFalse);
+      expect(engine.evaluate(observation).shouldCaptureFrame, isTrue);
+      expect(engine.livenessScore, 100);
+    }
+  });
   test('enrollment flow completes three stable front scans', () {
     final engine = FaceScanEngine.enrollment();
 

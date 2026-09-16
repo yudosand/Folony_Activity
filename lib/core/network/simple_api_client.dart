@@ -143,7 +143,7 @@ class SimpleApiClient {
         },
         timeout: const Duration(seconds: 20),
       );
-      return _decodeResponse(response, 'POST', uri);
+      return await _decodeResponse(response, 'POST', uri);
     } finally {
       client.close(force: true);
     }
@@ -181,7 +181,7 @@ class SimpleApiClient {
         },
         timeout: const Duration(seconds: 30),
       );
-      return _decodeResponse(response, method, uri);
+      return await _decodeResponse(response, method, uri);
     } finally {
       client.close(force: true);
     }
@@ -267,7 +267,8 @@ class SimpleApiClient {
     String method,
     Uri uri,
   ) async {
-    final payload = await response.transform(utf8.decoder).join();
+    final payload = await response.transform(utf8.decoder).join()
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
         statusCode: response.statusCode,

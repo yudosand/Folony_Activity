@@ -29,6 +29,18 @@ Route::get('/territories/districts', [TerritoryController::class, 'districts']);
 Route::get('/territories/subdistricts', [TerritoryController::class, 'subdistricts']);
 
 Route::middleware(['auth:sanctum', EnsureActiveApiUser::class])->group(function () {
+    Route::prefix('fgg')->controller(\App\Http\Controllers\Api\FggController::class)->group(function () {
+        Route::get('/session', 'show');
+        Route::post('/connect', 'connect')->middleware('throttle:6,1');
+        Route::post('/hub', 'select');
+        Route::delete('/session', 'disconnect');
+        Route::get('/list/{kind}', 'listing')->where('kind', 'dst|shipments');
+        Route::get('/detail/{kind}/{id}', 'detail')->where('kind', 'dpp|order')->whereNumber('id');
+        Route::match(['get', 'post'], '/trips/{id}', 'trip')->whereNumber('id')->middleware('throttle:30,1');
+        Route::post('/actions/{action}', 'action')->where('action', 'receive|send')->middleware('throttle:20,1');
+    });
+    Route::get('/employee-activities', [\App\Http\Controllers\Api\EmployeeActivityController::class, 'index']);
+    Route::post('/employee-activities', [\App\Http\Controllers\Api\EmployeeActivityController::class, 'store']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
     Route::post('/devices/push-token', [DeviceTokenController::class, 'store']);

@@ -28,7 +28,8 @@
 
     <div class="panel pad">
         <div class="toolbar">
-            <form method="GET" class="filters">
+            <x-admin.filter-panel>
+<form method="GET" class="filters">
                 <input name="search" placeholder="Cari approver / reference ID" value="{{ $filters['search'] ?? '' }}">
                 <select name="module">
                     <option value="">Semua module</option>
@@ -50,6 +51,7 @@
                 </select>
                 <button class="btn secondary" type="submit">Filter</button>
             </form>
+</x-admin.filter-panel>
             <a href="{{ route('admin.approvals.index', array_merge(request()->query(), ['export' => 'csv'])) }}" class="btn warn">Export CSV</a>
         </div>
 

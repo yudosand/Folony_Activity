@@ -8,7 +8,8 @@
 
 @section('content')
     <div class="panel pad">
-        <form method="GET" class="filters" style="margin-bottom:18px;">
+        <x-admin.filter-panel>
+<form method="GET" class="filters" style="margin-bottom:18px;">
             <input name="search" placeholder="Cari nama / ID pengajuan" value="{{ $filters['search'] ?? '' }}">
             <select name="role">
                 <option value="">Semua role</option>
@@ -30,6 +31,7 @@
             </select>
             <button class="btn secondary" type="submit">Filter</button>
         </form>
+</x-admin.filter-panel>
 
         <div class="table-wrap">
             <table>

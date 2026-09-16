@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -24,32 +23,7 @@ class NetworkMonitoringController extends Controller
 {
     public function index(Request $request, AdminExportService $exportService): View|StreamedResponse
     {
-        $filters = $request->validate([
-            'search' => ['nullable', 'string'],
-            'owner_role' => ['nullable', 'string'],
-            'type' => ['nullable', 'string'],
-            'status' => ['nullable', 'string'],
-            'area_name' => ['nullable', 'string'],
-            'date_from' => ['nullable', 'date'],
-            'date_until' => ['nullable', 'date'],
-        ]);
-
-        $query = NetworkProfile::query()
-            ->with('followUps')
-            ->when($filters['search'] ?? null, function ($builder, string $search) {
-                $builder->where(function ($query) use ($search) {
-                    $query->where('name', 'like', '%' . $search . '%')
-                        ->orWhere('owner_name', 'like', '%' . $search . '%')
-                        ->orWhere('address', 'like', '%' . $search . '%');
-                });
-            })
-            ->when($filters['owner_role'] ?? null, fn ($builder, string $ownerRole) => $builder->where('owner_role', $ownerRole))
-            ->when($filters['type'] ?? null, fn ($builder, string $type) => $builder->where('type', $type))
-            ->when($filters['status'] ?? null, fn ($builder, string $status) => $builder->where('status', $status))
-            ->when($filters['area_name'] ?? null, fn ($builder, string $areaName) => $builder->where('area_name', 'like', '%' . $areaName . '%'))
-            ->when($filters['date_from'] ?? null, fn ($builder, string $dateFrom) => $builder->whereDate('updated_at', '>=', $dateFrom))
-            ->when($filters['date_until'] ?? null, fn ($builder, string $dateUntil) => $builder->whereDate('updated_at', '<=', $dateUntil))
-            ->latest('updated_at');
+        [$filters, $query] = $this->queryFor($request);
 
         $summary = $this->buildSummary(clone $query);
 
@@ -98,126 +72,63 @@ class NetworkMonitoringController extends Controller
         ]);
     }
 
-    public function activities(Request $request): View
+    private function queryFor(Request $request): array
     {
         $filters = $request->validate([
             'search' => ['nullable', 'string'],
             'owner_role' => ['nullable', 'string'],
+            'type' => ['nullable', 'string'],
+            'status' => ['nullable', 'string'],
+            'area_name' => ['nullable', 'string'],
             'date_from' => ['nullable', 'date'],
             'date_until' => ['nullable', 'date'],
         ]);
 
-        $roles = [UserRole::FGG, UserRole::AREA_MANAGER];
-        $dateFrom = ! empty($filters['date_from']) ? Carbon::parse($filters['date_from'])->startOfDay() : null;
-        $dateUntil = ! empty($filters['date_until']) ? Carbon::parse($filters['date_until'])->endOfDay() : null;
-        if ($dateFrom && $dateUntil && $dateUntil->lessThan($dateFrom)) {
-            [$dateFrom, $dateUntil] = [$dateUntil->copy()->startOfDay(), $dateFrom->copy()->endOfDay()];
-        }
-
-        $createdProfiles = NetworkProfile::query()
-            ->whereIn('owner_role', $roles)
-            ->when($filters['owner_role'] ?? null, fn ($query, string $role) => $query->where('owner_role', $role))
-            ->when($dateFrom, fn ($query) => $query->where('created_at', '>=', $dateFrom))
-            ->when($dateUntil, fn ($query) => $query->where('created_at', '<=', $dateUntil))
-            ->when($filters['search'] ?? null, function ($query, string $search): void {
-                $query->where(function ($builder) use ($search): void {
-                    $builder->where('owner_name', 'like', '%' . $search . '%')
-                        ->orWhere('name', 'like', '%' . $search . '%')
-                        ->orWhere('address', 'like', '%' . $search . '%')
-                        ->orWhere('area_name', 'like', '%' . $search . '%');
+        $query = NetworkProfile::query()
+            ->with('followUps')
+            ->when($filters['search'] ?? null, function ($builder, string $search) {
+                $builder->where(function ($query) use ($search) {
+                    $query->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('owner_name', 'like', '%' . $search . '%')
+                        ->orWhere('address', 'like', '%' . $search . '%');
                 });
             })
-            ->latest('created_at')
-            ->limit(500)
-            ->get()
-            ->map(fn (NetworkProfile $profile): array => [
-                'occurred_at' => $profile->created_at,
-                'actor_name' => $profile->owner_name,
-                'actor_role' => UserRole::label($profile->owner_role),
-                'activity_label' => $profile->type === 'mitra' ? 'Tambah MITRA Baru' : 'Tambah UKM Baru',
-                'profile_name' => $profile->name,
-                'profile_type' => strtoupper((string) $profile->type),
-                'address' => $profile->address,
-                'latitude' => $profile->latitude,
-                'longitude' => $profile->longitude,
-                'duration_label' => null,
-                'detail' => $profile->business_type ?: '-',
-                'photo' => $profile->photo_attachment,
-            ]);
+            ->when($filters['owner_role'] ?? null, fn ($builder, string $ownerRole) => $builder->where('owner_role', $ownerRole))
+            ->when($filters['type'] ?? null, fn ($builder, string $type) => $builder->where('type', $type))
+            ->when($filters['status'] ?? null, fn ($builder, string $status) => $builder->where('status', $status))
+            ->when($filters['area_name'] ?? null, fn ($builder, string $areaName) => $builder->where('area_name', 'like', '%' . $areaName . '%'))
+            ->when($filters['date_from'] ?? null, fn ($builder, string $dateFrom) => $builder->whereDate('updated_at', '>=', $dateFrom))
+            ->when($filters['date_until'] ?? null, fn ($builder, string $dateUntil) => $builder->whereDate('updated_at', '<=', $dateUntil))
+            ->latest('updated_at');
 
-        $visits = NetworkFollowUp::query()
-            ->with(['profile', 'actor'])
-            ->whereHas('actor', fn ($query) => $query->whereIn('role', $roles))
-            ->when($filters['owner_role'] ?? null, fn ($query, string $role) => $query->whereHas('actor', fn ($actor) => $actor->where('role', $role)))
-            ->when($dateFrom, fn ($query) => $query->where('created_at', '>=', $dateFrom))
-            ->when($dateUntil, fn ($query) => $query->where('created_at', '<=', $dateUntil))
-            ->when($filters['search'] ?? null, function ($query, string $search): void {
-                $query->where(function ($builder) use ($search): void {
-                    $builder->where('actor_name', 'like', '%' . $search . '%')
-                        ->orWhere('title', 'like', '%' . $search . '%')
-                        ->orWhere('note', 'like', '%' . $search . '%')
-                        ->orWhereHas('profile', function ($profile) use ($search): void {
-                            $profile->where('name', 'like', '%' . $search . '%')
-                                ->orWhere('address', 'like', '%' . $search . '%')
-                                ->orWhere('area_name', 'like', '%' . $search . '%');
-                        });
-                });
-            })
-            ->latest('created_at')
-            ->limit(500)
-            ->get()
-            ->map(function (NetworkFollowUp $followUp): array {
-                $profile = $followUp->profile;
 
-                return [
-                    'occurred_at' => $followUp->created_at,
-                    'actor_name' => $followUp->actor_name,
-                    'actor_role' => UserRole::label((string) ($followUp->actor?->role ?? '')),
-                    'activity_label' => ($profile?->type === 'mitra') ? 'Kunjungan Mitra' : 'Kunjungan UKM',
-                    'profile_name' => $profile?->name ?? $followUp->network_profile_id,
-                    'profile_type' => strtoupper((string) ($profile?->type ?? '-')),
-                    'address' => $profile?->address ?? '-',
-                    'latitude' => $profile?->latitude,
-                    'longitude' => $profile?->longitude,
-                    'duration_label' => $this->formatDuration($followUp->visit_duration_seconds),
-                    'detail' => trim($followUp->title . ($followUp->note ? ' - ' . $followUp->note : '')),
-                    'photo' => $followUp->photo_attachment,
-                ];
-            });
-
-        $activities = $createdProfiles
-            ->concat($visits)
-            ->sortByDesc(fn (array $activity) => optional($activity['occurred_at'])->timestamp ?? 0)
-            ->values();
-
-        $page = LengthAwarePaginator::resolveCurrentPage();
-        $perPage = 30;
-        $paginated = new LengthAwarePaginator(
-            $activities->forPage($page, $perPage)->values(),
-            $activities->count(),
-            $perPage,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ],
-        );
-
-        return view('admin.network.activities', [
-            'activities' => $paginated,
-            'filters' => $filters,
-            'ownerRoles' => [
-                UserRole::FGG => UserRole::label(UserRole::FGG),
-                UserRole::AREA_MANAGER => UserRole::label(UserRole::AREA_MANAGER),
-            ],
-            'summary' => [
-                'total' => $activities->count(),
-                'created' => $createdProfiles->count(),
-                'visits' => $visits->count(),
-            ],
-        ]);
+        return [$filters, $query];
     }
 
+    public function mapPoints(Request $request): \Illuminate\Http\JsonResponse
+    {
+        [, $query] = $this->queryFor($request);
+        $cursor = $request->validate(['after' => ['nullable', 'string', 'max:100']]);
+        $total = (clone $query)->count();
+        $mapped = (clone $query)->setEagerLoads([])->reorder()
+            ->whereNotNull('latitude')->whereNotNull('longitude')
+            ->whereBetween('latitude', [-90, 90])->whereBetween('longitude', [-180, 180]);
+        $mappedTotal = (clone $mapped)->count();
+        $points = $mapped->when($cursor['after'] ?? null, fn ($q, $id) => $q->where('id', '>', $id))
+            ->orderBy('id')->limit(1001)->get(['id', 'name', 'type', 'status', 'owner_name', 'area_name', 'address', 'latitude', 'longitude']);
+        $hasMore = $points->count() > 1000;
+        $points = $points->take(1000)->values();
+        return response()->json([
+            'data' => $points->map(fn ($point) => [
+                'id' => $point->id, 'name' => $point->name, 'type' => $point->type,
+                'status' => $point->status, 'owner' => $point->owner_name, 'area' => $point->area_name,
+                'address' => $point->address, 'latitude' => $point->latitude, 'longitude' => $point->longitude,
+                'detail_url' => route('admin.network.show', $point),
+            ]),
+            'meta' => ['total' => $total, 'mapped' => $mappedTotal, 'unmapped' => $total - $mappedTotal,
+                'next_cursor' => $hasMore ? $points->last()->id : null],
+        ]);
+    }
     public function show(NetworkProfile $profile): View
     {
         $profile->load(['owner', 'followUps']);
@@ -489,30 +400,6 @@ class NetworkMonitoringController extends Controller
             ->get();
 
         return $matched->count() === 1 ? $matched->first() : null;
-    }
-
-    private function formatDuration(?int $seconds): ?string
-    {
-        if ($seconds === null) {
-            return null;
-        }
-
-        $hours = intdiv($seconds, 3600);
-        $minutes = intdiv($seconds % 3600, 60);
-        $remainingSeconds = $seconds % 60;
-
-        $parts = [];
-        if ($hours > 0) {
-            $parts[] = $hours . 'j';
-        }
-        if ($minutes > 0) {
-            $parts[] = $minutes . 'm';
-        }
-        if ($parts === []) {
-            $parts[] = $remainingSeconds . 'd';
-        }
-
-        return implode(' ', $parts);
     }
 
     private function readImportCsvContent(Request $request, array $payload): string

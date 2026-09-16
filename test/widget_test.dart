@@ -701,6 +701,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final workDateField = find.byKey(const ValueKey('wfa-work-date-input'));
+    expect(workDateField, findsNothing);
+    await tester.tap(find.text('Pengajuan WFA'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(workDateField);
     await tester.tap(workDateField);
     await tester.pumpAndSettle();

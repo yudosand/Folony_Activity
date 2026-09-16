@@ -9,7 +9,8 @@
 @section('content')
     <div class="panel pad">
         <div class="toolbar">
-            <form method="GET" class="filters">
+            <x-admin.filter-panel>
+<form method="GET" class="filters">
                 <input name="search" placeholder="Cari nama / kode / no HP" value="{{ $filters['search'] ?? '' }}">
                 <select name="role">
                     <option value="">Semua role</option>
@@ -24,6 +25,7 @@
                 </select>
                 <button class="btn secondary" type="submit">Filter</button>
             </form>
+</x-admin.filter-panel>
             <div class="actions">
                 <a href="{{ route('admin.reports.index') }}" class="btn secondary">Laporan HR</a>
                 <a href="{{ route('admin.employees.create') }}" class="btn primary">Tambah Karyawan</a>

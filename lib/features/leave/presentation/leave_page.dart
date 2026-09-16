@@ -777,7 +777,7 @@ class _LeaveSectionCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
-    this.initiallyExpanded = true,
+    this.initiallyExpanded = false,
   });
 
   final String title;

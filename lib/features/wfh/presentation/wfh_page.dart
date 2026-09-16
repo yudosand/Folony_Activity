@@ -162,7 +162,7 @@ class _WfhPageState extends State<WfhPage> {
                   title: 'Pengajuan WFA',
                   subtitle: _approvalHint,
                   collapsible: true,
-                  initiallyExpanded: _activeRequest == null,
+                  initiallyExpanded: false,
                   child: Column(
                     children: [
                       _SelectionLine<WfaRequestType>(
@@ -1204,7 +1204,7 @@ class _WfaSectionCard extends StatelessWidget {
     required this.subtitle,
     required this.child,
     this.collapsible = false,
-    this.initiallyExpanded = true,
+    this.initiallyExpanded = false,
   });
 
   final String title;

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/config/backend_config.dart';
+import '../core/repositories/daily_work_repository.dart';
+import '../core/repositories/fgg_repository.dart';
 import '../core/network/simple_api_client.dart';
 import '../core/repositories/auth_repository.dart';
 import '../core/repositories/heat_map_repository.dart';
@@ -87,6 +89,11 @@ class _HexActivityAppState extends State<HexActivityApp> {
     );
 
     return AppController(
+      fggRepository:
+          backendConfig.workflowRemoteEnabled ? FggRepository(apiClient) : null,
+      dailyWorkRepository: DailyWorkRepository(
+        client: backendConfig.workflowRemoteEnabled ? apiClient : null,
+      ),
       authRepository: authRepository,
       useRemoteAuth: backendConfig.workflowRemoteEnabled,
       allowDemoMode: backendConfig.demoModeEnabled,

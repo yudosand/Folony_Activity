@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import '../domain/face_scan_engine.dart';
@@ -200,7 +200,7 @@ class _FaceScanPageState extends State<FaceScanPage>
           .take(_capturedPaths.length)
           .length;
     }
-    return _primaryCapturePath == null ? 0 : 2;
+    return _primaryCapturePath == null ? 0 : 1;
   }
 
   Widget _buildCameraFrame(ThemeData theme) {
@@ -225,7 +225,7 @@ class _FaceScanPageState extends State<FaceScanPage>
       alignment: Alignment.center,
       children: [
         Positioned.fill(
-          child: CameraPreview(controller),
+          child: Center(child: CameraPreview(controller)),
         ),
         Positioned.fill(
           child: DecoratedBox(
@@ -454,6 +454,7 @@ class _FaceScanPageState extends State<FaceScanPage>
         faces: faces,
         imageWidth: image.width.toDouble(),
         imageHeight: image.height.toDouble(),
+        rotationDegrees: inputImage.metadata!.rotation.rawValue,
       );
       final update = _engine.evaluate(observation);
       setState(() {
@@ -482,9 +483,21 @@ class _FaceScanPageState extends State<FaceScanPage>
     CameraController controller,
     CameraImage image,
   ) {
-    final rotation = InputImageRotationValue.fromRawValue(
-      controller.description.sensorOrientation,
-    );
+    var rotationDegrees = controller.description.sensorOrientation;
+    if (Platform.isAndroid) {
+      const orientations = {
+        DeviceOrientation.portraitUp: 0,
+        DeviceOrientation.landscapeLeft: 90,
+        DeviceOrientation.portraitDown: 180,
+        DeviceOrientation.landscapeRight: 270,
+      };
+      final deviceRotation = orientations[controller.value.deviceOrientation]!;
+      rotationDegrees =
+          controller.description.lensDirection == CameraLensDirection.front
+              ? (rotationDegrees + deviceRotation) % 360
+              : (rotationDegrees - deviceRotation + 360) % 360;
+    }
+    final rotation = InputImageRotationValue.fromRawValue(rotationDegrees);
     final format = InputImageFormatValue.fromRawValue(image.format.raw);
     if (rotation == null || format == null) {
       return null;
@@ -514,6 +527,7 @@ class _FaceScanPageState extends State<FaceScanPage>
     required List<Face> faces,
     required double imageWidth,
     required double imageHeight,
+    required int rotationDegrees,
   }) {
     if (faces.isEmpty) {
       return const FaceObservation(
@@ -527,18 +541,15 @@ class _FaceScanPageState extends State<FaceScanPage>
 
     final face = faces.first;
     final bounds = face.boundingBox;
-    final centerX = bounds.center.dx / imageWidth;
-    final centerY = bounds.center.dy / imageHeight;
-    final faceWidthRatio = bounds.width / imageWidth;
-    final faceHeightRatio = bounds.height / imageHeight;
-
-    return FaceObservation(
+    return FaceObservation.fromBounds(
       faceCount: faces.length,
-      isCentered:
-          (centerX - 0.5).abs() <= 0.22 && (centerY - 0.5).abs() <= 0.22,
-      hasAcceptableSize: faceWidthRatio >= 0.22 && faceHeightRatio >= 0.24,
-      faceWidthRatio: faceWidthRatio,
-      faceHeightRatio: faceHeightRatio,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+      rotationDegrees: rotationDegrees,
+      left: bounds.left,
+      top: bounds.top,
+      width: bounds.width,
+      height: bounds.height,
       yaw: face.headEulerAngleY ?? 0,
       pitch: face.headEulerAngleX ?? 0,
       leftEyeOpenProbability: face.leftEyeOpenProbability,
@@ -553,8 +564,8 @@ class _FaceScanPageState extends State<FaceScanPage>
     }
 
     _isCapturingSample = true;
-    await _stopImageStream();
     try {
+      await _stopImageStream();
       final photo = await controller.takePicture();
       if (widget.scenario == FaceScanScenario.enrollment) {
         _capturedPaths.add(photo.path);
@@ -578,6 +589,7 @@ class _FaceScanPageState extends State<FaceScanPage>
         await _startImageStream();
       }
     } catch (_) {
+      _engine.retryFailedCapture();
       if (!mounted) {
         return;
       }

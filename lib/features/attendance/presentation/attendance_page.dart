@@ -319,7 +319,7 @@ class _AttendancePageState extends State<AttendancePage> {
                   child: Theme(
                     data: theme.copyWith(dividerColor: Colors.transparent),
                     child: ExpansionTile(
-                      initiallyExpanded: true,
+                      initiallyExpanded: false,
                       tilePadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 4,

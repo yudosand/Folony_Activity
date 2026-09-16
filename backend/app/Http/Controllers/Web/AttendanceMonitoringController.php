@@ -9,6 +9,7 @@ use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Models\WfaRequest;
 use App\Services\Admin\AdminExportService;
+use App\Services\Admin\AttendanceDailyReport;
 use App\Services\AttendanceSummaryService;
 use App\Support\Workflow\UserRole;
 use App\Support\Workflow\WorkflowStatus;
@@ -42,8 +43,8 @@ class AttendanceMonitoringController extends Controller
             ->with('user')
             ->when($filters['search'] ?? null, function ($query, string $search) {
                 $query->whereHas('user', function ($builder) use ($search) {
-                    $builder->where('full_name', 'like', '%' . $search . '%')
-                        ->orWhere('employee_code', 'like', '%' . $search . '%');
+                    $builder->where('full_name', 'like', '%'.$search.'%')
+                        ->orWhere('employee_code', 'like', '%'.$search.'%');
                 });
             })
             ->when($filters['role'] ?? null, function ($query, string $role) {
@@ -59,45 +60,30 @@ class AttendanceMonitoringController extends Controller
 
         $summary = $this->buildSummary(clone $query);
 
+        $dailyReport = app(AttendanceDailyReport::class);
+        $dailyQuery = (clone $query)->reorder()->select('user_id', 'work_date')
+            ->groupBy('user_id', 'work_date')->orderByDesc('work_date')->orderBy('user_id');
         if ($request->string('export')->value() === 'csv') {
-            $rows = $query->get()->map(function (AttendanceRecord $record) use ($attendanceSummaryService): array {
-                $summary = $this->summaryForRecord($attendanceSummaryService, $record);
+            $rows = $dailyQuery->get()->map(function ($record) use ($dailyReport) {
+                $day = $dailyReport->day($record->user_id, $record->work_date->toDateString());
 
-                return [
-                    $record->user?->employee_code ?? $record->user_id,
-                    $record->user?->full_name ?? $record->user_id,
-                    UserRole::label($record->user?->role),
-                    $this->actionLabelForRecord($record),
-                    optional($record->recorded_at)->format('Y-m-d H:i'),
-                    $record->location['address_label'] ?? '',
-                    $record->verification['decision'] ?? '',
-                    $record->verification['match_score'] ?? '',
-                    $record->verification['liveness_score'] ?? '',
-                    $this->summaryNoteForRecord($record, $summary) ?? ($record->verification['note'] ?? ''),
-                    $record->status,
-                ];
+                return [$day['user']?->employee_code, $day['user']?->full_name, $day['date'],
+                    $day['check_in']?->format('Y-m-d H:i:s'), $day['check_out']?->format('Y-m-d H:i:s'),
+                    $day['duration_label'], $day['open_sessions'] ? 'Belum selesai' : 'Tercatat', $day['records']->count()];
             });
 
-            return $exportService->streamCsv(
-                'attendance-monitoring.csv',
-                ['Kode', 'Karyawan', 'Role', 'Aksi', 'Waktu', 'Lokasi', 'Decision', 'Face Match', 'Liveness', 'Catatan Verifikasi', 'Status'],
-                $rows,
-            );
+            return $exportService->streamCsv('attendance-monitoring.csv',
+                ['Kode', 'Karyawan', 'Tanggal', 'Check-in', 'Check-out', 'Durasi (HH:MM:SS)', 'Sesi', 'Jumlah Catatan'], $rows);
         }
-
-        $records = $query->paginate(20)->withQueryString();
-        $recordSummaries = $this->summariesForRecords(
-            $attendanceSummaryService,
-            $records->getCollection(),
-        );
+        $days = $dailyQuery->paginate(20)->withQueryString();
+        $days->setCollection($days->getCollection()->map(fn ($record) => $dailyReport->day($record->user_id, $record->work_date->toDateString())));
         $attendanceRecap = $this->buildAttendanceRecap(
             $filters,
             $attendanceSummaryService,
         );
 
         return view('admin.attendance.index', [
-            'records' => $records,
-            'recordSummaries' => $recordSummaries,
+            'days' => $days,
             'attendanceRecap' => $attendanceRecap,
             'attendanceWorkAreas' => AttendanceWorkArea::query()->orderBy('name')->get(),
             'summary' => $summary,
@@ -105,6 +91,16 @@ class AttendanceMonitoringController extends Controller
             'decisions' => ['verified', 'retry', 'rejected'],
             'filters' => $filters,
         ]);
+    }
+
+    public function show(User $employee, string $date, AttendanceSummaryService $attendanceSummaryService): View
+    {
+        abort_unless(preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) && checkdate((int) substr($date, 5, 2), (int) substr($date, 8, 2), (int) substr($date, 0, 4)), 404);
+        $day = app(AttendanceDailyReport::class)->day($employee->id, $date);
+        abort_if($day['records']->isEmpty(), 404);
+
+        return view('admin.attendance.show', ['day' => $day, 'records' => $day['records'],
+            'recordSummaries' => $this->summariesForRecords($attendanceSummaryService, $day['records'])]);
     }
 
     public function storeWorkArea(Request $request): RedirectResponse
@@ -118,7 +114,7 @@ class AttendanceMonitoringController extends Controller
         ]);
 
         AttendanceWorkArea::query()->create([
-            'id' => 'work_area_' . Str::uuid(),
+            'id' => 'work_area_'.Str::uuid(),
             'name' => $validated['name'],
             'latitude' => (float) $validated['latitude'],
             'longitude' => (float) $validated['longitude'],
@@ -186,17 +182,12 @@ class AttendanceMonitoringController extends Controller
     private function calculateTotalMinutes(Collection $records): int
     {
         return $records
-            ->groupBy(fn (AttendanceRecord $record) => $record->user_id . '|' . $record->work_date?->toDateString())
+            ->groupBy(fn (AttendanceRecord $record) => $record->user_id.'|'.$record->work_date?->toDateString())
             ->reduce(function (int $carry, Collection $group): int {
-                $ordered = $group->sortBy('recorded_at')->values();
-                $checkIn = $ordered->first(fn (AttendanceRecord $record) => $record->action === 'checkIn' && $record->status === 'success');
-                $checkOut = $ordered->last(fn (AttendanceRecord $record) => $record->action === 'checkOut' && $record->status === 'success');
+                $first = $group->first();
+                $day = app(AttendanceDailyReport::class)->day($first->user_id, $first->work_date->toDateString());
 
-                if (! $checkIn || ! $checkOut) {
-                    return $carry;
-                }
-
-                return $carry + $checkIn->recorded_at->diffInMinutes($checkOut->recorded_at);
+                return $carry + intdiv($day['duration_seconds'] ?? 0, 60);
             }, 0);
     }
 
@@ -242,7 +233,7 @@ class AttendanceMonitoringController extends Controller
             return null;
         }
 
-        return $record->user_id . '|' . $record->work_date->toDateString();
+        return $record->user_id.'|'.$record->work_date->toDateString();
     }
 
     private function actionLabelForRecord(AttendanceRecord $record): string
@@ -370,6 +361,7 @@ class AttendanceMonitoringController extends Controller
                     'rule_label' => $summary['summary_label'] ?? '-',
                     'note' => $notes === [] ? 'Absensi harian tercatat.' : implode(' / ', $notes),
                 ];
+
                 continue;
             }
 
@@ -384,6 +376,7 @@ class AttendanceMonitoringController extends Controller
                     'rule_label' => ucfirst((string) $leave->category),
                     'note' => $leave->reason ?: 'Ada approval cuti pada tanggal ini.',
                 ];
+
                 continue;
             }
 
@@ -396,8 +389,9 @@ class AttendanceMonitoringController extends Controller
                     'check_in' => '-',
                     'check_out' => '-',
                     'rule_label' => strtoupper((string) $wfa->mode),
-                    'note' => trim(($wfa->reason ?: 'Ada approval WFA pada tanggal ini.') . ' (' . $wfa->start_time . ' - ' . $wfa->end_time . ')'),
+                    'note' => trim(($wfa->reason ?: 'Ada approval WFA pada tanggal ini.').' ('.$wfa->start_time.' - '.$wfa->end_time.')'),
                 ];
+
                 continue;
             }
 
@@ -470,8 +464,8 @@ class AttendanceMonitoringController extends Controller
         $matched = User::query()
             ->where('role', '!=', UserRole::HR)
             ->where(function ($query) use ($keyword) {
-                $query->where('full_name', 'like', '%' . $keyword . '%')
-                    ->orWhere('employee_code', 'like', '%' . $keyword . '%');
+                $query->where('full_name', 'like', '%'.$keyword.'%')
+                    ->orWhere('employee_code', 'like', '%'.$keyword.'%');
             })
             ->limit(2)
             ->get();

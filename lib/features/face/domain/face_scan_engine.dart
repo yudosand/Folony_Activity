@@ -29,6 +29,40 @@ class FaceScanChallenge {
 }
 
 class FaceObservation {
+  factory FaceObservation.fromBounds({
+    required int faceCount,
+    required double imageWidth,
+    required double imageHeight,
+    required int rotationDegrees,
+    required double left,
+    required double top,
+    required double width,
+    required double height,
+    double yaw = 0,
+    double pitch = 0,
+    double? leftEyeOpenProbability,
+    double? rightEyeOpenProbability,
+  }) {
+    // ML Kit returns bounds in the rotated, upright image coordinate system.
+    final rotated = rotationDegrees == 90 || rotationDegrees == 270;
+    final uprightWidth = rotated ? imageHeight : imageWidth;
+    final uprightHeight = rotated ? imageWidth : imageHeight;
+    final widthRatio = width / uprightWidth;
+    final heightRatio = height / uprightHeight;
+    return FaceObservation(
+      faceCount: faceCount,
+      isCentered: ((left + width / 2) / uprightWidth - 0.5).abs() <= 0.22 &&
+          ((top + height / 2) / uprightHeight - 0.5).abs() <= 0.22,
+      hasAcceptableSize: widthRatio >= 0.22 && heightRatio >= 0.24,
+      faceWidthRatio: widthRatio,
+      faceHeightRatio: heightRatio,
+      yaw: yaw,
+      pitch: pitch,
+      leftEyeOpenProbability: leftEyeOpenProbability,
+      rightEyeOpenProbability: rightEyeOpenProbability,
+    );
+  }
+
   const FaceObservation({
     required this.faceCount,
     required this.isCentered,
@@ -83,7 +117,8 @@ class FaceScanEngine {
           FaceScanChallenge(
             type: FaceScanChallengeType.front,
             label: 'Scan wajah 2',
-            instruction: 'Tetap lihat kamera. Pastikan cahaya wajah cukup terang.',
+            instruction:
+                'Tetap lihat kamera. Pastikan cahaya wajah cukup terang.',
             requiredStableFrames: 1,
           ),
           FaceScanChallenge(
@@ -125,6 +160,13 @@ class FaceScanEngine {
 
   bool get isComplete => _currentIndex >= _challenges.length;
 
+  void retryFailedCapture() {
+    if (_currentIndex == 0) return;
+    _currentIndex -= 1;
+    _livenessScore -= _scoreForCompletion(_challenges[_currentIndex]);
+    _resetProgress();
+  }
+
   FaceScanChallenge? get currentChallenge =>
       isComplete ? null : _challenges[_currentIndex];
 
@@ -149,7 +191,8 @@ class FaceScanEngine {
       _resetProgress();
       return _update(
         challenge,
-        guidance: 'Wajah belum terlihat jelas. Lihat ke kamera dan pastikan cahaya cukup terang.',
+        guidance:
+            'Wajah belum terlihat jelas. Lihat ke kamera dan pastikan cahaya cukup terang.',
       );
     }
 
@@ -165,7 +208,8 @@ class FaceScanEngine {
       _resetProgress();
       return _update(
         challenge,
-        guidance: 'Jarak wajah belum pas. Dekatkan sedikit dan tahan di area oval.',
+        guidance:
+            'Jarak wajah belum pas. Dekatkan sedikit dan tahan di area oval.',
       );
     }
 

@@ -3,7 +3,7 @@
 @php
     $title = 'Aktivitas Lapangan';
     $heading = 'Aktivitas Lapangan';
-    $subheading = 'HR melihat timeline aktivitas FGG dan Area Manager: tambah UKM/Mitra, kunjungan, durasi, foto, dan lokasi.';
+    $subheading = 'Laporan per karyawan per tanggal. Buka detail untuk urutan kegiatan dan peta kunjungan.';
 @endphp
 
 @section('content')
@@ -17,6 +17,10 @@
             <div class="value">{{ $summary['created'] }}</div>
         </div>
         <div class="card-kpi">
+            <div class="label">Terima DST / Kirim Pesanan</div>
+            <div class="value">{{ $summary['shipping'] }}</div>
+        </div>
+        <div class="card-kpi">
             <div class="label">Kunjungan</div>
             <div class="value">{{ $summary['visits'] }}</div>
         </div>
@@ -24,8 +28,9 @@
 
     <div class="panel pad">
         <div class="toolbar">
-            <form method="GET" class="filters">
-                <input name="search" placeholder="Cari FGG / Area Manager / nama UKM / alamat" value="{{ $filters['search'] ?? '' }}">
+            <x-admin.filter-panel>
+<form method="GET" class="filters">
+                <input name="search" placeholder="Cari karyawan / UKM / HUB / nomor DST atau pesanan" value="{{ $filters['search'] ?? '' }}">
                 <select name="owner_role">
                     <option value="">Semua role lapangan</option>
                     @foreach($ownerRoles as $role => $label)
@@ -36,67 +41,28 @@
                 <input name="date_until" type="date" value="{{ $filters['date_until'] ?? '' }}">
                 <button class="btn secondary" type="submit">Filter</button>
             </form>
+</x-admin.filter-panel>
             <div class="actions">
                 <a href="{{ route('admin.network.index') }}" class="btn secondary">Monitoring Jaringan</a>
             </div>
         </div>
 
+        <p class="muted">Total waktu kerja menghitung durasi kunjungan dan perjalanan pengiriman tercatat; interval tumpang tindih dihitung sekali. Durasi tanpa jam mulai/selesai dijumlahkan terpisah. Aktivitas tanpa durasi tidak dihitung. Pencarian menampilkan hari yang cocok beserta seluruh aktivitas hari itu.</p>
         <div class="table-wrap">
             <table>
-                <thead>
-                <tr>
-                    <th>Waktu</th>
-                    <th>Owner</th>
-                    <th>Aktivitas</th>
-                    <th>Profil</th>
-                    <th>Lokasi</th>
-                    <th>Detail</th>
-                    <th>Foto</th>
-                </tr>
-                </thead>
+                <thead><tr><th>Nama</th><th>Tanggal</th><th>Aktivitas</th><th>Profil</th><th>Lokasi</th><th>Total waktu kerja</th><th>Detail</th></tr></thead>
                 <tbody>
-                @forelse($activities as $activity)
-                    @php($hasCoordinates = $activity['latitude'] !== null && $activity['longitude'] !== null)
-                    @php($mapsUrl = $hasCoordinates ? 'https://www.google.com/maps?q=' . $activity['latitude'] . ',' . $activity['longitude'] : null)
-                    @php($photoUrl = is_array($activity['photo'] ?? null) ? ($activity['photo']['url'] ?? null) : null)
+                @forelse($days as $day)
                     <tr>
-                        <td>{{ optional($activity['occurred_at'])->format('d M Y H:i') }}</td>
-                        <td>
-                            <div class="stack">
-                                <strong>{{ $activity['actor_name'] ?: '-' }}</strong>
-                                <span class="muted">{{ $activity['actor_role'] }}</span>
-                            </div>
-                        </td>
-                        <td>
-                            <div class="stack">
-                                <span>{{ $activity['activity_label'] }}</span>
-                                @if($activity['duration_label'])
-                                    <span class="pill">Durasi {{ $activity['duration_label'] }}</span>
-                                @endif
-                            </div>
-                        </td>
-                        <td>
-                            <div class="stack">
-                                <strong>{{ $activity['profile_name'] }}</strong>
-                                <span class="muted">{{ $activity['profile_type'] }}</span>
-                            </div>
-                        </td>
-                        <td>
-                            <div class="stack">
-                                <span>{{ $activity['address'] ?: '-' }}</span>
-                                @if($mapsUrl)
-                                    <a class="muted" href="{{ $mapsUrl }}" target="_blank" rel="noreferrer">Buka di Google Maps</a>
-                                @endif
-                            </div>
-                        </td>
-                        <td class="muted" style="max-width:340px;">{{ $activity['detail'] ?: '-' }}</td>
-                        <td>
-                            @if($photoUrl)
-                                <a class="attachment-link" href="{{ $photoUrl }}" target="_blank" rel="noreferrer">Buka foto</a>
-                            @else
-                                <span class="muted">-</span>
-                            @endif
-                        </td>
+                        <td><strong>{{ $day['actor_name'] }}</strong><div class="muted">{{ $day['actor_role'] }}</div></td>
+                        <td>{{ \Illuminate\Support\Carbon::parse($day['date'])->format('d M Y') }}</td>
+                        <td>@foreach($day['activities'] as $label => $count)<div>{{ $label }}: {{ $count }}</div>@endforeach</td>
+                        <td>@foreach($day['profiles']->take(3) as $profile)<div>{{ $profile }}</div>@endforeach
+                            @if($day['profiles']->count() > 3)<span class="muted">+{{ $day['profiles']->count() - 3 }} profil lainnya</span>@endif</td>
+                        <td>@foreach($day['locations']->take(2) as $location)<div>{{ $location }}</div>@endforeach
+                            <span class="muted">{{ $day['located'] }} dari {{ $day['count'] }} aktivitas memiliki koordinat</span></td>
+                        <td><strong>{{ $day['duration_label'] ?? 'Belum tercatat' }}</strong><div class="muted">Durasi kunjungan & perjalanan</div></td>
+                        <td><a class="btn secondary" href="{{ route('admin.network.activities.show', ['employee' => $day['actor_id'], 'date' => $day['date']]) }}">Detail</a></td>
                     </tr>
                 @empty
                     <tr><td colspan="7" class="muted">Belum ada aktivitas lapangan sesuai filter.</td></tr>
@@ -104,7 +70,6 @@
                 </tbody>
             </table>
         </div>
-
-        <div class="pagination">{{ $activities->links() }}</div>
+        <div class="pagination">{{ $days->links() }}</div>
     </div>
 @endsection
