@@ -504,6 +504,14 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
           _NavItem(
+            label: 'Heat Map',
+            icon: Icons.map_rounded,
+            page: HeatMapPage(
+              session: session,
+              controller: widget.controller,
+            ),
+          ),
+          _NavItem(
             label: 'Akun',
             icon: Icons.person_rounded,
             page: ProfilePage(

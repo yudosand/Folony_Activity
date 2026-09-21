@@ -1396,6 +1396,17 @@ class FieldOpsApiTest extends TestCase
             ->assertJsonFragment(['id' => 'net_fgg_001']);
     }
 
+    public function test_management_can_access_heat_map_points(): void
+    {
+        $this->seed(WorkflowDemoSeeder::class);
+        Sanctum::actingAs(User::query()->findOrFail('usr_mgt_001'));
+
+        $this->getJson('/api/heat-map?latitude=-6.3690&longitude=106.8315&radius_meters=1200')
+            ->assertOk()
+            ->assertJsonPath('data.radius_meters', 1200)
+            ->assertJsonFragment(['id' => 'net_fgg_001']);
+    }
+
     public function test_heat_map_returns_all_network_points_in_radius_even_outside_actor_territory(): void
     {
         $this->seed(WorkflowDemoSeeder::class);
