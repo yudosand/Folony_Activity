@@ -47,6 +47,11 @@
         const name = document.createElement('strong');
         name.textContent = point.name;
         container.append(name);
+        if (point.business) {
+            const business = document.createElement('p');
+            business.textContent = point.business.category_name + ' · ' + point.business.kind_name;
+            container.append(business);
+        }
         for (const text of [point.type.toUpperCase() + ' · ' + point.status, point.owner, point.area, point.address,
             point.latitude.toFixed(6) + ', ' + point.longitude.toFixed(6)]) {
             const line = document.createElement('p');
@@ -55,7 +60,7 @@
         }
         const detail = document.createElement('a');
         detail.href = point.detail_url;
-        detail.textContent = 'Lihat detail jaringan';
+        detail.textContent = element.dataset.detailLabel || 'Lihat detail jaringan';
         container.append(detail);
         return container;
     };
@@ -85,9 +90,14 @@
                     seen.add(point.id);
                     const coordinates = [point.latitude, point.longitude];
                     bounds.extend(coordinates);
+                    const icons = { chicken: '🍗', bowl: '🍜', food: '🍽', coffee: '☕', basket: '🥬', store: '🏪', tools: '🛠' };
+                    const color = /^#[0-9a-f]{6}$/i.test(point.business?.color || '') ? point.business.color : '#64748b';
+                    const icon = point.business ? L.divIcon({className:'business-map-marker', iconSize:[32,32],
+                        html:`<span class="business-map-icon" style="background:${color}">${icons[point.business.icon] || icons.store}</span>`})
+                        : L.divIcon({ className: 'network-map-dot network-map-' + (point.type === 'mitra' ? 'mitra' : 'ukm'), iconSize: [18, 18] });
                     const marker = L.marker(coordinates, {
-                        title: point.name,
-                        icon: L.divIcon({ className: 'network-map-dot network-map-' + (point.type === 'mitra' ? 'mitra' : 'ukm'), iconSize: [18, 18] })
+                        title: point.name + (point.business ? ' · ' + point.business.kind_name : ''),
+                        icon
                     }).bindPopup(() => popup(point));
                     markers.push(marker);
                 }

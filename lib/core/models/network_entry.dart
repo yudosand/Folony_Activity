@@ -18,6 +18,8 @@ class NetworkEntry {
     required this.territoryDistrict,
     required this.territorySubdistrict,
     required this.businessType,
+    this.businessCategoryId,
+    this.businessKindId,
     required this.phone,
     required this.reference,
     required this.notes,
@@ -90,6 +92,8 @@ class NetworkEntry {
   final String territoryDistrict;
   final String territorySubdistrict;
   final String businessType;
+  final String? businessCategoryId;
+  final String? businessKindId;
   final String phone;
   final String reference;
   final String notes;
@@ -117,6 +121,8 @@ class NetworkEntry {
     String? territoryDistrict,
     String? territorySubdistrict,
     String? businessType,
+    String? businessCategoryId,
+    String? businessKindId,
     String? phone,
     String? reference,
     String? notes,
@@ -144,6 +150,8 @@ class NetworkEntry {
       territoryDistrict: territoryDistrict ?? this.territoryDistrict,
       territorySubdistrict: territorySubdistrict ?? this.territorySubdistrict,
       businessType: businessType ?? this.businessType,
+      businessCategoryId: businessCategoryId ?? this.businessCategoryId,
+      businessKindId: businessKindId ?? this.businessKindId,
       phone: phone ?? this.phone,
       reference: reference ?? this.reference,
       notes: notes ?? this.notes,

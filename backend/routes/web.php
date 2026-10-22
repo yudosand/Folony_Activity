@@ -21,6 +21,12 @@ Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('adm
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.store');
 
 Route::middleware([EnsureHrAdmin::class])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/business-catalog', [\App\Http\Controllers\Web\BusinessCatalogController::class, 'index'])->name('business-catalog.index');
+    Route::post('/business-catalog/categories/{category?}', [\App\Http\Controllers\Web\BusinessCatalogController::class, 'category'])->name('business-catalog.category');
+    Route::post('/business-catalog/kinds/{kind?}', [\App\Http\Controllers\Web\BusinessCatalogController::class, 'kind'])->name('business-catalog.kind');
+    Route::post('/business-catalog/map', [\App\Http\Controllers\Web\BusinessCatalogController::class, 'mapLegacy'])->name('business-catalog.map');
+    Route::get('/suppliers/map-points', [\App\Http\Controllers\Web\SupplierController::class, 'mapPoints'])->name('suppliers.map-points');
+    Route::resource('suppliers', \App\Http\Controllers\Web\SupplierController::class)->only(['index', 'create', 'store', 'show']);
     Route::get('/employee-activities', [\App\Http\Controllers\Web\EmployeeActivityController::class, 'index'])->name('employee-activities.index');
     Route::get('/employee-activities/{employee}/{date}', [\App\Http\Controllers\Web\EmployeeActivityController::class, 'show'])->name('employee-activities.show');
     Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');

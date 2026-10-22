@@ -29,6 +29,10 @@ Route::get('/territories/districts', [TerritoryController::class, 'districts']);
 Route::get('/territories/subdistricts', [TerritoryController::class, 'subdistricts']);
 
 Route::middleware(['auth:sanctum', EnsureActiveApiUser::class])->group(function () {
+    Route::get('/business-catalog', fn (\App\Services\BusinessCatalog $catalog) => response()->json(['data'=>$catalog->options()]));
+    Route::get('/suppliers', [\App\Http\Controllers\Api\SupplierController::class, 'index']);
+    Route::post('/suppliers', [\App\Http\Controllers\Api\SupplierController::class, 'store']);
+    Route::get('/suppliers/{supplier}', [\App\Http\Controllers\Api\SupplierController::class, 'show'])->whereUuid('supplier');
     Route::prefix('fgg')->controller(\App\Http\Controllers\Api\FggController::class)->group(function () {
         Route::get('/session', 'show');
         Route::post('/connect', 'connect')->middleware('throttle:6,1');

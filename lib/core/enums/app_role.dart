@@ -7,6 +7,11 @@ enum AppRole {
 }
 
 extension AppRoleX on AppRole {
+  bool get canManageSuppliers =>
+      this == AppRole.spv ||
+      this == AppRole.management ||
+      this == AppRole.areaManager;
+
   String get label {
     switch (this) {
       case AppRole.areaManager:

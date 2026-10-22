@@ -145,6 +145,8 @@ class NetworkProfile {
     required this.territoryDistrict,
     required this.territorySubdistrict,
     required this.businessType,
+    this.businessCategoryId,
+    this.businessKindId,
     required this.phoneNumber,
     required this.status,
     required this.createdAt,
@@ -170,6 +172,8 @@ class NetworkProfile {
   final String territoryDistrict;
   final String territorySubdistrict;
   final String businessType;
+  final String? businessCategoryId;
+  final String? businessKindId;
   final String phoneNumber;
   final NetworkProfileStatus status;
   final DateTime createdAt;
@@ -202,6 +206,8 @@ class NetworkProfile {
       territoryDistrict: json['territory_district'] as String? ?? '',
       territorySubdistrict: json['territory_subdistrict'] as String? ?? '',
       businessType: json['business_type'] as String? ?? '',
+      businessCategoryId: json['business_category_id'] as String?,
+      businessKindId: json['business_kind_id'] as String?,
       phoneNumber: json['phone_number'] as String? ?? '',
       status: NetworkProfileStatus.values.firstWhere(
         (item) => item.name == json['status'],
@@ -235,6 +241,8 @@ class NetworkProfile {
       'territory_district': territoryDistrict,
       'territory_subdistrict': territorySubdistrict,
       'business_type': businessType,
+      if (businessKindId != null) 'business_kind_id': businessKindId,
+      if (businessCategoryId != null) 'business_category_id': businessCategoryId,
       'phone_number': phoneNumber,
       'status': status.name,
       'created_at': createdAt.toIso8601String(),

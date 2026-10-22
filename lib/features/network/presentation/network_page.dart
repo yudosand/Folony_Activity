@@ -16,6 +16,7 @@ import '../../../core/network/human_readable_error.dart';
 import '../../../core/widgets/adaptive_image.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
+import 'business_selection_field.dart';
 
 class NetworkPage extends StatefulWidget {
   const NetworkPage({
@@ -955,6 +956,8 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _businessTypeController = TextEditingController();
+  String? _businessCategoryId;
+  String? _businessKindId;
   final _phoneController = TextEditingController();
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
@@ -1314,11 +1317,16 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
               maxLines: 2,
             ),
             const Divider(height: 24),
-            _TextInput(
-              controller: _businessTypeController,
-              label: 'Jenis Usaha',
-              hint: 'Contoh: sembako, kuliner, jasa',
-              required: true,
+            BusinessSelectionField(
+              repository: widget.controller.businessCatalogRepository,
+              categoryId: widget.existingEntry?.businessCategoryId,
+              kindId: widget.existingEntry?.businessKindId,
+              originalText: widget.existingEntry?.businessType,
+              onChanged: (category, kind, name) {
+                _businessCategoryId = category;
+                _businessKindId = kind;
+                _businessTypeController.text = name;
+              },
             ),
             const Divider(height: 24),
             _TextInput(
@@ -1807,6 +1815,8 @@ class _NetworkFormPageState extends State<_NetworkFormPage> {
           territoryDistrict: _territoryDistrictController.text.trim(),
           territorySubdistrict: _territorySubdistrictController.text.trim(),
           businessType: _businessTypeController.text.trim(),
+          businessCategoryId: _businessCategoryId,
+          businessKindId: _businessKindId,
           phone: _phoneController.text.trim(),
           reference: _referenceController.text.trim(),
           notes: _notesController.text.trim(),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../core/repositories/supplier_repository.dart';
+import '../core/repositories/business_catalog_repository.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/config/backend_config.dart';
@@ -89,6 +91,10 @@ class _HexActivityAppState extends State<HexActivityApp> {
     );
 
     return AppController(
+      businessCatalogRepository: backendConfig.workflowRemoteEnabled ? BusinessCatalogRepository(apiClient) : null,
+      supplierRepository: backendConfig.workflowRemoteEnabled
+          ? SupplierRepository(apiClient)
+          : null,
       fggRepository:
           backendConfig.workflowRemoteEnabled ? FggRepository(apiClient) : null,
       dailyWorkRepository: DailyWorkRepository(

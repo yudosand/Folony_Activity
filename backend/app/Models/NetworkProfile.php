@@ -11,6 +11,7 @@ class NetworkProfile extends Model
     public $incrementing = false;
 
     protected $keyType = 'string';
+    protected $with = ['businessKind.category'];
 
     protected $fillable = [
         'id',
@@ -26,6 +27,7 @@ class NetworkProfile extends Model
         'name',
         'address',
         'business_type',
+        'business_kind_id',
         'phone_number',
         'status',
         'reference_name',
@@ -51,6 +53,11 @@ class NetworkProfile extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function businessKind(): BelongsTo
+    {
+        return $this->belongsTo(BusinessKind::class, 'business_kind_id');
     }
 
     public function followUps(): HasMany

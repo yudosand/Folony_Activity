@@ -27,6 +27,7 @@ class NetworkService
             return $this->update($existing, $payload, $owner);
         }
 
+        $payload = array_replace($payload, app(BusinessCatalog::class)->classify($payload));
         $profile = NetworkProfile::query()->create([
             'id' => $profileId,
             'owner_id' => $owner->id,
@@ -41,6 +42,7 @@ class NetworkService
             'name' => $payload['name'],
             'address' => $payload['address'],
             'business_type' => $payload['business_type'],
+            'business_kind_id' => $payload['business_kind_id'],
             'phone_number' => $payload['phone_number'],
             'status' => $payload['status'],
             'reference_name' => Arr::get($payload, 'reference_name'),
@@ -58,6 +60,7 @@ class NetworkService
     public function update(NetworkProfile $profile, array $payload, User $actor): NetworkProfile
     {
         $this->assertEditable($profile, $actor);
+        $payload = array_replace($payload, app(BusinessCatalog::class)->classify($payload, $profile));
         $territory = TerritoryData::payloadTerritory($payload + TerritoryData::profileTerritory($profile));
         if ($profile->owner_id !== $actor->id) {
             $this->assertWithinTerritory($actor, $territory, $payload['type'] ?? $profile->type);
@@ -76,6 +79,7 @@ class NetworkService
             'territory_district' => $territory['territory_district'],
             'territory_subdistrict' => $territory['territory_subdistrict'],
             'business_type' => $payload['business_type'] ?? $profile->business_type,
+            'business_kind_id' => $payload['business_kind_id'],
             'phone_number' => $payload['phone_number'] ?? $profile->phone_number,
             'status' => $payload['status'] ?? $profile->status,
             'reference_name' => Arr::exists($payload, 'reference_name')

@@ -13,6 +13,8 @@ import '../../leave/presentation/leave_page.dart';
 import '../../network/presentation/network_page.dart';
 import '../../profile/presentation/profile_page.dart';
 import '../../survey/presentation/survey_page.dart';
+import '../../supplier/presentation/supplier_page.dart';
+import '../../supplier/presentation/supplier_form_page.dart';
 import '../../whatsapp/presentation/whatsapp_quick_chat_page.dart';
 import '../../wfh/presentation/wfh_page.dart';
 
@@ -183,6 +185,7 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 _surveyShortcut(session),
+                ..._supplierShortcuts(session),
                 ..._supportShortcuts(),
               ],
             ),
@@ -255,6 +258,7 @@ class _MainShellState extends State<MainShell> {
               onOpenNetwork: () => _selectDestination('Jaringan'),
               homeMenus: [
                 _surveyShortcut(session),
+                ..._supplierShortcuts(session),
                 ..._supportShortcuts(),
               ],
             ),
@@ -307,6 +311,7 @@ class _MainShellState extends State<MainShell> {
               onOpenLeave: () => _selectDestination('Cuti'),
               homeMenus: [
                 _surveyShortcut(session),
+                ..._supplierShortcuts(session),
                 ..._supportShortcuts(),
               ],
             ),
@@ -395,6 +400,7 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 _surveyShortcut(session),
+                ..._supplierShortcuts(session),
                 ..._supportShortcuts(),
               ],
             ),
@@ -475,6 +481,7 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 _surveyShortcut(session),
+                ..._supplierShortcuts(session),
                 ..._supportShortcuts(),
               ],
             ),
@@ -536,6 +543,29 @@ class _MainShellState extends State<MainShell> {
         ),
       ),
     );
+  }
+
+  List<HomeMenuShortcut> _supplierShortcuts(AppSession session) {
+    if (!session.role.canManageSuppliers) return const [];
+    return [
+      HomeMenuShortcut(
+        icon: Icons.add_business_outlined,
+        title: 'Tambah Supplier',
+        subtitle: 'Catat supplier dan barang yang disediakan.',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => SupplierFormPage(controller: widget.controller),
+        )),
+      ),
+      HomeMenuShortcut(
+        icon: Icons.inventory_2_outlined,
+        title: 'Supplier yang saya tambahkan',
+        subtitle: 'Lihat data supplier buatan Anda.',
+        onTap: () => _openStandalonePage(
+          title: 'Supplier Saya',
+          child: SupplierPage(controller: widget.controller),
+        ),
+      ),
+    ];
   }
 
   List<HomeMenuShortcut> _supportShortcuts() {

@@ -1,0 +1,1851 @@
+{
+  "categories": [
+    {
+      "id": "kuliner",
+      "name": "Kuliner",
+      "color": "#e66b16"
+    },
+    {
+      "id": "minuman",
+      "name": "Minuman & Kedai Kopi",
+      "color": "#9333ea"
+    },
+    {
+      "id": "kebutuhan-harian",
+      "name": "Toko Kebutuhan Harian",
+      "color": "#2563eb"
+    },
+    {
+      "id": "bahan-pangan",
+      "name": "Bahan Pangan",
+      "color": "#15803d"
+    },
+    {
+      "id": "ritel",
+      "name": "Ritel Lainnya",
+      "color": "#b45309"
+    },
+    {
+      "id": "jasa",
+      "name": "Jasa",
+      "color": "#be185d"
+    }
+  ],
+  "kinds": [
+    {
+      "id": "kuliner-ayam-goreng",
+      "category_id": "kuliner",
+      "name": "Ayam Goreng",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-bakso",
+      "category_id": "kuliner",
+      "name": "Bakso",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-mie-ayam",
+      "category_id": "kuliner",
+      "name": "Mie Ayam",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-warteg",
+      "category_id": "kuliner",
+      "name": "Warteg",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-padang",
+      "category_id": "kuliner",
+      "name": "Nasi Padang",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-soto-ayam",
+      "category_id": "kuliner",
+      "name": "Soto Ayam",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-nasi-goreng",
+      "category_id": "kuliner",
+      "name": "Nasi Goreng",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-aneka-sayur-matang",
+      "category_id": "kuliner",
+      "name": "Aneka Sayur Matang",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ayam-geprek",
+      "category_id": "kuliner",
+      "name": "Ayam Geprek",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-nasi-rames",
+      "category_id": "kuliner",
+      "name": "Nasi Rames",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ayam-bakar",
+      "category_id": "kuliner",
+      "name": "Ayam Bakar",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-seblak",
+      "category_id": "kuliner",
+      "name": "Seblak",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-bubur-ayam",
+      "category_id": "kuliner",
+      "name": "Bubur Ayam",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-sate-ayam",
+      "category_id": "kuliner",
+      "name": "Sate Ayam",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-seafood",
+      "category_id": "kuliner",
+      "name": "Seafood",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-uduk",
+      "category_id": "kuliner",
+      "name": "Nasi Uduk",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ketoprak",
+      "category_id": "kuliner",
+      "name": "Ketoprak",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-aneka-macam-masakan",
+      "category_id": "kuliner",
+      "name": "Aneka Macam Masakan",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-warung-nasi",
+      "category_id": "kuliner",
+      "name": "Warung Nasi",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-pecel-lele",
+      "category_id": "kuliner",
+      "name": "Pecel Lele",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-gado-gado",
+      "category_id": "kuliner",
+      "name": "Gado-Gado",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-soto-mie",
+      "category_id": "kuliner",
+      "name": "Soto Mie",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-bakmi",
+      "category_id": "kuliner",
+      "name": "Bakmi",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-mie-bakso",
+      "category_id": "kuliner",
+      "name": "Mie Bakso",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-nasi-kuning",
+      "category_id": "kuliner",
+      "name": "Nasi Kuning",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-dimsum",
+      "category_id": "kuliner",
+      "name": "Dimsum",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-pempek",
+      "category_id": "kuliner",
+      "name": "Pempek",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ayam-penyet",
+      "category_id": "kuliner",
+      "name": "Ayam Penyet",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-pecel-ayam",
+      "category_id": "kuliner",
+      "name": "Pecel Ayam",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-nasi-campur",
+      "category_id": "kuliner",
+      "name": "Nasi Campur",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-bakso-malang",
+      "category_id": "kuliner",
+      "name": "Bakso Malang",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-soto-betawi",
+      "category_id": "kuliner",
+      "name": "Soto Betawi",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-nasi-bebek-madura",
+      "category_id": "kuliner",
+      "name": "Nasi Bebek Madura",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-steak",
+      "category_id": "kuliner",
+      "name": "Steak",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sate-kambing",
+      "category_id": "kuliner",
+      "name": "Sate Kambing",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-siomay",
+      "category_id": "kuliner",
+      "name": "Siomay",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-gorengan",
+      "category_id": "kuliner",
+      "name": "Gorengan",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sate-padang",
+      "category_id": "kuliner",
+      "name": "Sate Padang",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-angkringan",
+      "category_id": "kuliner",
+      "name": "Angkringan",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-batagor",
+      "category_id": "kuliner",
+      "name": "Batagor",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-warung-nasi-sunda",
+      "category_id": "kuliner",
+      "name": "Warung Nasi Sunda",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-bebek-goreng",
+      "category_id": "kuliner",
+      "name": "Bebek Goreng",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ikan-bakar",
+      "category_id": "kuliner",
+      "name": "Ikan Bakar",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sop-ayam",
+      "category_id": "kuliner",
+      "name": "Sop Ayam",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-fried-chicken",
+      "category_id": "kuliner",
+      "name": "Fried Chicken",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-martabak",
+      "category_id": "kuliner",
+      "name": "Martabak",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-pecel",
+      "category_id": "kuliner",
+      "name": "Nasi Pecel",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-kwetiau",
+      "category_id": "kuliner",
+      "name": "Kwetiau",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-empal-gentong",
+      "category_id": "kuliner",
+      "name": "Empal Gentong",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-mie-rebus",
+      "category_id": "kuliner",
+      "name": "Mie Rebus",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-chinese-food",
+      "category_id": "kuliner",
+      "name": "Chinese Food",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-soto",
+      "category_id": "kuliner",
+      "name": "Soto",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-restoran",
+      "category_id": "kuliner",
+      "name": "Restoran",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-bebek",
+      "category_id": "kuliner",
+      "name": "Nasi Bebek",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-katsu",
+      "category_id": "kuliner",
+      "name": "Katsu",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sate-maranggi",
+      "category_id": "kuliner",
+      "name": "Sate Maranggi",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sop",
+      "category_id": "kuliner",
+      "name": "Sop",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-lontong-sayur",
+      "category_id": "kuliner",
+      "name": "Lontong Sayur",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-gudeg",
+      "category_id": "kuliner",
+      "name": "Gudeg",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-babi-guling",
+      "category_id": "kuliner",
+      "name": "Babi Guling",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sempol-ayam",
+      "category_id": "kuliner",
+      "name": "Sempol Ayam",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-tongseng",
+      "category_id": "kuliner",
+      "name": "Tongseng",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-kebab",
+      "category_id": "kuliner",
+      "name": "Kebab",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-bakmi-singkawang",
+      "category_id": "kuliner",
+      "name": "Bakmi Singkawang",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-mie-goreng",
+      "category_id": "kuliner",
+      "name": "Mie Goreng",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-kupat-tahu",
+      "category_id": "kuliner",
+      "name": "Kupat Tahu",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ayam-kremes",
+      "category_id": "kuliner",
+      "name": "Ayam Kremes",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-aneka-penyetan",
+      "category_id": "kuliner",
+      "name": "Aneka Penyetan",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-cireng",
+      "category_id": "kuliner",
+      "name": "Cireng",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-lotek",
+      "category_id": "kuliner",
+      "name": "Lotek",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-pecel",
+      "category_id": "kuliner",
+      "name": "Pecel",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-soto-daging",
+      "category_id": "kuliner",
+      "name": "Soto Daging",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-gulai",
+      "category_id": "kuliner",
+      "name": "Gulai",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-takoyaki",
+      "category_id": "kuliner",
+      "name": "Takoyaki",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-aneka-masakan-ikan-laut",
+      "category_id": "kuliner",
+      "name": "Aneka Masakan Ikan Laut",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-kantin",
+      "category_id": "kuliner",
+      "name": "Kantin",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-masakan-jawa",
+      "category_id": "kuliner",
+      "name": "Masakan Jawa",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-soto-jawa",
+      "category_id": "kuliner",
+      "name": "Soto Jawa",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-sate-babi",
+      "category_id": "kuliner",
+      "name": "Sate Babi",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-iga-bakar",
+      "category_id": "kuliner",
+      "name": "Iga Bakar",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-kebuli",
+      "category_id": "kuliner",
+      "name": "Nasi Kebuli",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-pecel-sayur",
+      "category_id": "kuliner",
+      "name": "Pecel Sayur",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-rawon",
+      "category_id": "kuliner",
+      "name": "Rawon",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-steambooth",
+      "category_id": "kuliner",
+      "name": "Steambooth",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-kulit",
+      "category_id": "kuliner",
+      "name": "Nasi Kulit",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-coto-makasar",
+      "category_id": "kuliner",
+      "name": "Coto Makasar",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sosis-bakar",
+      "category_id": "kuliner",
+      "name": "Sosis Bakar",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-pentol-kuah",
+      "category_id": "kuliner",
+      "name": "Pentol Kuah",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-warmindo",
+      "category_id": "kuliner",
+      "name": "Warmindo",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-cuanki",
+      "category_id": "kuliner",
+      "name": "Cuanki",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-cilok-kuah",
+      "category_id": "kuliner",
+      "name": "Cilok Kuah",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-tahu-gejrot",
+      "category_id": "kuliner",
+      "name": "Tahu Gejrot",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-tahu-gimbal",
+      "category_id": "kuliner",
+      "name": "Tahu Gimbal",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ketupat",
+      "category_id": "kuliner",
+      "name": "Ketupat",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sop-iga",
+      "category_id": "kuliner",
+      "name": "Sop Iga",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-mie-kocok",
+      "category_id": "kuliner",
+      "name": "Mie Kocok",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-nasi-tempong",
+      "category_id": "kuliner",
+      "name": "Nasi Tempong",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-bakso-tahu-siomay",
+      "category_id": "kuliner",
+      "name": "Bakso Tahu Siomay",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-lumpia-basah",
+      "category_id": "kuliner",
+      "name": "Lumpia Basah",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-babi-asap",
+      "category_id": "kuliner",
+      "name": "Babi Asap",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sop-kaki-kambing",
+      "category_id": "kuliner",
+      "name": "Sop Kaki Kambing",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-bakmi-surabaya",
+      "category_id": "kuliner",
+      "name": "Bakmi Surabaya",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-risoles",
+      "category_id": "kuliner",
+      "name": "Risoles",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-rendang",
+      "category_id": "kuliner",
+      "name": "Rendang",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-masakan-sunda",
+      "category_id": "kuliner",
+      "name": "Masakan Sunda",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-bakmi-babi",
+      "category_id": "kuliner",
+      "name": "Bakmi Babi",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-choipan",
+      "category_id": "kuliner",
+      "name": "Choipan",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-tahu-tek-tek",
+      "category_id": "kuliner",
+      "name": "Tahu Tek Tek",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-soto-sapi",
+      "category_id": "kuliner",
+      "name": "Soto Sapi",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-bihun-bebek",
+      "category_id": "kuliner",
+      "name": "Bihun Bebek",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-cilok",
+      "category_id": "kuliner",
+      "name": "Cilok",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-warung-prasmanan",
+      "category_id": "kuliner",
+      "name": "Warung Prasmanan",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-soto-padang",
+      "category_id": "kuliner",
+      "name": "Soto Padang",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-ayam-betutu",
+      "category_id": "kuliner",
+      "name": "Ayam Betutu",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-bebek-madura",
+      "category_id": "kuliner",
+      "name": "Bebek Madura",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-gudeg",
+      "category_id": "kuliner",
+      "name": "Nasi Gudeg",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-rawon",
+      "category_id": "kuliner",
+      "name": "Nasi Rawon",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-aneka-bakaran",
+      "category_id": "kuliner",
+      "name": "Aneka Bakaran",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ricebowl",
+      "category_id": "kuliner",
+      "name": "Ricebowl",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-tahu-crispy",
+      "category_id": "kuliner",
+      "name": "Tahu Crispy",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-hainam",
+      "category_id": "kuliner",
+      "name": "Nasi Hainam",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-bakso-aci",
+      "category_id": "kuliner",
+      "name": "Bakso Aci",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-makanan-laksa",
+      "category_id": "kuliner",
+      "name": "Makanan Laksa",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-lengko",
+      "category_id": "kuliner",
+      "name": "Nasi Lengko",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-jalan-kote",
+      "category_id": "kuliner",
+      "name": "Jalan Kote",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-aneka-kue",
+      "category_id": "kuliner",
+      "name": "Aneka Kue",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-liwet",
+      "category_id": "kuliner",
+      "name": "Nasi Liwet",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ketupat-sayur-padang",
+      "category_id": "kuliner",
+      "name": "Ketupat Sayur Padang",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ayam-goreng-tepung",
+      "category_id": "kuliner",
+      "name": "Ayam Goreng Tepung",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-bakmi-jowo",
+      "category_id": "kuliner",
+      "name": "Bakmi Jowo",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-cimol-kentang",
+      "category_id": "kuliner",
+      "name": "Cimol Kentang",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-pentol-goreng",
+      "category_id": "kuliner",
+      "name": "Pentol Goreng",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-bakso-bakar",
+      "category_id": "kuliner",
+      "name": "Bakso Bakar",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-nasi-timbel",
+      "category_id": "kuliner",
+      "name": "Nasi Timbel",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-capcay",
+      "category_id": "kuliner",
+      "name": "Capcay",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sop-saudara",
+      "category_id": "kuliner",
+      "name": "Sop Saudara",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-tahu-campur",
+      "category_id": "kuliner",
+      "name": "Tahu Campur",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-mie-jebew",
+      "category_id": "kuliner",
+      "name": "Mie Jebew",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-taman-jajan",
+      "category_id": "kuliner",
+      "name": "Taman Jajan",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-mie-ramen",
+      "category_id": "kuliner",
+      "name": "Mie Ramen",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-nasi-kucing",
+      "category_id": "kuliner",
+      "name": "Nasi Kucing",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-catering",
+      "category_id": "kuliner",
+      "name": "Catering",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-nasi-bakar",
+      "category_id": "kuliner",
+      "name": "Nasi Bakar",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-sate-taichan",
+      "category_id": "kuliner",
+      "name": "Sate Taichan",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-korean-food",
+      "category_id": "kuliner",
+      "name": "Korean Food",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-bakso-tusuk",
+      "category_id": "kuliner",
+      "name": "Bakso Tusuk",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-bakso-kuah",
+      "category_id": "kuliner",
+      "name": "Bakso Kuah",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-jamur-crispy",
+      "category_id": "kuliner",
+      "name": "Jamur Crispy",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ramen",
+      "category_id": "kuliner",
+      "name": "Ramen",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-bakut-teh",
+      "category_id": "kuliner",
+      "name": "Bakut Teh",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-rujak-cingur",
+      "category_id": "kuliner",
+      "name": "Rujak Cingur",
+      "icon": "food"
+    },
+    {
+      "id": "kuliner-ayam-gepuk",
+      "category_id": "kuliner",
+      "name": "Ayam Gepuk",
+      "icon": "chicken"
+    },
+    {
+      "id": "kuliner-soto-kudus",
+      "category_id": "kuliner",
+      "name": "Soto Kudus",
+      "icon": "bowl"
+    },
+    {
+      "id": "kuliner-kuliner",
+      "category_id": "kuliner",
+      "name": "Kuliner",
+      "icon": "food"
+    },
+    {
+      "id": "minuman-warkop",
+      "category_id": "minuman",
+      "name": "Warkop",
+      "icon": "coffee"
+    },
+    {
+      "id": "minuman-kafe",
+      "category_id": "minuman",
+      "name": "Kafe",
+      "icon": "coffee"
+    },
+    {
+      "id": "minuman-coffee-shop",
+      "category_id": "minuman",
+      "name": "Coffee Shop",
+      "icon": "coffee"
+    },
+    {
+      "id": "kebutuhan-harian-sembako",
+      "category_id": "kebutuhan-harian",
+      "name": "Sembako",
+      "icon": "store"
+    },
+    {
+      "id": "kebutuhan-harian-toko-kelontong",
+      "category_id": "kebutuhan-harian",
+      "name": "Toko Kelontong",
+      "icon": "store"
+    },
+    {
+      "id": "bahan-pangan-sayur-segar",
+      "category_id": "bahan-pangan",
+      "name": "Sayur Segar",
+      "icon": "basket"
+    },
+    {
+      "id": "bahan-pangan-frozen-food",
+      "category_id": "bahan-pangan",
+      "name": "Frozen Food",
+      "icon": "basket"
+    },
+    {
+      "id": "bahan-pangan-bumbu",
+      "category_id": "bahan-pangan",
+      "name": "Bumbu",
+      "icon": "basket"
+    },
+    {
+      "id": "bahan-pangan-bumbu-dasar",
+      "category_id": "bahan-pangan",
+      "name": "Bumbu Dasar",
+      "icon": "basket"
+    },
+    {
+      "id": "bahan-pangan-aneka-sayuran",
+      "category_id": "bahan-pangan",
+      "name": "Aneka Sayuran",
+      "icon": "basket"
+    },
+    {
+      "id": "bahan-pangan-sayur-buah-bumbu",
+      "category_id": "bahan-pangan",
+      "name": "Sayur Buah Bumbu",
+      "icon": "basket"
+    },
+    {
+      "id": "bahan-pangan-aneka-sambal",
+      "category_id": "bahan-pangan",
+      "name": "Aneka Sambal",
+      "icon": "basket"
+    },
+    {
+      "id": "bahan-pangan-agen-beras",
+      "category_id": "bahan-pangan",
+      "name": "Agen Beras",
+      "icon": "basket"
+    },
+    {
+      "id": "bahan-pangan-aneka-sayur-dan-bumbu",
+      "category_id": "bahan-pangan",
+      "name": "Aneka Sayur Dan Bumbu",
+      "icon": "basket"
+    },
+    {
+      "id": "bahan-pangan-bawang-merah",
+      "category_id": "bahan-pangan",
+      "name": "Bawang Merah",
+      "icon": "basket"
+    },
+    {
+      "id": "ritel-toko-plastik",
+      "category_id": "ritel",
+      "name": "Toko Plastik",
+      "icon": "store"
+    },
+    {
+      "id": "jasa-penggilingan-bakso",
+      "category_id": "jasa",
+      "name": "Penggilingan Bakso",
+      "icon": "bowl"
+    },
+    {
+      "id": "jasa-gilingan-bakso-siomay-cilok",
+      "category_id": "jasa",
+      "name": "Gilingan Bakso Siomay Cilok",
+      "icon": "bowl"
+    },
+    {
+      "id": "jasa-bengkel",
+      "category_id": "jasa",
+      "name": "Bengkel",
+      "icon": "tools"
+    },
+    {
+      "id": "kuliner-beragam",
+      "category_id": "kuliner",
+      "name": "Kuliner Beragam",
+      "icon": "food"
+    },
+    {
+      "id": "bahan-pangan-beragam",
+      "category_id": "bahan-pangan",
+      "name": "Bahan Pangan Beragam",
+      "icon": "basket"
+    },
+    {
+      "id": "kebutuhan-harian-beragam",
+      "category_id": "kebutuhan-harian",
+      "name": "Toko Kebutuhan Harian Beragam",
+      "icon": "store"
+    }
+  ],
+  "aliases": {
+    "ayam goreng": "kuliner-ayam-goreng",
+    "bakso": "kuliner-bakso",
+    "mie ayam": "kuliner-mie-ayam",
+    "warteg": "kuliner-warteg",
+    "nasi padang": "kuliner-nasi-padang",
+    "soto ayam": "kuliner-soto-ayam",
+    "nasi goreng": "kuliner-nasi-goreng",
+    "aneka sayur matang": "kuliner-aneka-sayur-matang",
+    "ayam geprek": "kuliner-ayam-geprek",
+    "nasi rames": "kuliner-nasi-rames",
+    "ayam bakar": "kuliner-ayam-bakar",
+    "seblak": "kuliner-seblak",
+    "bubur ayam": "kuliner-bubur-ayam",
+    "sate ayam": "kuliner-sate-ayam",
+    "seafood": "kuliner-seafood",
+    "nasi uduk": "kuliner-nasi-uduk",
+    "ketoprak": "kuliner-ketoprak",
+    "aneka macam masakan": "kuliner-aneka-macam-masakan",
+    "warung nasi": "kuliner-warung-nasi",
+    "pecel lele": "kuliner-pecel-lele",
+    "gado-gado": "kuliner-gado-gado",
+    "soto mie": "kuliner-soto-mie",
+    "bakmi": "kuliner-bakmi",
+    "mie bakso": "kuliner-mie-bakso",
+    "nasi kuning": "kuliner-nasi-kuning",
+    "dimsum": "kuliner-dimsum",
+    "pempek": "kuliner-pempek",
+    "ayam penyet": "kuliner-ayam-penyet",
+    "pecel ayam": "kuliner-pecel-ayam",
+    "nasi campur": "kuliner-nasi-campur",
+    "bakso malang": "kuliner-bakso-malang",
+    "soto betawi": "kuliner-soto-betawi",
+    "nasi bebek madura": "kuliner-nasi-bebek-madura",
+    "steak": "kuliner-steak",
+    "sate kambing": "kuliner-sate-kambing",
+    "siomay": "kuliner-siomay",
+    "gorengan": "kuliner-gorengan",
+    "sate padang": "kuliner-sate-padang",
+    "angkringan": "kuliner-angkringan",
+    "batagor": "kuliner-batagor",
+    "warung nasi sunda": "kuliner-warung-nasi-sunda",
+    "bebek goreng": "kuliner-bebek-goreng",
+    "ikan bakar": "kuliner-ikan-bakar",
+    "sop ayam": "kuliner-sop-ayam",
+    "fried chicken": "kuliner-fried-chicken",
+    "martabak": "kuliner-martabak",
+    "nasi pecel": "kuliner-nasi-pecel",
+    "kwetiau": "kuliner-kwetiau",
+    "empal gentong": "kuliner-empal-gentong",
+    "mie rebus": "kuliner-mie-rebus",
+    "chinese food": "kuliner-chinese-food",
+    "soto": "kuliner-soto",
+    "restoran": "kuliner-restoran",
+    "nasi bebek": "kuliner-nasi-bebek",
+    "katsu": "kuliner-katsu",
+    "sate maranggi": "kuliner-sate-maranggi",
+    "sop": "kuliner-sop",
+    "lontong sayur": "kuliner-lontong-sayur",
+    "gudeg": "kuliner-gudeg",
+    "babi guling": "kuliner-babi-guling",
+    "sempol ayam": "kuliner-sempol-ayam",
+    "tongseng": "kuliner-tongseng",
+    "kebab": "kuliner-kebab",
+    "bakmi singkawang": "kuliner-bakmi-singkawang",
+    "mie goreng": "kuliner-mie-goreng",
+    "kupat tahu": "kuliner-kupat-tahu",
+    "ayam kremes": "kuliner-ayam-kremes",
+    "aneka penyetan": "kuliner-aneka-penyetan",
+    "cireng": "kuliner-cireng",
+    "lotek": "kuliner-lotek",
+    "pecel": "kuliner-pecel",
+    "soto daging": "kuliner-soto-daging",
+    "gulai": "kuliner-gulai",
+    "takoyaki": "kuliner-takoyaki",
+    "aneka masakan ikan laut": "kuliner-aneka-masakan-ikan-laut",
+    "kantin": "kuliner-kantin",
+    "masakan jawa": "kuliner-masakan-jawa",
+    "soto jawa": "kuliner-soto-jawa",
+    "sate babi": "kuliner-sate-babi",
+    "iga bakar": "kuliner-iga-bakar",
+    "nasi kebuli": "kuliner-nasi-kebuli",
+    "pecel sayur": "kuliner-pecel-sayur",
+    "rawon": "kuliner-rawon",
+    "steambooth": "kuliner-steambooth",
+    "nasi kulit": "kuliner-nasi-kulit",
+    "coto makasar": "kuliner-coto-makasar",
+    "sosis bakar": "kuliner-sosis-bakar",
+    "pentol kuah": "kuliner-pentol-kuah",
+    "warmindo": "kuliner-warmindo",
+    "cuanki": "kuliner-cuanki",
+    "cilok kuah": "kuliner-cilok-kuah",
+    "tahu gejrot": "kuliner-tahu-gejrot",
+    "tahu gimbal": "kuliner-tahu-gimbal",
+    "ketupat": "kuliner-ketupat",
+    "sop iga": "kuliner-sop-iga",
+    "mie kocok": "kuliner-mie-kocok",
+    "nasi tempong": "kuliner-nasi-tempong",
+    "bakso tahu siomay": "kuliner-bakso-tahu-siomay",
+    "lumpia basah": "kuliner-lumpia-basah",
+    "babi asap": "kuliner-babi-asap",
+    "sop kaki kambing": "kuliner-sop-kaki-kambing",
+    "bakmi surabaya": "kuliner-bakmi-surabaya",
+    "risoles": "kuliner-risoles",
+    "rendang": "kuliner-rendang",
+    "masakan sunda": "kuliner-masakan-sunda",
+    "bakmi babi": "kuliner-bakmi-babi",
+    "choipan": "kuliner-choipan",
+    "tahu tek tek": "kuliner-tahu-tek-tek",
+    "soto sapi": "kuliner-soto-sapi",
+    "bihun bebek": "kuliner-bihun-bebek",
+    "cilok": "kuliner-cilok",
+    "warung prasmanan": "kuliner-warung-prasmanan",
+    "soto padang": "kuliner-soto-padang",
+    "ayam betutu": "kuliner-ayam-betutu",
+    "bebek madura": "kuliner-bebek-madura",
+    "nasi gudeg": "kuliner-nasi-gudeg",
+    "nasi rawon": "kuliner-nasi-rawon",
+    "aneka bakaran": "kuliner-aneka-bakaran",
+    "ricebowl": "kuliner-ricebowl",
+    "tahu crispy": "kuliner-tahu-crispy",
+    "nasi hainam": "kuliner-nasi-hainam",
+    "bakso aci": "kuliner-bakso-aci",
+    "makanan laksa": "kuliner-makanan-laksa",
+    "nasi lengko": "kuliner-nasi-lengko",
+    "jalan kote": "kuliner-jalan-kote",
+    "aneka kue": "kuliner-aneka-kue",
+    "nasi liwet": "kuliner-nasi-liwet",
+    "ketupat sayur padang": "kuliner-ketupat-sayur-padang",
+    "ayam goreng tepung": "kuliner-ayam-goreng-tepung",
+    "bakmi jowo": "kuliner-bakmi-jowo",
+    "cimol kentang": "kuliner-cimol-kentang",
+    "pentol goreng": "kuliner-pentol-goreng",
+    "bakso bakar": "kuliner-bakso-bakar",
+    "nasi timbel": "kuliner-nasi-timbel",
+    "capcay": "kuliner-capcay",
+    "sop saudara": "kuliner-sop-saudara",
+    "tahu campur": "kuliner-tahu-campur",
+    "mie jebew": "kuliner-mie-jebew",
+    "taman jajan": "kuliner-taman-jajan",
+    "mie ramen": "kuliner-mie-ramen",
+    "nasi kucing": "kuliner-nasi-kucing",
+    "catering": "kuliner-catering",
+    "nasi bakar": "kuliner-nasi-bakar",
+    "sate taichan": "kuliner-sate-taichan",
+    "korean food": "kuliner-korean-food",
+    "bakso tusuk": "kuliner-bakso-tusuk",
+    "bakso kuah": "kuliner-bakso-kuah",
+    "jamur crispy": "kuliner-jamur-crispy",
+    "ramen": "kuliner-ramen",
+    "bakut teh": "kuliner-bakut-teh",
+    "rujak cingur": "kuliner-rujak-cingur",
+    "ayam gepuk": "kuliner-ayam-gepuk",
+    "soto kudus": "kuliner-soto-kudus",
+    "kuliner": "kuliner-kuliner",
+    "warkop": "minuman-warkop",
+    "kafe": "minuman-kafe",
+    "coffee shop": "minuman-coffee-shop",
+    "sembako": "kebutuhan-harian-sembako",
+    "toko kelontong": "kebutuhan-harian-toko-kelontong",
+    "sayur segar": "bahan-pangan-sayur-segar",
+    "frozen food": "bahan-pangan-frozen-food",
+    "bumbu": "bahan-pangan-bumbu",
+    "bumbu dasar": "bahan-pangan-bumbu-dasar",
+    "aneka sayuran": "bahan-pangan-aneka-sayuran",
+    "sayur buah bumbu": "bahan-pangan-sayur-buah-bumbu",
+    "aneka sambal": "bahan-pangan-aneka-sambal",
+    "agen beras": "bahan-pangan-agen-beras",
+    "aneka sayur dan bumbu": "bahan-pangan-aneka-sayur-dan-bumbu",
+    "bawang merah": "bahan-pangan-bawang-merah",
+    "toko plastik": "ritel-toko-plastik",
+    "penggilingan bakso": "jasa-penggilingan-bakso",
+    "gilingan bakso siomay cilok": "jasa-gilingan-bakso-siomay-cilok",
+    "bengkel": "jasa-bengkel",
+    "masakan padang": "kuliner-nasi-padang",
+    "rumah makan padang": "kuliner-nasi-padang",
+    "rumah warteg": "kuliner-warteg",
+    "warung ramesan": "kuliner-nasi-rames",
+    "warung seblak": "kuliner-seblak",
+    "lalapan ayam goreng": "kuliner-ayam-goreng",
+    "aneka gorengan": "kuliner-gorengan",
+    "warung kelontong": "kebutuhan-harian-toko-kelontong",
+    "kelontong": "kebutuhan-harian-toko-kelontong",
+    "toko sembako": "kebutuhan-harian-sembako",
+    "warung sayur": "bahan-pangan-sayur-segar",
+    "aneka bumbu": "bahan-pangan-bumbu",
+    "somay": "kuliner-siomay",
+    "gado gado": "kuliner-gado-gado",
+    "caffe": "minuman-kafe",
+    "empek- empek": "kuliner-pempek",
+    "sayur segar, sayur segar": "bahan-pangan-sayur-segar",
+    "ayam bakar, ayam goreng": "kuliner-beragam",
+    "sayur segar, bumbu": "bahan-pangan-beragam",
+    "sembako, sembako": "kebutuhan-harian-sembako",
+    "bakso, mie ayam": "kuliner-beragam",
+    "ayam goreng, ayam goreng": "kuliner-ayam-goreng",
+    "mie ayam, bakso": "kuliner-beragam",
+    "bakso, bakso": "kuliner-bakso",
+    "ayam goreng, ayam bakar": "kuliner-beragam",
+    "mie ayam, mie ayam": "kuliner-mie-ayam",
+    "pecel lele, pecel ayam": "kuliner-beragam",
+    "warteg, warteg": "kuliner-warteg",
+    "nasi rames, nasi rames": "kuliner-nasi-rames",
+    "sate padang, nasi padang": "kuliner-beragam",
+    "seblak, seblak": "kuliner-seblak",
+    "sate ayam, ayam bakar": "kuliner-beragam",
+    "nasi padang, nasi padang": "kuliner-nasi-padang",
+    "aneka sayur matang, aneka sayur matang": "kuliner-aneka-sayur-matang",
+    "soto ayam, soto ayam": "kuliner-soto-ayam",
+    "warung sayur, warung sayur": "bahan-pangan-sayur-segar",
+    "sate ayam, sate ayam": "kuliner-sate-ayam",
+    "tongseng, sate kambing": "kuliner-beragam",
+    "mie ayam, mie bakso": "kuliner-beragam",
+    "nasi goreng, ayam goreng": "kuliner-beragam",
+    "sate ayam, sate kambing": "kuliner-beragam",
+    "siomay, batagor": "kuliner-beragam",
+    "ayam bakar, ayam bakar": "kuliner-ayam-bakar",
+    "coto makasar, coto makasar": "kuliner-coto-makasar",
+    "bakso malang, mie ayam": "kuliner-beragam",
+    "sate kambing, sate ayam": "kuliner-beragam",
+    "sate padang, sate ayam": "kuliner-beragam",
+    "soto ayam, soto daging": "kuliner-beragam",
+    "ayam bakar, nasi goreng": "kuliner-beragam",
+    "nasi bebek, ayam goreng": "kuliner-beragam",
+    "warung nasi, warung nasi": "kuliner-warung-nasi",
+    "aneka sayur matang, ayam goreng": "kuliner-beragam",
+    "nasi goreng, nasi goreng": "kuliner-nasi-goreng",
+    "sate padang, warteg": "kuliner-beragam",
+    "sate ayam, soto ayam": "kuliner-beragam",
+    "mie ayam, ayam goreng": "kuliner-beragam",
+    "soto ayam, soto betawi": "kuliner-beragam",
+    "nasi rames, soto ayam": "kuliner-beragam",
+    "toko sembako, toko sembako": "kebutuhan-harian-sembako",
+    "soto ayam, ayam goreng": "kuliner-beragam",
+    "masakan padang, masakan padang": "kuliner-nasi-padang",
+    "ayam bakar, ayam goreng, aneka sayur matang": "kuliner-beragam",
+    "aneka macam masakan, aneka macam masakan": "kuliner-aneka-macam-masakan",
+    "gado-gado, gado-gado": "kuliner-gado-gado",
+    "pecel ayam, pecel lele": "kuliner-beragam",
+    "warung kelontong, warung kelontong": "kebutuhan-harian-toko-kelontong",
+    "bubur ayam, nasi uduk, nasi kuning": "kuliner-beragam",
+    "nasi uduk, nasi kuning": "kuliner-beragam",
+    "sayur segar, sayur segar, sayur segar": "bahan-pangan-sayur-segar",
+    "ayam goreng, sop": "kuliner-beragam",
+    "soto ayam, kupat tahu": "kuliner-beragam",
+    "sate padang, restoran": "kuliner-beragam",
+    "nasi goreng, mie goreng, capcay, bihun bebek": "kuliner-beragam",
+    "ayam goreng, nasi goreng": "kuliner-beragam",
+    "ayam bakar, nasi goreng, ayam goreng": "kuliner-beragam",
+    "sate padang, soto mie": "kuliner-beragam",
+    "warung seblak, warung seblak": "kuliner-seblak",
+    "sate padang, aneka macam masakan": "kuliner-beragam",
+    "soto betawi, soto ayam": "kuliner-beragam",
+    "aneka sayur matang, bakmi": "kuliner-beragam",
+    "nasi campur, nasi tempong": "kuliner-beragam",
+    "ayam penyet, ayam goreng": "kuliner-beragam",
+    "pecel lele, nasi uduk": "kuliner-beragam",
+    "bubur ayam, bubur ayam": "kuliner-bubur-ayam",
+    "ayam bakar, soto ayam": "kuliner-beragam",
+    "steak, aneka sayur matang": "kuliner-beragam",
+    "bakmi, bakmi": "kuliner-bakmi",
+    "ayam geprek, ayam geprek": "kuliner-ayam-geprek",
+    "kelontong, kelontong": "kebutuhan-harian-toko-kelontong",
+    "nasi uduk, soto ayam": "kuliner-beragam",
+    "mie goreng, nasi goreng": "kuliner-beragam",
+    "frozen food, frozen food": "bahan-pangan-frozen-food",
+    "sop ayam, soto ayam": "kuliner-beragam",
+    "sate padang, soto padang": "kuliner-beragam",
+    "kupat tahu, ketoprak": "kuliner-beragam",
+    "aneka sayuran, aneka sayuran": "bahan-pangan-aneka-sayuran",
+    "bubur ayam, nasi kuning": "kuliner-beragam",
+    "ayam bakar, ikan bakar": "kuliner-beragam",
+    "nasi pecel, nasi campur": "kuliner-beragam",
+    "ketoprak, ketoprak": "kuliner-ketoprak",
+    "ayam goreng, bebek goreng": "kuliner-beragam",
+    "nasi kuning, nasi uduk": "kuliner-beragam",
+    "ayam bakar, mie ayam": "kuliner-beragam",
+    "nasi uduk, lontong sayur": "kuliner-beragam",
+    "nasi kuning, nasi kuning": "kuliner-nasi-kuning",
+    "ayam goreng, ayam penyet": "kuliner-beragam",
+    "steak, steak": "kuliner-steak",
+    "nasi rames, nasi uduk": "kuliner-beragam",
+    "seafood, nasi uduk": "kuliner-beragam",
+    "nasi campur, nasi pecel": "kuliner-beragam",
+    "batagor, bakso": "kuliner-beragam",
+    "steambooth, nasi rames": "kuliner-beragam",
+    "bumbu, bumbu": "bahan-pangan-bumbu",
+    "sate padang, nasi bebek madura": "kuliner-beragam",
+    "rumah warteg, warteg": "kuliner-warteg",
+    "aneka sayur matang, katsu": "kuliner-beragam",
+    "pecel lele, pecel lele": "kuliner-pecel-lele",
+    "nasi kuning, nasi rames": "kuliner-beragam",
+    "sop ayam, mie ayam": "kuliner-beragam",
+    "sayur segar, aneka sayuran": "bahan-pangan-beragam",
+    "soto ayam, pecel lele": "kuliner-beragam",
+    "sate ayam, sop ayam": "kuliner-beragam",
+    "pempek, pempek": "kuliner-pempek",
+    "sayur segar, warung sayur": "bahan-pangan-sayur-segar",
+    "frozen food, bumbu": "bahan-pangan-beragam",
+    "aneka bumbu, bumbu": "bahan-pangan-bumbu",
+    "pecel lele, soto ayam": "kuliner-beragam",
+    "sate kambing, gulai": "kuliner-beragam",
+    "nasi kuning, aneka gorengan": "kuliner-beragam",
+    "ikan bakar, ikan bakar": "kuliner-ikan-bakar",
+    "rujak cingur, nasi rawon": "kuliner-beragam",
+    "soto ayam, rawon": "kuliner-beragam",
+    "ricebowl, ayam goreng, ayam bakar": "kuliner-beragam",
+    "ketoprak, tahu tek tek": "kuliner-beragam",
+    "mie ayam, ayam goreng, bebek goreng": "kuliner-beragam",
+    "soto ayam, bubur ayam": "kuliner-beragam",
+    "aneka macam masakan, aneka sayur matang": "kuliner-beragam",
+    "nasi bakar, nasi liwet": "kuliner-beragam",
+    "aneka sayur matang, nasi rames, bihun bebek": "kuliner-beragam",
+    "sate padang, nasi goreng, mie goreng, capcay": "kuliner-beragam",
+    "bakmi, kwetiau": "kuliner-beragam",
+    "sate padang, kwetiau": "kuliner-beragam",
+    "pecel lele, ayam goreng": "kuliner-beragam",
+    "aneka sayur matang, seafood": "kuliner-beragam",
+    "tongseng, sate kambing, sate ayam": "kuliner-beragam",
+    "ayam bakar, ayam goreng, nasi bebek madura": "kuliner-beragam",
+    "sate maranggi, sop ayam": "kuliner-beragam",
+    "mie ayam, sop ayam": "kuliner-beragam",
+    "nasi goreng, aneka sayur matang": "kuliner-beragam",
+    "steak, katsu": "kuliner-beragam",
+    "warung nasi sunda, ayam goreng, seafood": "kuliner-beragam",
+    "steambooth, nasi bebek, steambooth": "kuliner-beragam",
+    "nasi padang, ayam bakar, ayam goreng": "kuliner-beragam",
+    "sate padang, pecel": "kuliner-beragam",
+    "sembako, toko sembako": "kebutuhan-harian-sembako",
+    "ayam geprek, soto ayam": "kuliner-beragam",
+    "takoyaki, cilok kuah": "kuliner-beragam",
+    "sate ayam, sate kambing, sop, iga bakar": "kuliner-beragam",
+    "nasi goreng, mie goreng, mie goreng": "kuliner-beragam",
+    "seblak, mie bakso": "kuliner-beragam",
+    "nasi uduk, pecel lele": "kuliner-beragam",
+    "nasi goreng, nasi goreng, nasi bebek madura": "kuliner-beragam",
+    "nasi rames, lontong sayur": "kuliner-beragam",
+    "gado-gado, ketoprak": "kuliner-beragam",
+    "tongseng, sate ayam": "kuliner-beragam",
+    "aneka sayur matang, rumah warteg, rumah warteg": "kuliner-beragam",
+    "bakso aci, mie kocok, mie ayam": "kuliner-beragam",
+    "soto betawi, sop iga": "kuliner-beragam",
+    "sate ayam, ayam bakar, mie ayam, bakso, nasi padang": "kuliner-beragam",
+    "aneka sayuran, sayur segar": "bahan-pangan-beragam",
+    "ayam goreng, pecel ayam, soto ayam": "kuliner-beragam",
+    "gado-gado, nasi kuning, lontong sayur": "kuliner-beragam",
+    "nasi campur, lalapan ayam goreng": "kuliner-beragam",
+    "nasi rames, soto betawi": "kuliner-beragam",
+    "ayam kremes, nasi gudeg, nasi bebek": "kuliner-beragam",
+    "ayam goreng, soto mie": "kuliner-beragam",
+    "angkringan, angkringan": "kuliner-angkringan",
+    "steambooth, mie ayam": "kuliner-beragam",
+    "batagor, bakso tahu siomay": "kuliner-beragam",
+    "nasi pecel, nasi kuning": "kuliner-beragam",
+    "seafood, ikan bakar": "kuliner-beragam",
+    "nasi bebek, ayam bakar": "kuliner-beragam",
+    "gado-gado, gado gado": "kuliner-gado-gado",
+    "choipan, bakmi singkawang": "kuliner-beragam",
+    "ayam goreng, sate kambing, steak": "kuliner-beragam",
+    "bakso, soto ayam": "kuliner-beragam",
+    "kwetiau, bihun bebek": "kuliner-beragam",
+    "bakso aci, lumpia basah": "kuliner-beragam",
+    "mie bakso, mie ayam": "kuliner-beragam",
+    "warung prasmanan, aneka macam masakan": "kuliner-beragam",
+    "mie ayam, soto mie": "kuliner-beragam",
+    "gulai, gudeg": "kuliner-beragam",
+    "sate babi, nasi hainam": "kuliner-beragam",
+    "ayam goreng, pecel lele": "kuliner-beragam",
+    "mie ayam, babi guling": "kuliner-beragam",
+    "ayam bakar, ayam goreng, ikan bakar": "kuliner-beragam",
+    "soto mie, soto mie": "kuliner-soto-mie",
+    "sate maranggi, ayam goreng": "kuliner-beragam",
+    "soto betawi, sop iga, bakso, seafood": "kuliner-beragam",
+    "jalan kote, sate padang, jalan kote": "kuliner-beragam",
+    "pecel ayam, nasi goreng": "kuliner-beragam",
+    "sate padang, mie bakso": "kuliner-beragam",
+    "seafood, aneka sayur matang": "kuliner-beragam",
+    "ayam goreng, tongseng": "kuliner-beragam",
+    "lalapan ayam goreng, capcay": "kuliner-beragam",
+    "sate taichan, sate maranggi": "kuliner-beragam",
+    "sayur segar, aneka bumbu": "bahan-pangan-beragam",
+    "warung sayur, sayur segar": "bahan-pangan-sayur-segar",
+    "ayam goreng, batagor": "kuliner-beragam",
+    "ikan bakar, steak": "kuliner-beragam",
+    "steambooth, pecel lele": "kuliner-beragam",
+    "bakso, mie ayam, mie bakso": "kuliner-beragam",
+    "sate ayam, nasi kuning": "kuliner-beragam",
+    "cuanki, bakso": "kuliner-beragam",
+    "rujak cingur, tahu gejrot": "kuliner-beragam",
+    "ayam bakar, ayam goreng, soto betawi": "kuliner-beragam",
+    "mie ayam, bakso, ketoprak": "kuliner-beragam",
+    "rumah warteg, rumah warteg": "kuliner-warteg",
+    "ramen, dimsum": "kuliner-beragam",
+    "bubur ayam, bakmi singkawang": "kuliner-beragam",
+    "aneka sayuran, bumbu dasar": "bahan-pangan-beragam",
+    "soto ayam, sop": "kuliner-beragam",
+    "bakso, mie ayam, mie ayam": "kuliner-beragam",
+    "soto ayam, pecel sayur": "kuliner-beragam",
+    "bakso, mie ayam, soto ayam": "kuliner-beragam",
+    "ayam penyet, nasi hainam": "kuliner-beragam",
+    "steambooth, ayam goreng": "kuliner-beragam",
+    "nasi kuning, ricebowl": "kuliner-beragam",
+    "seblak, bakso": "kuliner-beragam",
+    "warteg, nasi rames": "kuliner-beragam",
+    "nasi kulit, ayam bakar": "kuliner-beragam",
+    "sate padang, coto makasar": "kuliner-beragam",
+    "ricebowl, sate padang": "kuliner-beragam",
+    "bakso, mie ayam, mie ayam, mie ayam": "kuliner-beragam",
+    "katsu, nasi goreng": "kuliner-beragam",
+    "aneka kue, ayam goreng": "kuliner-beragam",
+    "nasi kulit, nasi kulit": "kuliner-nasi-kulit",
+    "sate maranggi, soto daging": "kuliner-beragam",
+    "gado-gado, nasi goreng": "kuliner-beragam",
+    "bubur ayam, ayam bakar": "kuliner-beragam",
+    "ketoprak, nasi rames": "kuliner-beragam",
+    "sate ayam, bakso, tongseng": "kuliner-beragam",
+    "nasi campur, nasi kuning": "kuliner-beragam",
+    "nasi bebek, bebek madura": "kuliner-beragam",
+    "bakso, bakso malang": "kuliner-beragam",
+    "pecel ayam, aneka macam masakan": "kuliner-beragam",
+    "catering, ayam geprek": "kuliner-beragam",
+    "toko plastik, toko plastik": "ritel-toko-plastik",
+    "ayam goreng, ayam bakar, pecel ayam": "kuliner-beragam",
+    "bakmi, kwetiau, bihun bebek": "kuliner-beragam",
+    "tahu tek tek, bakso": "kuliner-beragam",
+    "rumah warteg, nasi goreng": "kuliner-beragam",
+    "nasi pecel, sate kambing": "kuliner-beragam",
+    "nasi rames, nasi kulit": "kuliner-beragam",
+    "ayam penyet, bebek goreng": "kuliner-beragam",
+    "nasi liwet, nasi rames": "kuliner-beragam",
+    "bakso, cilok kuah": "kuliner-beragam",
+    "steak, ayam goreng": "kuliner-beragam",
+    "rawon, nasi pecel": "kuliner-beragam",
+    "nasi liwet, nasi bakar": "kuliner-beragam",
+    "nasi campur, soto ayam": "kuliner-beragam",
+    "seafood, ayam bakar": "kuliner-beragam",
+    "seafood, chinese food": "kuliner-beragam",
+    "steambooth, ayam goreng, bakmi": "kuliner-beragam",
+    "soto, mie ayam, nasi campur": "kuliner-beragam",
+    "seafood, seafood": "kuliner-seafood",
+    "aneka sayur matang, nasi bebek madura": "kuliner-beragam",
+    "sate ayam, bakso": "kuliner-beragam",
+    "pecel ayam, pecel ayam": "kuliner-pecel-ayam",
+    "lontong sayur, seblak": "kuliner-beragam",
+    "nasi padang, nasi goreng": "kuliner-beragam",
+    "seafood, restoran": "kuliner-beragam",
+    "sate ayam, sate padang": "kuliner-beragam",
+    "aneka macam masakan, sate padang, soto ayam": "kuliner-beragam",
+    "bebek goreng, bebek goreng": "kuliner-bebek-goreng",
+    "aneka macam masakan, nasi goreng, nasi tempong": "kuliner-beragam",
+    "ayam penyet, soto ayam": "kuliner-beragam",
+    "ayam goreng, ayam geprek": "kuliner-beragam",
+    "ketoprak, ayam bakar": "kuliner-beragam",
+    "ayam bakar, steak": "kuliner-beragam",
+    "nasi rames, sop ayam": "kuliner-beragam",
+    "ayam goreng, ayam bakar, rendang": "kuliner-beragam",
+    "gado-gado, gorengan": "kuliner-beragam",
+    "nasi goreng, capcay, mie goreng, kwetiau, bihun bebek": "kuliner-beragam",
+    "sop, soto ayam": "kuliner-beragam",
+    "sate ayam, aneka gorengan": "kuliner-beragam",
+    "ayam kremes, katsu": "kuliner-beragam",
+    "soto ayam, pecel ayam": "kuliner-beragam",
+    "seblak, lumpia basah": "kuliner-beragam",
+    "bubur ayam, mie ayam": "kuliner-beragam",
+    "gulai, gulai": "kuliner-gulai",
+    "dimsum, pempek": "kuliner-beragam",
+    "gado-gado, kupat tahu": "kuliner-beragam",
+    "tongseng, empal gentong": "kuliner-beragam",
+    "babi guling, ikan bakar": "kuliner-beragam",
+    "sate ayam, ayam goreng, ayam bakar, sop": "kuliner-beragam",
+    "sosis bakar, bakso, gorengan, mie goreng, steambooth": "kuliner-beragam",
+    "bakmi, ayam penyet": "kuliner-beragam",
+    "seblak, warung seblak": "kuliner-seblak",
+    "nasi goreng, ayam gepuk": "kuliner-beragam",
+    "sate padang, nasi kuning": "kuliner-beragam",
+    "coto makasar, bubur ayam": "kuliner-beragam",
+    "nasi campur, nasi rawon": "kuliner-beragam",
+    "nasi bebek madura, ayam bakar, ayam goreng": "kuliner-beragam",
+    "ayam bakar, nasi uduk, ikan bakar": "kuliner-beragam",
+    "rumah warteg, warung nasi sunda": "kuliner-beragam",
+    "bakso bakar, sosis bakar": "kuliner-beragam",
+    "sempol ayam, bakso bakar": "kuliner-beragam",
+    "gado gado, gorengan": "kuliner-beragam",
+    "seafood, bakso, mie ayam": "kuliner-beragam",
+    "nasi kulit, nasi rames": "kuliner-beragam",
+    "lalapan ayam goreng, lalapan ayam goreng": "kuliner-ayam-goreng",
+    "sop, sop": "kuliner-sop",
+    "gado-gado, ketoprak, lontong sayur, nasi uduk, gudeg": "kuliner-beragam",
+    "ayam bakar, nasi rames": "kuliner-beragam",
+    "iga bakar, ayam bakar": "kuliner-beragam",
+    "seafood, nasi goreng": "kuliner-beragam",
+    "warung kelontong, sembako": "kebutuhan-harian-beragam",
+    "sate padang, warung nasi sunda": "kuliner-beragam",
+    "siomay, siomay, batagor": "kuliner-beragam",
+    "bakso tahu siomay, batagor": "kuliner-beragam",
+    "sate kambing, tongseng": "kuliner-beragam",
+    "ayam geprek, nasi tempong": "kuliner-beragam",
+    "iga bakar, nasi goreng": "kuliner-beragam",
+    "aneka sayuran, aneka bumbu": "bahan-pangan-beragam",
+    "mie ayam, nasi padang": "kuliner-beragam",
+    "ayam goreng, pecel ayam": "kuliner-beragam",
+    "nasi goreng, mie goreng": "kuliner-beragam",
+    "sempol ayam, sempol ayam": "kuliner-sempol-ayam",
+    "mie kocok, mie ayam": "kuliner-beragam",
+    "sop, soto daging, gulai": "kuliner-beragam",
+    "ayam goreng, nasi uduk": "kuliner-beragam",
+    "martabak, martabak": "kuliner-martabak",
+    "ayam goreng, fried chicken": "kuliner-beragam",
+    "sate padang, pempek": "kuliner-beragam",
+    "sate padang, bakmi": "kuliner-beragam",
+    "ikan bakar, lalapan ayam goreng": "kuliner-beragam",
+    "nasi bebek madura, bakso": "kuliner-beragam",
+    "pempek, tahu gejrot": "kuliner-beragam",
+    "gorengan, nasi uduk": "kuliner-beragam",
+    "restoran, ayam goreng": "kuliner-beragam",
+    "ayam geprek, ayam bakar": "kuliner-beragam",
+    "sop iga, ayam bakar": "kuliner-beragam",
+    "bakso, nasi goreng": "kuliner-beragam",
+    "nasi rames, aneka gorengan": "kuliner-beragam",
+    "bakso, mie ayam, ayam goreng, ayam bakar": "kuliner-beragam",
+    "bakso tahu siomay, warung seblak": "kuliner-beragam",
+    "ayam bakar, ayam goreng, soto padang": "kuliner-beragam",
+    "ayam bakar, nasi goreng, bakmi": "kuliner-beragam",
+    "soto ayam, nasi rames": "kuliner-beragam",
+    "ayam goreng, nasi liwet, ayam bakar, mie bakso": "kuliner-beragam",
+    "nasi bebek madura, ayam goreng": "kuliner-beragam",
+    "steambooth, sate ayam": "kuliner-beragam",
+    "nasi goreng, kwetiau": "kuliner-beragam",
+    "ayam kremes, pecel lele": "kuliner-beragam",
+    "sate ayam, masakan padang": "kuliner-beragam",
+    "sate ayam, ayam goreng": "kuliner-beragam",
+    "mie ayam, bakso malang": "kuliner-beragam",
+    "nasi goreng, ayam geprek": "kuliner-beragam",
+    "nasi uduk, kwetiau, mie goreng": "kuliner-beragam",
+    "lalapan ayam goreng, bebek goreng, pecel lele": "kuliner-beragam",
+    "seblak, nasi uduk": "kuliner-beragam",
+    "seblak, sosis bakar": "kuliner-beragam",
+    "pecel, nasi kuning, ayam bakar, rawon": "kuliner-beragam",
+    "ayam penyet, nasi goreng": "kuliner-beragam",
+    "nasi padang, bakso malang": "kuliner-beragam",
+    "bubur ayam, gado-gado": "kuliner-beragam",
+    "ayam bakar, seblak": "kuliner-beragam",
+    "sate ayam, sate kambing, nasi bebek": "kuliner-beragam",
+    "bubur ayam, katsu": "kuliner-beragam",
+    "ayam bakar, ayam goreng, ayam goreng": "kuliner-beragam",
+    "nasi uduk, gado gado": "kuliner-beragam",
+    "nasi goreng, sop ayam, ayam goreng": "kuliner-beragam",
+    "soto jawa, soto betawi": "kuliner-beragam",
+    "sate ayam, soto ayam, sop": "kuliner-beragam",
+    "nasi goreng, ayam bakar": "kuliner-beragam",
+    "bakso, lumpia basah": "kuliner-beragam",
+    "aneka sayur matang, sate babi": "kuliner-beragam",
+    "ayam goreng, steak": "kuliner-beragam",
+    "bakso, pentol kuah": "kuliner-beragam",
+    "nasi goreng, seafood": "kuliner-beragam",
+    "nasi pecel, ayam bakar, nasi campur": "kuliner-beragam",
+    "cilok kuah, mie ayam": "kuliner-beragam",
+    "nasi kuning, kwetiau, nasi uduk": "kuliner-beragam",
+    "gorengan, nasi rames": "kuliner-beragam",
+    "warung nasi, warung nasi sunda": "kuliner-beragam",
+    "nasi bebek, nasi bebek madura": "kuliner-beragam",
+    "sate padang, ayam goreng": "kuliner-beragam",
+    "nasi uduk, ayam goreng": "kuliner-beragam",
+    "sate padang, warung prasmanan": "kuliner-beragam",
+    "sop ayam, gado-gado": "kuliner-beragam",
+    "bakso, nasi liwet": "kuliner-beragam",
+    "pecel ayam, pecel lele, ayam penyet, bebek goreng, ayam bakar": "kuliner-beragam",
+    "nasi goreng, soto betawi": "kuliner-beragam",
+    "pecel lele, ayam geprek": "kuliner-beragam",
+    "soto betawi, soto mie, nasi rames": "kuliner-beragam",
+    "pecel, gudeg": "kuliner-beragam",
+    "sop, ayam goreng, ayam bakar": "kuliner-beragam",
+    "soto ayam, pecel": "kuliner-beragam",
+    "sop ayam, sop": "kuliner-beragam",
+    "ayam bakar, ayam penyet": "kuliner-beragam",
+    "nasi campur, pecel": "kuliner-beragam",
+    "pecel ayam, ayam penyet": "kuliner-beragam",
+    "batagor, cuanki": "kuliner-beragam",
+    "katsu, warung nasi sunda": "kuliner-beragam",
+    "gorengan, gorengan": "kuliner-gorengan",
+    "ayam goreng, soto ayam": "kuliner-beragam",
+    "katsu, ayam penyet": "kuliner-beragam",
+    "sempol ayam, nasi uduk": "kuliner-beragam",
+    "ayam bakar, ayam goreng, nasi goreng": "kuliner-beragam",
+    "ayam goreng, ayam bakar, ayam bakar, ayam bakar": "kuliner-beragam",
+    "sate padang, warung nasi": "kuliner-beragam",
+    "dimsum, siomay, cilok kuah": "kuliner-beragam",
+    "bakso, seblak": "kuliner-beragam",
+    "kelontong, kelontong, kelontong": "kebutuhan-harian-toko-kelontong",
+    "warung prasmanan, warung prasmanan": "kuliner-warung-prasmanan",
+    "pecel ayam, soto ayam": "kuliner-beragam",
+    "nasi rames, nasi campur, lalapan ayam goreng": "kuliner-beragam",
+    "nasi bebek madura, catering": "kuliner-beragam",
+    "pecel ayam, nasi pecel": "kuliner-beragam",
+    "lontong sayur, nasi uduk, aneka gorengan": "kuliner-beragam",
+    "mie kocok, soto jawa": "kuliner-beragam",
+    "nasi goreng, siomay, bakmi": "kuliner-beragam",
+    "soto ayam, soto sapi": "kuliner-beragam",
+    "nasi rames, ayam goreng": "kuliner-beragam",
+    "gado-gado, rujak cingur": "kuliner-beragam",
+    "ayam goreng, pempek": "kuliner-beragam",
+    "aneka gorengan, nasi uduk, lontong sayur": "kuliner-beragam",
+    "ayam bakar, steambooth, iga bakar": "kuliner-beragam",
+    "soto betawi, sop kaki kambing, sate kambing, sate ayam": "kuliner-beragam",
+    "mie ayam, sate babi": "kuliner-beragam",
+    "sate padang, choipan": "kuliner-beragam",
+    "bakso malang, bakso": "kuliner-beragam",
+    "sate ayam, iga bakar, sate babi": "kuliner-beragam",
+    "nasi uduk, nasi uduk": "kuliner-nasi-uduk",
+    "sate padang, soto betawi": "kuliner-beragam",
+    "nasi goreng, mie goreng, mie rebus, capcay, chinese food": "kuliner-beragam",
+    "restoran, nasi goreng": "kuliner-beragam",
+    "choipan, nasi bebek madura": "kuliner-beragam",
+    "ayam goreng, lalapan ayam goreng": "kuliner-ayam-goreng",
+    "nasi bebek madura, soto ayam": "kuliner-beragam",
+    "aneka sayur matang, steambooth": "kuliner-beragam",
+    "batagor, gorengan": "kuliner-beragam",
+    "nasi kuning, bubur ayam": "kuliner-beragam",
+    "katsu, mie ayam": "kuliner-beragam",
+    "soto betawi, sate kambing": "kuliner-beragam",
+    "pentol kuah, bakso tahu siomay": "kuliner-beragam",
+    "ayam penyet, aneka sayur matang": "kuliner-beragam",
+    "pecel lele, pecel ayam, bebek goreng": "kuliner-beragam",
+    "pentol kuah, seblak, lumpia basah": "kuliner-beragam",
+    "ayam geprek, ayam geprek, ayam geprek": "kuliner-ayam-geprek",
+    "nasi rames, ayam goreng, soto mie": "kuliner-beragam",
+    "nasi bebek madura, bubur ayam": "kuliner-beragam",
+    "soto ayam, bebek goreng, nasi rames": "kuliner-beragam",
+    "bubur ayam, bakso": "kuliner-beragam",
+    "pecel ayam, pecel lele, bebek goreng": "kuliner-beragam",
+    "aneka gorengan, mie goreng": "kuliner-beragam",
+    "sate kambing, sate ayam, tongseng": "kuliner-beragam",
+    "sate kambing, tongseng, gulai": "kuliner-beragam",
+    "sate padang, bakso": "kuliner-beragam",
+    "pempek, dimsum": "kuliner-beragam",
+    "nasi bebek madura, nasi bebek madura": "kuliner-nasi-bebek-madura",
+    "ayam goreng, mie ayam": "kuliner-beragam",
+    "dimsum, nasi hainam": "kuliner-beragam",
+    "sate padang, nasi pecel": "kuliner-beragam",
+    "ayam bakar, pecel lele, mie ayam": "kuliner-beragam",
+    "ayam geprek, ayam goreng": "kuliner-beragam",
+    "nasi bebek madura, aneka sayur matang": "kuliner-beragam",
+    "ayam goreng, ayam bakar, nasi goreng": "kuliner-beragam",
+    "bakso, cuanki": "kuliner-beragam",
+    "aneka sayur matang, nasi uduk": "kuliner-beragam",
+    "seblak, gorengan": "kuliner-beragam",
+    "nasi kuning, lontong sayur": "kuliner-beragam",
+    "ayam bakar, ayam goreng, sop": "kuliner-beragam",
+    "nasi rames, nasi goreng": "kuliner-beragam",
+    "ayam goreng, sop ayam, aneka sayur matang": "kuliner-beragam",
+    "aneka sayur matang, catering": "kuliner-beragam",
+    "nasi rames, gorengan": "kuliner-beragam",
+    "pecel ayam, ayam bakar, ayam goreng": "kuliner-beragam",
+    "restoran, chinese food": "kuliner-beragam",
+    "ayam penyet, pecel ayam": "kuliner-beragam",
+    "pecel sayur, rawon": "kuliner-beragam",
+    "nasi kuning, nasi uduk, gorengan": "kuliner-beragam",
+    "pempek, ayam goreng, bubur ayam, bakso": "kuliner-beragam",
+    "soto ayam, seblak": "kuliner-beragam",
+    "mie goreng, nasi padang": "kuliner-beragam",
+    "soto betawi, soto betawi": "kuliner-soto-betawi",
+    "nasi uduk, nasi goreng": "kuliner-beragam",
+    "sate ayam, soto betawi": "kuliner-beragam",
+    "soto betawi, soto mie": "kuliner-beragam",
+    "sate padang, bubur ayam, nasi uduk, nasi kuning": "kuliner-beragam",
+    "sate ayam, ayam goreng, ayam bakar": "kuliner-beragam",
+    "ayam bakar, sate kambing, soto ayam": "kuliner-beragam",
+    "sate padang, mie ayam": "kuliner-beragam",
+    "mie ayam, mie rebus": "kuliner-beragam",
+    "steambooth, nasi goreng, mie goreng": "kuliner-beragam",
+    "ayam penyet, nasi bebek, pecel lele": "kuliner-beragam",
+    "ayam penyet, ayam bakar": "kuliner-beragam",
+    "seblak, bakso, kwetiau, sop iga": "kuliner-beragam",
+    "angkringan, sop ayam": "kuliner-beragam",
+    "sate padang, chinese food": "kuliner-beragam",
+    "soto jawa, soto jawa": "kuliner-soto-jawa",
+    "mie ayam, mie ayam, nasi goreng": "kuliner-beragam",
+    "seblak, nasi kucing": "kuliner-beragam",
+    "ayam bakar, ayam bakar, rendang": "kuliner-beragam",
+    "aneka kue, aneka sayur matang": "kuliner-beragam",
+    "mie ayam, bakso, siomay": "kuliner-beragam",
+    "sate kambing, sop, soto daging": "kuliner-beragam",
+    "sate padang, steambooth, pecel lele": "kuliner-beragam",
+    "nasi pecel, nasi rames": "kuliner-beragam",
+    "gado-gado, ketoprak, nasi kuning, ketoprak, nasi uduk, tahu gejrot": "kuliner-beragam",
+    "bakmi singkawang, choipan": "kuliner-beragam",
+    "sembako, sembako, sembako": "kebutuhan-harian-sembako",
+    "bakso, mie bakso": "kuliner-beragam",
+    "soto betawi, sop, sate kambing": "kuliner-beragam",
+    "nasi rames, soto ayam, sate padang, rawon": "kuliner-beragam",
+    "pecel ayam, seblak": "kuliner-beragam",
+    "bumbu dasar, aneka sayuran": "bahan-pangan-beragam",
+    "sate padang, nasi goreng": "kuliner-beragam",
+    "choipan, sempol ayam": "kuliner-beragam",
+    "mie goreng, mie rebus, nasi goreng": "kuliner-beragam",
+    "nasi goreng, mie goreng, mie rebus, capcay": "kuliner-beragam",
+    "steambooth, aneka sayur matang": "kuliner-beragam",
+    "babi guling, sate babi": "kuliner-beragam",
+    "rumah makan padang, sate padang": "kuliner-beragam",
+    "bakso aci, seblak": "kuliner-beragam",
+    "aneka penyetan, nasi campur": "kuliner-beragam",
+    "jalan kote, jalan kote": "kuliner-jalan-kote",
+    "ayam goreng, nasi timbel": "kuliner-beragam",
+    "ayam goreng, warung nasi sunda": "kuliner-beragam",
+    "sop, soto betawi": "kuliner-beragam",
+    "gado-gado, sate ayam": "kuliner-beragam",
+    "ayam bakar, ayam goreng, bebek goreng": "kuliner-beragam",
+    "nasi goreng, nasi kuning": "kuliner-beragam",
+    "aneka sayuran, bumbu": "bahan-pangan-beragam",
+    "nasi uduk, gado-gado": "kuliner-beragam",
+    "soto ayam, nasi goreng": "kuliner-beragam",
+    "lotek, ayam penyet": "kuliner-beragam",
+    "nasi pecel, rujak cingur": "kuliner-beragam",
+    "seafood, sop": "kuliner-beragam",
+    "sate padang, nasi kulit": "kuliner-beragam",
+    "nasi uduk, seafood": "kuliner-beragam",
+    "sate padang, sate kambing, seafood": "kuliner-beragam",
+    "gado-gado, nasi rames": "kuliner-beragam",
+    "catering, ayam goreng": "kuliner-beragam",
+    "nasi gudeg, nasi liwet": "kuliner-beragam",
+    "mie ayam, mie bakso, ayam goreng": "kuliner-beragam",
+    "pecel lele, mie rebus": "kuliner-beragam",
+    "nasi padang, nasi kuning": "kuliner-beragam",
+    "ayam geprek, nasi goreng": "kuliner-beragam",
+    "ayam bakar, ayam goreng, ikan bakar, iga bakar, sop iga, soto ayam, soto betawi": "kuliner-beragam",
+    "nasi campur, ayam geprek": "kuliner-beragam",
+    "bubur ayam, bakmi": "kuliner-beragam",
+    "pecel sayur, pecel lele, pecel ayam": "kuliner-beragam",
+    "ketoprak, batagor": "kuliner-beragam",
+    "steambooth, bakso malang": "kuliner-beragam",
+    "nasi goreng, aneka gorengan": "kuliner-beragam",
+    "nasi uduk, sop iga, pecel lele": "kuliner-beragam",
+    "nasi rames, nasi padang": "kuliner-beragam",
+    "steak, sate padang": "kuliner-beragam",
+    "gudeg, nasi liwet": "kuliner-beragam",
+    "nasi pecel, nasi rawon": "kuliner-beragam",
+    "batagor, batagor": "kuliner-batagor",
+    "nasi uduk, sop ayam": "kuliner-beragam",
+    "dimsum, dimsum": "kuliner-dimsum",
+    "soto ayam, gulai": "kuliner-beragam",
+    "aneka macam masakan, babi guling": "kuliner-beragam",
+    "warung nasi sunda, warung nasi sunda": "kuliner-warung-nasi-sunda",
+    "nasi goreng, kwetiau, capcay": "kuliner-beragam",
+    "nasi kucing, nasi kuning": "kuliner-beragam",
+    "mie ayam, seblak, cilok kuah": "kuliner-beragam",
+    "nasi liwet, nasi goreng, ayam goreng": "kuliner-beragam",
+    "pecel sayur, soto ayam, rawon": "kuliner-beragam",
+    "soto ayam, mie goreng, nasi goreng, bakso": "kuliner-beragam",
+    "sate padang, aneka macam masakan, mie ayam": "kuliner-beragam",
+    "warteg, rumah warteg": "kuliner-warteg",
+    "bakso, mie kocok": "kuliner-beragam",
+    "aneka sayur matang, aneka gorengan": "kuliner-beragam",
+    "aneka sayur matang, bakso": "kuliner-beragam",
+    "ayam penyet, ayam penyet": "kuliner-ayam-penyet",
+    "ayam geprek, katsu": "kuliner-beragam",
+    "sayur buah bumbu, sayur segar": "bahan-pangan-beragam",
+    "sate ayam, sate kambing, tongseng": "kuliner-beragam",
+    "soto ayam, gado gado": "kuliner-beragam"
+  }
+}

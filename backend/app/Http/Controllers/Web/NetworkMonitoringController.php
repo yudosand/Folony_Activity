@@ -69,6 +69,7 @@ class NetworkMonitoringController extends Controller
                 'mitra' => 'Mitra',
             ],
             'statuses' => ['draft', 'followUp', 'completed', 'archived'],
+            'businessOptions' => app(\App\Services\BusinessCatalog::class)->options(),
         ]);
     }
 
@@ -82,10 +83,14 @@ class NetworkMonitoringController extends Controller
             'area_name' => ['nullable', 'string'],
             'date_from' => ['nullable', 'date'],
             'date_until' => ['nullable', 'date'],
+            'business_category_id' => ['nullable','string','max:80'],
+            'business_kind_id' => ['nullable','string','max:100'],
         ]);
 
         $query = NetworkProfile::query()
             ->with('followUps')
+            ->when($filters['business_category_id'] ?? null, fn($q,$v) => $v === 'unclassified' ? $q->whereNull('business_kind_id') : $q->whereHas('businessKind', fn($k)=>$k->where('category_id',$v)))
+            ->when($filters['business_kind_id'] ?? null, fn($q,$v)=>$q->where('business_kind_id',$v))
             ->when($filters['search'] ?? null, function ($builder, string $search) {
                 $builder->where(function ($query) use ($search) {
                     $query->where('name', 'like', '%' . $search . '%')
@@ -115,7 +120,7 @@ class NetworkMonitoringController extends Controller
             ->whereBetween('latitude', [-90, 90])->whereBetween('longitude', [-180, 180]);
         $mappedTotal = (clone $mapped)->count();
         $points = $mapped->when($cursor['after'] ?? null, fn ($q, $id) => $q->where('id', '>', $id))
-            ->orderBy('id')->limit(1001)->get(['id', 'name', 'type', 'status', 'owner_name', 'area_name', 'address', 'latitude', 'longitude']);
+            ->with('businessKind.category')->orderBy('id')->limit(1001)->get(['id', 'name', 'type', 'status', 'owner_name', 'area_name', 'address', 'latitude', 'longitude', 'business_type', 'business_kind_id']);
         $hasMore = $points->count() > 1000;
         $points = $points->take(1000)->values();
         return response()->json([
@@ -124,6 +129,7 @@ class NetworkMonitoringController extends Controller
                 'status' => $point->status, 'owner' => $point->owner_name, 'area' => $point->area_name,
                 'address' => $point->address, 'latitude' => $point->latitude, 'longitude' => $point->longitude,
                 'detail_url' => route('admin.network.show', $point),
+                'business' => \App\Services\BusinessCatalog::marker($point),
             ]),
             'meta' => ['total' => $total, 'mapped' => $mappedTotal, 'unmapped' => $total - $mappedTotal,
                 'next_cursor' => $hasMore ? $points->last()->id : null],
@@ -145,7 +151,9 @@ class NetworkMonitoringController extends Controller
             'type' => ['required', 'in:ukm,mitra'],
             'name' => ['required', 'string', 'max:255'],
             'address' => ['required', 'string', 'max:500'],
-            'business_type' => ['required', 'string', 'max:255'],
+            'business_type' => ['required_without:business_kind_id', 'nullable', 'string', 'max:255'],
+            'business_kind_id' => ['nullable','string','max:100'],
+            'business_category_id' => ['nullable','required_with:business_kind_id','string','max:80'],
             'phone_number' => ['required', 'string', 'max:32'],
             'status' => ['required', 'in:draft,followUp,completed,archived'],
             'territory_province' => ['required', 'string', 'max:255'],

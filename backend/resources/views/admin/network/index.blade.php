@@ -7,6 +7,9 @@
 @endphp
 
 @section('content')
+    @if($errors->any())<div class="status-banner" role="alert">{{ $errors->first() }}</div>@endif
+    <script type="application/json" id="business-catalog-data">@json($businessOptions)</script>
+    <script src="{{ asset('js/business-catalog.js') }}?v=20261022" defer></script>
     <div class="grid cols-4" style="margin-bottom:18px;">
         <div class="card-kpi">
             <div class="label">Total Profil</div>
@@ -25,6 +28,14 @@
             <div class="value">{{ $summary['fgg_owned'] }} / {{ $summary['area_owned'] }}</div>
         </div>
     </div>
+
+    <details class="disclosure" style="margin-bottom:18px;">
+        <summary>Pengaturan</summary>
+        <div class="disclosure-body">
+            <p class="muted">Kelola kategori, jenis usaha, warna dan ikon pada peta jaringan.</p>
+            <a class="btn secondary" href="{{ route('admin.business-catalog.index') }}">Master Jenis Usaha</a>
+        </div>
+    </details>
 
     <div class="panel pad" style="margin-bottom:18px;">
         <details>
@@ -52,10 +63,7 @@
                     <label for="manual_name">Nama UKM/Mitra</label>
                     <input id="manual_name" name="name" value="{{ old('name') }}" required>
                 </div>
-                <div>
-                    <label for="manual_business_type">Jenis Usaha</label>
-                    <input id="manual_business_type" name="business_type" value="{{ old('business_type') }}" required>
-                </div>
+                @include('admin.business-catalog.select', ['required'=>true, 'selectedCategory'=>old('business_category_id'), 'selectedKind'=>old('business_kind_id')])
                 <div>
                     <label for="manual_phone_number">Nomor HP</label>
                     <input id="manual_phone_number" name="phone_number" value="{{ old('phone_number') }}" required>
@@ -159,6 +167,7 @@
         <div class="toolbar">
             <x-admin.filter-panel>
 <form method="GET" class="filters">
+                @include('admin.business-catalog.select', ['required'=>false, 'selectedCategory'=>$filters['business_category_id'] ?? '', 'selectedKind'=>$filters['business_kind_id'] ?? ''])
                 <input name="search" placeholder="Cari nama / owner / alamat" value="{{ $filters['search'] ?? '' }}">
                 <select name="owner_role">
                     <option value="">Semua owner role</option>
@@ -301,6 +310,7 @@
                             <div class="stack">
                                 <strong>{{ $profile->name }}</strong>
                                 <span class="muted">{{ strtoupper($profile->type) }} &middot; {{ $profile->business_type }}</span>
+                                <span class="muted">{{ $profile->businessKind?->category?->name ?? 'Perlu ditinjau' }} @if($profile->businessKind) · {{ $profile->businessKind->name }} @endif</span>
                                 <span class="eyebrow">ID {{ $profile->id }}</span>
                                 <a href="{{ route('admin.network.show', $profile) }}" class="muted">Lihat detail</a>
                             </div>

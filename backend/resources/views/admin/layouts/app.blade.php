@@ -319,8 +319,9 @@
             .grid.cols-4, .grid.cols-3, .grid.cols-2, .form-grid { grid-template-columns: 1fr; }
             .detail-item { grid-template-columns: 1fr; }
         }
-        .shell.sidebar-hidden { grid-template-columns: minmax(0, 1fr); }
-        .sidebar[hidden] { display: none; }
+        .pagination .page-controls > [aria-current="page"] { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .pagination .page-controls > a, .pagination .page-controls > span { min-height: 44px; }
+        .pagination a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
         .sidebar { align-self: start; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
         .nav { gap: 4px; margin-top: 20px; }
         .nav a { padding: 10px 12px; }
@@ -347,6 +348,31 @@
             .content { padding: 18px; min-width: 0; }
             .topbar { flex-wrap: wrap; }
         }
+        .sidebar-close, .sidebar-edge { display: none; }
+        .shell.navigation-ready { grid-template-columns: minmax(0, 1fr); }
+        .navigation-ready .sidebar {
+            position: fixed; inset: 0 auto 0 0; z-index: 1400;
+            width: min(292px, calc(100vw - 48px)); height: 100vh; height: 100dvh;
+            max-height: none; padding-bottom: 30px; overscroll-behavior: contain;
+            transform: translateX(-100%); visibility: hidden;
+            transition: transform 180ms ease, visibility 180ms;
+            box-shadow: 12px 0 32px rgba(20, 45, 25, .18);
+        }
+        .navigation-ready.sidebar-open .sidebar { transform: translateX(0); visibility: visible; }
+        .navigation-ready .sidebar-close {
+            display: block; margin: -12px 0 14px auto; min-width: 44px; min-height: 44px;
+            color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3);
+            border-radius: 12px; cursor: pointer; font: inherit;
+        }
+        .navigation-ready .sidebar-edge {
+            display: block; position: fixed; left: 0; top: 40%; z-index: 1300;
+            width: 18px; height: 88px; border: 1px solid var(--line); border-left: 0;
+            border-radius: 0 12px 12px 0; background: var(--primary); color: #fff;
+            cursor: pointer; font: inherit;
+        }
+        .sidebar-close:focus-visible, .sidebar-edge:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+        @media (hover: none), (pointer: coarse) { .navigation-ready .sidebar-edge { display: none; } }
+        @media (prefers-reduced-motion: reduce) { .navigation-ready .sidebar { transition: none; } }
     </style>
 </head>
 <body>
@@ -354,7 +380,9 @@
         @yield('content')
     @else
         <div class="shell">
+            <button class="sidebar-edge" id="sidebar-edge" type="button" aria-label="Tampilkan menu" title="Tampilkan menu" aria-controls="hr-sidebar" aria-expanded="false" tabindex="-1">›</button>
             <aside class="sidebar" id="hr-sidebar">
+                <button class="sidebar-close" id="sidebar-close" type="button" aria-label="Tutup menu">✕</button>
                 <div class="brand">Folony Activity<small>Web Admin HR</small></div>
                 <div class="muted" style="color:rgba(247,245,239,0.74);">Monitoring karyawan, absensi, cuti, dan aktivitas lapangan.</div>
                 <nav class="nav" aria-label="Navigasi utama">
@@ -369,7 +397,8 @@
 <a href="{{ route('admin.leaves.index') }}" class="{{ request()->routeIs('admin.leaves.*') ? 'active' : '' }}">Cuti / Izin</a>
 <a href="{{ route('admin.approvals.index') }}" class="{{ request()->routeIs('admin.approvals.*') ? 'active' : '' }}">Approval Center</a>
 <div class="nav-group-label">Lapangan</div>
-<a href="{{ route('admin.network.index') }}" class="{{ request()->routeIs('admin.network.index', 'admin.network.show') ? 'active' : '' }}">Monitoring Jaringan</a>
+<a href="{{ route('admin.suppliers.index') }}" class="{{ request()->routeIs('admin.suppliers.*') ? 'active' : '' }}">Daftar Supplier</a>
+<a href="{{ route('admin.network.index') }}" class="{{ request()->routeIs('admin.network.index', 'admin.network.show', 'admin.business-catalog.*') ? 'active' : '' }}">Monitoring Jaringan</a>
 <a href="{{ route('admin.network.activities') }}" class="{{ request()->routeIs('admin.network.activities*') ? 'active' : '' }}">Aktivitas Lapangan</a>
 <a href="{{ route('admin.surveys.index') }}" class="{{ request()->routeIs('admin.surveys.*') ? 'active' : '' }}">Survey</a>
 <div class="nav-group-label">Pengaturan</div>
@@ -400,7 +429,7 @@
                 @yield('content')
             </main>
         </div>
-        <script src="{{ asset('js/admin-navigation.js') }}?v=20260916-ui"></script>
+        <script src="{{ asset('js/admin-navigation.js') }}?v=20261022-autohide"></script>
     @endif
 </body>
 </html>

@@ -1,4 +1,6 @@
 import 'dart:async';
+import '../core/repositories/supplier_repository.dart';
+import '../core/repositories/business_catalog_repository.dart';
 
 import 'package:flutter/material.dart';
 
@@ -59,6 +61,8 @@ class AppController extends ChangeNotifier {
   static const String multiRoleTesterPassword = '123456';
 
   AppController({
+    this.businessCatalogRepository,
+    this.supplierRepository,
     this.fggRepository,
     DailyWorkRepository? dailyWorkRepository,
     AuthRepository? authRepository,
@@ -123,6 +127,8 @@ class AppController extends ChangeNotifier {
   AppSession? _session;
   final DailyWorkRepository dailyWorkRepository;
   final FggRepository? fggRepository;
+  final SupplierRepository? supplierRepository;
+  final BusinessCatalogRepository? businessCatalogRepository;
   final AuthRepository? _authRepository;
   final NetworkRepository _networkRepository;
   final AttendanceRepository _attendanceRepository;
